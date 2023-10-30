@@ -17,7 +17,7 @@ impl Cli {
         let file = fs::read_to_string(&self.file)
             .with_context(|| format!("Failed to read file at `{}`", self.file.display()))?;
 
-        Interpreter::new_eval(&file);
+        Interpreter::new_eval(&file)?;
         Ok(())
     }
 }
