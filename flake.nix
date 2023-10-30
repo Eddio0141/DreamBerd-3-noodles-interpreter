@@ -28,6 +28,10 @@
                   # https://devenv.sh/reference/options/
                   languages.rust.enable = true;
 
+                  packages = with pkgs; [
+                    gnuplot_qt
+                  ];
+
                   pre-commit = {
                     settings.clippy = {
                       allFeatures = true;
