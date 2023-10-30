@@ -13,14 +13,16 @@ func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 // contains all the different types of expressions
 expression = { comp_expr | func_call | var_or_value_or_func }
 // comparison expressions compares two expressions
-comp_expr = ${ var_or_value_or_func ~ ws+ ~ comp_op ~ ws+ ~ var_or_value_or_func }
-comp_op   =  { comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt }
-comp_eq   =  { "==" }
-comp_ne   =  { "!=" }
-comp_le   =  { "<=" }
-comp_ge   =  { ">=" }
-comp_lt   =  { "<" }
-comp_gt   =  { ">" }
+comp_expr = ${ comp_expr_allowed ~ ws+ ~ comp_op ~ ws+ ~ comp_expr_allowed }
+// the allowed expressions in a comparison expression
+comp_expr_allowed = { var_or_value_or_func | func_call }
+comp_op           = { comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt }
+comp_eq           = { "==" }
+comp_ne           = { "!=" }
+comp_le           = { "<=" }
+comp_ge           = { ">=" }
+comp_lt           = { "<" }
+comp_gt           = { ">" }
 
 // because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
 var_or_value_or_func = { identifier }
