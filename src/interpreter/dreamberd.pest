@@ -11,13 +11,13 @@ func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
 // contains all the different types of expressions
-expression = { comp_expr | var_or_value_or_func_argless }
+expression = { comp_expr | var_or_value_or_func }
 // comparison expressions compares two expressions
-comp_expr = ${ var_or_value_or_func_argless ~ ws+ ~ comp_op ~ ws+ ~ var_or_value_or_func_argless }
+comp_expr = ${ var_or_value_or_func ~ ws+ ~ comp_op ~ ws+ ~ var_or_value_or_func }
 comp_op   =  { "==" | "!=" | "<=" | ">=" | "<" | ">" }
 
 // because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
-var_or_value_or_func_argless = { identifier }
+var_or_value_or_func = { identifier }
 
 identifier = { ASCII_ALPHANUMERIC+ }
 
