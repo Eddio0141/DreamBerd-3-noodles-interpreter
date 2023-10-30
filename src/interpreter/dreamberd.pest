@@ -1,0 +1,4 @@
+WHITESPACE = { " " | "\t" | "\n" | "\r" | "(" | ")" }
+
+program   = { SOI ~ statement* ~ EOI }
+statement = { " " }

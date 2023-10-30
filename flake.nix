@@ -30,6 +30,7 @@
 
                   packages = with pkgs; [
                     gnuplot_qt
+                    openssl
                   ];
 
                   pre-commit = {
