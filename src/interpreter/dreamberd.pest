@@ -2,16 +2,22 @@
 program = { SOI ~ statement* ~ EOI }
 // statements can be either have a terminator or not, depending on what you doing
 statement           = { statement_with_term }
-statement_with_term = { var_var ~ term }
+statement_with_term = { (var_var | func_call) ~ term }
 
 term = { "!"+ }
 
-var_var = ${ "var var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
+var_var        = ${ "var var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
+func_call      = ${ identifier ~ func_call_args? }
+func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
-expression = { var_or_value }
+// contains all the different types of expressions
+expression = { comp_expr | var_or_value_or_func_argless }
+// comparison expressions compares two expressions
+comp_expr = ${ var_or_value_or_func_argless ~ ws+ ~ comp_op ~ ws+ ~ var_or_value_or_func_argless }
+comp_op   =  { "==" | "!=" | "<=" | ">=" | "<" | ">" }
 
-// because we can define a variable with the same name as an integer
-var_or_value = { identifier }
+// because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
+var_or_value_or_func_argless = { identifier }
 
 identifier = { ASCII_ALPHANUMERIC+ }
 
