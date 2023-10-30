@@ -1,4 +1,19 @@
-WHITESPACE = { " " | "\t" | "\n" | "\r" | "(" | ")" }
+// represents the whole program
+program = { SOI ~ statement* ~ EOI }
+// statements can be either have a terminator or not, depending on what you doing
+statement           = { statement_with_term }
+statement_with_term = { var_var ~ term }
 
-program   = { SOI ~ statement* ~ EOI }
-statement = { " " }
+term = { "!"+ }
+
+var_var = ${ "var var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
+
+expression = { var_or_value }
+
+// because we can define a variable with the same name as an integer
+var_or_value = { identifier }
+
+identifier = { ASCII_ALPHANUMERIC+ }
+
+ws         = _{ " " | "\t" | "\n" | "\r" | "(" | ")" }
+WHITESPACE = _{ ws }
