@@ -1,0 +1,25 @@
+use crate::Interpreter;
+
+#[test]
+fn declare() {
+    let code = r#"var var a = 1!
+assert(a == 1)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_int() {
+    let code = r#"var var 1 = 2!
+assert(1 == 2)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_var() {
+    let code = r#"var var var = 1!
+assert(var == 1)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
