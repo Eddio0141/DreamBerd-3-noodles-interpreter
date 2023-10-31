@@ -4,7 +4,8 @@ program = { SOI ~ statement* ~ EOI }
 statement           = { statement_with_term }
 statement_with_term = { (var_var | func_call) ~ term }
 
-term = { "!"+ }
+term      = { term_char+ }
+term_char = { "!" }
 
 var_var        = ${ "var var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
 func_call      = ${ identifier ~ func_call_args? }
@@ -27,7 +28,8 @@ comp_gt           = { ">" }
 // because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
 var_or_value_or_func = { identifier }
 
-identifier = { ASCII_ALPHANUMERIC+ }
+identifier      = { identifier_char+ }
+identifier_char = { !(ws | term_char | comp_op) ~ ANY }
 
 ws         = _{ " " | "\t" | "\n" | "\r" | "(" | ")" }
 WHITESPACE = _{ ws }
