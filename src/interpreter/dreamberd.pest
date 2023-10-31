@@ -11,7 +11,7 @@ func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
 // contains all the different types of expressions
-expression = { comp_expr | func_call | var_or_value_or_func }
+expression = { comp_expr | var_or_value_or_func | func_call }
 // comparison expressions compares two expressions
 comp_expr = ${ comp_expr_allowed ~ ws+ ~ comp_op ~ ws+ ~ comp_expr_allowed }
 // the allowed expressions in a comparison expression

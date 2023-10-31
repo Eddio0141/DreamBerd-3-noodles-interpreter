@@ -2,6 +2,10 @@
 
 use pest::iterators::Pair;
 
+use crate::interpreter::runtime::error::Error;
+use crate::interpreter::runtime::value::Value;
+use crate::interpreter::InterpreterState;
+
 use super::expression::Expression;
 use super::Rule;
 
@@ -35,5 +39,17 @@ impl<'a> From<Pair<'a, super::Rule>> for FunctionCall<'a> {
         };
 
         Self { name, args }
+    }
+}
+
+impl<'a> FunctionCall<'a> {
+    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+        interpreter.invoke_func(
+            self.name,
+            self.args
+                .iter()
+                .map(|arg| arg.eval(interpreter))
+                .collect::<Result<Vec<_>, _>>()?,
+        )
     }
 }

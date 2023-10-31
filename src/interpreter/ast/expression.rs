@@ -2,7 +2,11 @@
 
 use pest::iterators::Pair;
 
+use crate::interpreter::runtime::error::Error;
+use crate::interpreter::InterpreterState;
+
 use super::function::FunctionCall;
+use super::runtime::value::Value;
 use super::uncertain::UncertainExpr;
 use super::Rule;
 
@@ -24,6 +28,16 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
             Rule::var_or_value_or_func => Expression::Uncertain(value.into()),
             Rule::func_call => Expression::FunctionCall(value.into()),
             _ => unreachable!(),
+        }
+    }
+}
+
+impl<'a> Expression<'a> {
+    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+        match self {
+            Expression::Comparison(expr) => expr.eval(interpreter),
+            Expression::Uncertain(expr) => expr.eval(interpreter),
+            Expression::FunctionCall(expr) => expr.eval(interpreter),
         }
     }
 }
@@ -78,11 +92,38 @@ impl<'a> From<Pair<'a, Rule>> for ComparisonExpr<'a> {
     }
 }
 
+impl<'a> ComparisonExpr<'a> {
+    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+        let left = self.left.eval(interpreter)?;
+        let right = self.right.eval(interpreter)?;
+
+        let value = match self.operator {
+            ComparisonOperator::Equal => left == right,
+            ComparisonOperator::NotEqual => left != right,
+            ComparisonOperator::GreaterThan => left > right,
+            ComparisonOperator::GreaterThanOrEqual => left >= right,
+            ComparisonOperator::LessThan => left < right,
+            ComparisonOperator::LessThanOrEqual => left <= right,
+        };
+
+        Ok(Value::Boolean(value))
+    }
+}
+
 #[derive(Debug)]
 /// Expressions that are allowed to be compared
 pub enum ComparableExpr<'a> {
     UncertainExpr(UncertainExpr<'a>),
     FunctionCall(FunctionCall<'a>),
+}
+
+impl<'a> ComparableExpr<'a> {
+    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+        match self {
+            ComparableExpr::UncertainExpr(expr) => expr.eval(interpreter),
+            ComparableExpr::FunctionCall(expr) => expr.eval(interpreter),
+        }
+    }
 }
 
 #[derive(Debug)]

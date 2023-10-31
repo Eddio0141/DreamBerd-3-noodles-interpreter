@@ -2,6 +2,9 @@
 
 use pest::iterators::Pair;
 
+use crate::interpreter::runtime::error::Error;
+use crate::interpreter::InterpreterState;
+
 use super::expression::Expression;
 use super::Rule;
 
@@ -27,5 +30,14 @@ impl<'a> From<Pair<'a, Rule>> for VariableDecl<'a> {
         let expression = Expression::from(value.next().unwrap());
 
         Self { name, expression }
+    }
+}
+
+impl<'a> VariableDecl<'a> {
+    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<(), Error> {
+        let value = self.expression.eval(interpreter)?;
+        interpreter.declare_var(self.name, value);
+
+        Ok(())
     }
 }

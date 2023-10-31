@@ -1,14 +1,18 @@
 use pest::Parser;
 
-use crate::interpreter::{ast::Ast, evaluator::Evaluator};
+use crate::interpreter::ast::Ast;
 
-use self::parser::{PestParser, Rule};
+use self::{
+    parser::{PestParser, Rule},
+    runtime::{state::InterpreterState, stdlib},
+};
 
 mod ast;
 pub mod error;
-mod evaluator;
 mod parser;
+mod runtime;
 
+#[derive(Debug)]
 pub struct Interpreter;
 
 impl Interpreter {
@@ -17,7 +21,9 @@ impl Interpreter {
     pub fn new_eval(code: &str) -> Result<(), self::error::Error> {
         let parsed = PestParser::parse(Rule::program, code)?;
         let ast = Ast::parse(parsed);
-        Evaluator::eval(ast)?;
+        let state = InterpreterState::default();
+        stdlib::load(&state);
+        ast.eval(&state)?;
         Ok(())
     }
 }
