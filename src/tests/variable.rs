@@ -23,3 +23,27 @@ assert(var == 1)!"#;
 
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn declare_eq_symbol() {
+    let code = r#"var var = = 1!
+assert(= == 1)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_emoji() {
+    let code = r#"var var 😀 = 1!
+assert(😀 == 1)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_assert() {
+    let code = r#"var var assert = 1!
+assert(assert == 1)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
