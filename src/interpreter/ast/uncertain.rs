@@ -1,8 +1,8 @@
 //! Contains structures that are uncertain until runtime
 
-use crate::interpreter::{
-    runtime::{error::Error, value::Value},
-    InterpreterState,
+use crate::{
+    interpreter::runtime::{error::Error, value::Value},
+    Interpreter,
 };
 
 use super::Rule;
@@ -25,12 +25,14 @@ impl<'a> From<Pair<'a, Rule>> for UncertainExpr<'a> {
 }
 
 impl<'a> UncertainExpr<'a> {
-    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
-        if let Some(value) = interpreter.get_var(self.identifier) {
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+        let state = &interpreter.state;
+
+        if let Some(value) = state.get_var(self.identifier) {
             return Ok(value);
         }
 
-        if let Ok(value) = interpreter.invoke_func(self.identifier, Vec::new()) {
+        if let Ok(value) = state.invoke_func(interpreter, self.identifier, Vec::new()) {
             return Ok(value);
         }
 

@@ -4,7 +4,7 @@ use pest::iterators::Pair;
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
-use crate::interpreter::InterpreterState;
+use crate::Interpreter;
 
 use super::expression::Expression;
 use super::Rule;
@@ -43,8 +43,9 @@ impl<'a> From<Pair<'a, super::Rule>> for FunctionCall<'a> {
 }
 
 impl<'a> FunctionCall<'a> {
-    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
-        interpreter.invoke_func(
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+        interpreter.state.invoke_func(
+            interpreter,
             self.name,
             self.args
                 .iter()

@@ -1,6 +1,9 @@
-use crate::interpreter::runtime::{error::Error, state::InterpreterState, value::Value};
+use crate::{
+    interpreter::runtime::{error::Error, value::Value},
+    Interpreter,
+};
 
-pub fn assert(_state: &InterpreterState, args: Vec<Value>) -> Result<Value, Error> {
+pub fn assert(_interpreter: &Interpreter, args: Vec<Value>) -> Result<Value, Error> {
     if args.len() != 1 {
         return Err(Error::InvalidArgumentCount {
             expected: 1,

@@ -1,11 +1,12 @@
 use pest::iterators::Pairs;
 
+use crate::Interpreter;
+
 use self::{function::FunctionCall, variable::VariableDecl};
 
 use super::{
     parser::Rule,
     runtime::{self, error::Error, value::Value},
-    InterpreterState,
 };
 
 mod expression;
@@ -50,12 +51,13 @@ impl<'a> Ast<'a> {
         Self { statements }
     }
 
-    pub fn eval(&self, state: &InterpreterState<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+        let state = &interpreter.state;
         state.push_scope();
 
         let mut ret_value = None;
         for statement in &self.statements {
-            ret_value = statement.eval(state)?;
+            ret_value = statement.eval(interpreter)?;
             if ret_value.is_some() {
                 break;
             }
@@ -79,7 +81,7 @@ impl<'a> Statement<'a> {
     /// Evaluates the statement
     pub fn eval(
         &self,
-        interpreter: &InterpreterState<'a>,
+        interpreter: &Interpreter<'a>,
     ) -> Result<Option<Value>, runtime::error::Error> {
         match self {
             Statement::FunctionCall(function) => function.eval(interpreter).map(|_| None),

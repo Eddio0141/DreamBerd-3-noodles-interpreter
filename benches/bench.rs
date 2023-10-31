@@ -1,6 +1,11 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main};
 
-fn bench(c: &mut Criterion) {}
+mod expressions;
+mod variable;
 
-criterion_group!(benches, bench);
+criterion_group!(
+    benches,
+    variable::declare_many,
+    expressions::compare_expressions
+);
 criterion_main!(benches);

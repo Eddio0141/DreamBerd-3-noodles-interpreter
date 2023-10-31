@@ -3,7 +3,7 @@
 use pest::iterators::Pair;
 
 use crate::interpreter::runtime::error::Error;
-use crate::interpreter::InterpreterState;
+use crate::Interpreter;
 
 use super::function::FunctionCall;
 use super::runtime::value::Value;
@@ -33,7 +33,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
 }
 
 impl<'a> Expression<'a> {
-    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         match self {
             Expression::Comparison(expr) => expr.eval(interpreter),
             Expression::Uncertain(expr) => expr.eval(interpreter),
@@ -93,7 +93,7 @@ impl<'a> From<Pair<'a, Rule>> for ComparisonExpr<'a> {
 }
 
 impl<'a> ComparisonExpr<'a> {
-    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         let left = self.left.eval(interpreter)?;
         let right = self.right.eval(interpreter)?;
 
@@ -118,7 +118,7 @@ pub enum ComparableExpr<'a> {
 }
 
 impl<'a> ComparableExpr<'a> {
-    pub fn eval(&self, interpreter: &InterpreterState<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         match self {
             ComparableExpr::UncertainExpr(expr) => expr.eval(interpreter),
             ComparableExpr::FunctionCall(expr) => expr.eval(interpreter),
