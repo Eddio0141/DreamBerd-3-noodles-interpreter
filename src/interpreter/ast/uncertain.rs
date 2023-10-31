@@ -39,6 +39,11 @@ impl<'a> UncertainExpr<'a> {
             return Ok(Value::Number(value));
         }
 
+        // bool?
+        if let Ok(value) = self.identifier.parse::<bool>() {
+            return Ok(Value::Boolean(value));
+        }
+
         Ok(Value::Undefined)
     }
 }
