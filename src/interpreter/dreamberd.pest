@@ -7,7 +7,7 @@ statement_with_term = { (var_var | func_call) ~ term }
 term      = { term_char+ }
 term_char = { "!" }
 
-var_var        = ${ "var var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
+var_var        = ${ "var" ~ ws+ ~ "var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
 func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
