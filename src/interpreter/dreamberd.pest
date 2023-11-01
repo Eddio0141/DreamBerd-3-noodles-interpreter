@@ -12,24 +12,26 @@ func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
 // contains all the different types of expressions
-expression = { comp_expr | var_or_value_or_func | func_call }
-// comparison expressions compares two expressions
-comp_expr = ${ comp_expr_allowed ~ ws+ ~ comp_op ~ ws+ ~ comp_expr_allowed }
-// the allowed expressions in a comparison expression
-comp_expr_allowed = { var_or_value_or_func | func_call }
-comp_op           = { comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt }
-comp_eq           = { "==" }
-comp_ne           = { "!=" }
-comp_le           = { "<=" }
-comp_ge           = { ">=" }
-comp_lt           = { "<" }
-comp_gt           = { ">" }
+expression =  { expr_atom ~ (ws* ~ expr_op ~ ws* ~ expr_atom)* }
+expr_unary =  { logical_expr_unary_not }
+expr_atom  =  { expr_unary* ~ (var_or_value_or_func | func_call) }
+expr_op    = _{ comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt | logical_and | logical_or }
+// the different types of operators
+logical_expr_unary_not = { ";" }
+logical_and            = { "&&" }
+logical_or             = { "||" }
+comp_eq                = { "==" }
+comp_ne                = { "!=" }
+comp_le                = { "<=" }
+comp_ge                = { ">=" }
+comp_lt                = { "<" }
+comp_gt                = { ">" }
 
 // because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
 var_or_value_or_func = { identifier }
 
 identifier      = { identifier_char+ }
-identifier_char = { !(ws | term_char | comp_op) ~ ANY }
+identifier_char = { !(ws | term_char | expr_unary | expr_op) ~ ANY }
 
 ws         = _{ " " | "\t" | "\n" | "\r" | "(" | ")" }
 WHITESPACE = _{ ws }

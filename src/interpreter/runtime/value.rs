@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Not};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 /// A value that is of a certain type
@@ -14,6 +14,24 @@ impl Display for Value {
             Value::Number(value) => write!(f, "{}", value),
             Value::Boolean(value) => write!(f, "{}", value),
             Value::Undefined => write!(f, "undefined"),
+        }
+    }
+}
+
+impl Not for Value {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Value::Boolean(!(bool::from(self)))
+    }
+}
+
+impl From<Value> for bool {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Number(num) => num != 0.0,
+            Value::Boolean(value) => value,
+            Value::Undefined => false,
         }
     }
 }
