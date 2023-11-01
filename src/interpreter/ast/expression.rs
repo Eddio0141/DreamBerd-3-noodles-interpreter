@@ -89,15 +89,15 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
 impl<'a> Expression<'a> {
     pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         match self {
-            Expression::Atom(atom) => dbg!(atom.eval(interpreter)),
+            Expression::Atom(atom) => atom.eval(interpreter),
             Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
             Expression::Operation {
                 left,
                 operator,
                 right,
             } => {
-                let left = dbg!(left.eval(interpreter)?);
-                let right = dbg!(right.eval(interpreter)?);
+                let left = left.eval(interpreter)?;
+                let right = right.eval(interpreter)?;
 
                 let value = match operator {
                     Operator::Equal => Value::Boolean(left == right),
