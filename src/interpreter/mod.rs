@@ -21,7 +21,7 @@ pub struct Interpreter<'a> {
 
 impl<'a> Interpreter<'a> {
     pub fn eval(&self, code: &'a str) -> Result<(), self::error::Error> {
-        let parsed = PestParser::parse(Rule::program, code)?;
+        let parsed = PestParser::parse(Rule::program, code).map_err(Box::new)?;
         let ast = Ast::parse(parsed);
         stdlib::load(self);
         ast.eval(self)?;
