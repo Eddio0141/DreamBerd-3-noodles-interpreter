@@ -61,7 +61,7 @@ impl<'a> InterpreterState<'a> {
             .borrow()
             .iter()
             .rev()
-            .find_map(|vars| vars.get_var(name).map(|value| *value))
+            .find_map(|vars| vars.get_var(name).copied())
     }
 
     pub fn add_func(&self, name: &'a str, func: FunctionVariant<'a>) {

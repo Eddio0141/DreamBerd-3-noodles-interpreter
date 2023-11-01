@@ -23,8 +23,8 @@ impl<'a> Interpreter<'a> {
     pub fn eval(&self, code: &'a str) -> Result<(), self::error::Error> {
         let parsed = PestParser::parse(Rule::program, code)?;
         let ast = Ast::parse(parsed);
-        stdlib::load(&self);
-        ast.eval(&self)?;
+        stdlib::load(self);
+        ast.eval(self)?;
         Ok(())
     }
 
