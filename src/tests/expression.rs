@@ -1,0 +1,30 @@
+use crate::Interpreter;
+
+#[test]
+fn int_comparisons() {
+    let code = r#"
+assert(1 == 1)!
+assert(1 != 2)!
+assert(1 < 2)!
+assert(1 <= 1)!
+assert(2 > 1)!
+assert(1 >= 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn int_comparisons_variable() {
+    let code = r#"
+var var 3 = 2!
+var var 4 = 1!
+assert(3 == 2)!
+assert(4 == 1)!
+assert(3 != 4)!
+assert(4 < 3)!
+assert(3 <= 2)!
+assert(3 > 4)!
+assert(4 >= 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
