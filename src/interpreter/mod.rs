@@ -31,12 +31,13 @@ impl<'a> Interpreter<'a> {
     /// Create a new interpreter and evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn new_eval(code: &'a str) -> Result<(), self::error::Error> {
-        let mut stdout = std::io::stdout();
+        let mut stdout = std::io::stdout().lock();
         let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
         interpreter.eval(code)
     }
 }
 
+/// A builder for the interpreter
 pub struct InterpreterBuilder<'a> {
     stdout: &'a mut dyn Write,
 }

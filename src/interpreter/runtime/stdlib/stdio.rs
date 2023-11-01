@@ -8,6 +8,9 @@ pub fn print(interpreter: &Interpreter, args: Vec<Value>) -> Result<Value, Error
     for arg in args {
         writeln!(stdout, "{}", arg).map_err(|err| Error::RuntimeException(err.to_string()))?;
     }
+    stdout
+        .flush()
+        .map_err(|err| Error::RuntimeException(err.to_string()))?;
 
     Ok(Value::Undefined)
 }
