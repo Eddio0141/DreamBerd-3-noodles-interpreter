@@ -47,3 +47,11 @@ assert(assert == 1)!"#;
 
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn declare_spaces_swap() {
+    let code = r#"var(var(a(=(1!
+assert(a(==(1(!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
