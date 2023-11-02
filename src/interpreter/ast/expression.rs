@@ -25,7 +25,7 @@ pub enum Expression<'a> {
 }
 
 impl<'a> Expression<'a> {
-    pub fn atom_to_expression(value: Pair<'a, Rule>) -> Self {
+    fn atom_to_expression(value: Pair<'a, Rule>) -> Self {
         let mut value = value.into_inner().rev();
         let mut expr = Expression::Atom(value.next().unwrap().into());
         for pair in value {
@@ -90,50 +90,31 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
             let right = Expression::atom_to_expression(atoms.remove(0));
             let next_op = priorities.get(i + 1);
 
-            match next_op {
-                Some((next_ws, next_op)) => {
-                    // is the next op higher in priority?
-                    // check ws first, then operation type
-                    if (next_ws < ws) || (next_ws == ws && next_op > op) {
-                        // beause we have to build from the right now, we need to store the left
-                        // expr(left, op, right)
-                        left_pending.push((left, op));
-                        left = right;
-                        continue;
-                    }
-
-                    // left has to be evaluated first
-                    left = Expression::Operation {
-                        left: Box::new(left),
-                        operator: *op,
-                        right: Box::new(right),
-                    };
-
-                    for (left_inner, op_inner) in left_pending.drain(..) {
-                        left = Expression::Operation {
-                            left: Box::new(left_inner),
-                            operator: *op_inner,
-                            right: Box::new(left),
-                        };
-                    }
+            // is the next op higher in priority?
+            if let Some((next_ws, next_op)) = next_op {
+                // check ws first, then operation type
+                if (next_ws < ws) || (next_ws == ws && next_op > op) {
+                    // beause we have to build from the right now, we need to store the left
+                    // expr(left, op, right)
+                    left_pending.push((left, op));
+                    left = right;
+                    continue;
                 }
-                None => {
-                    // no more ops, so we can just do the operation
-                    left = Expression::Operation {
-                        left: Box::new(left),
-                        operator: *op,
-                        right: Box::new(right),
-                    };
-                    // now we need to do the pending ops
-                    // we need to drain left_pending
-                    for (left_inner, op_inner) in left_pending.drain(..) {
-                        left = Expression::Operation {
-                            left: Box::new(left_inner),
-                            operator: *op_inner,
-                            right: Box::new(left),
-                        };
-                    }
-                }
+            }
+
+            // now we need to do the pending ops
+            // we need to drain left_pending
+            left = Expression::Operation {
+                left: Box::new(left),
+                operator: *op,
+                right: Box::new(right),
+            };
+            for (left_inner, op_inner) in left_pending.drain(..) {
+                left = Expression::Operation {
+                    left: Box::new(left_inner),
+                    operator: *op_inner,
+                    right: Box::new(left),
+                };
             }
         }
 
