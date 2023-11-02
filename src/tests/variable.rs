@@ -1,4 +1,4 @@
-use crate::{interpreter::runtime, Error, Interpreter};
+use crate::Interpreter;
 
 #[test]
 fn declare() {
@@ -67,9 +67,7 @@ assert(a == 6)!"#;
 
 #[test]
 fn assign_non_existant() {
-    let code = r#"a = 1!"#;
-    matches!(
-        Interpreter::new_eval(code).unwrap_err(),
-        Error::EvalError(runtime::Error::VariableNotFound(_))
-    );
+    let code = r#"a = 1!
+assert(a == 1)!"#;
+    Interpreter::new_eval(code).unwrap();
 }

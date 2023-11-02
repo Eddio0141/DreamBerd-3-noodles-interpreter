@@ -67,9 +67,7 @@ impl<'a> From<Pair<'a, Rule>> for VarSet<'a> {
 impl<'a> VarSet<'a> {
     pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.set_var(self.name, value).ok_or_else(|| {
-            Error::VariableNotFound(format!("Variable {} not found", self.name.to_string()))
-        })?;
+        interpreter.state.set_var(self.name, value);
         Ok(())
     }
 }

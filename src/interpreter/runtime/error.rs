@@ -8,6 +8,4 @@ pub enum Error {
     InvalidArgumentCount { expected: usize, got: usize },
     #[error("Runtime exception: {0}")]
     RuntimeException(String),
-    #[error("Variable {0} not found")]
-    VariableNotFound(String),
 }

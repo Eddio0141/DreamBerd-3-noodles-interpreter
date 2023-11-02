@@ -64,12 +64,18 @@ impl<'a> InterpreterState<'a> {
             .find_map(|vars| vars.get_var(name).copied())
     }
 
-    pub fn set_var(&self, name: &'a str, value: Value) -> Option<()> {
-        self.vars
-            .borrow_mut()
-            .iter_mut()
-            .rev()
-            .find_map(|vars| vars.set_var(name, value))
+    pub fn set_var(&self, name: &'a str, value: Value) {
+        let mut vars = self.vars.borrow_mut();
+        let vars_iter = vars.iter_mut().rev();
+
+        for vars in vars_iter {
+            if vars.set_var(name, value).is_some() {
+                return;
+            }
+        }
+
+        // declare global
+        vars.last_mut().unwrap().declare_var(name, value);
     }
 
     pub fn add_func(&self, name: &'a str, func: FunctionVariant<'a>) {
