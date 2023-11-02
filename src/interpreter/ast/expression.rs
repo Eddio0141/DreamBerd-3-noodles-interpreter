@@ -25,38 +25,61 @@ pub enum Expression<'a> {
 }
 
 impl<'a> Expression<'a> {
-    fn atom_to_expression(value: Pair<'a, Rule>) -> Self {
+    /// Convert a pair into an expression
+    /// - Returns the built expression and if any unprocessed unary operators
+    ///     - Each item in the vector is a vector of unary operators
+    ///     - Outer vector is meaning there's a ws between the unary operator groups
+    /// - Order of the unary operators is from left to right
+    fn atom_to_expression(value: Pair<'a, Rule>) -> (Self, Vec<Vec<UnaryOperator>>) {
         let mut value = value.into_inner().rev();
         let mut expr = Expression::Atom(value.next().unwrap().into());
         let mut last_op = None;
         let mut apply = false;
+
+        let mut cut_off = false;
+        // number of ws before the unary operator
+        let mut cut_off_apply = false;
+        let mut cut_off_last_op = None;
+        let mut unary_ops = Vec::new();
+        let mut current_unary_ops = Vec::new();
         // !;!!;
+        // ! !!;
+        // because unary operator also doesn't use brackets to show precedence, we need to cut it off by the ws
         for pair in value {
             if pair.as_rule() == Rule::ws {
+                if cut_off_apply {
+                    current_unary_ops.push(cut_off_last_op.unwrap());
+                    cut_off_apply = false;
+                    cut_off_last_op = None;
+                }
+
+                if !current_unary_ops.is_empty() {
+                    unary_ops.push(current_unary_ops.clone());
+                    current_unary_ops.clear();
+                }
+
+                cut_off = true;
+                continue;
+            }
+
+            if cut_off {
+                // currently is unary operator
+                let op = pair.into();
+                if check_if_apply_unary(&mut cut_off_last_op, &op, &mut cut_off_apply) {
+                    current_unary_ops.push(cut_off_last_op.unwrap());
+                }
+
+                cut_off_last_op = Some(op);
                 continue;
             }
 
             let op = pair.into();
-            match last_op {
-                Some(last_op) => {
-                    if last_op == op {
-                        apply = !apply;
-                    } else {
-                        if apply {
-                            expr = Expression::UnaryOperation {
-                                operator: last_op,
-                                right: Box::new(expr),
-                            };
-                        }
-                        // because operator is not the same (new op), which means it will apply
-                        apply = true;
-                    }
-                }
-                None => {
-                    apply = true;
-                }
+            if check_if_apply_unary(&mut last_op, &op, &mut apply) {
+                expr = Expression::UnaryOperation {
+                    operator: last_op.unwrap(),
+                    right: Box::new(expr),
+                };
             }
-
             last_op = Some(op);
         }
 
@@ -68,8 +91,45 @@ impl<'a> Expression<'a> {
             };
         }
 
-        expr
+        // add cut off
+        if cut_off_apply {
+            current_unary_ops.push(cut_off_last_op.unwrap());
+        }
+
+        if !current_unary_ops.is_empty() {
+            unary_ops.push(current_unary_ops);
+        }
+
+        (expr, unary_ops)
     }
+}
+
+/// Handles checking if the unary operator should be applied, and switching the apply flag
+fn check_if_apply_unary(
+    last_op: &mut Option<UnaryOperator>,
+    current_op: &UnaryOperator,
+    apply: &mut bool,
+) -> bool {
+    let mut ret = false;
+
+    match last_op {
+        Some(last_op) => {
+            if last_op == current_op {
+                *apply = !*apply;
+            } else {
+                if *apply {
+                    ret = true;
+                }
+                // because operator is not the same (new op), which means it will apply
+                *apply = true;
+            }
+        }
+        None => {
+            *apply = true;
+        }
+    }
+
+    ret
 }
 
 impl<'a> From<Atom<'a>> for Expression<'a> {
@@ -85,7 +145,14 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
 
         // check quick return
         if value.peek().is_none() {
-            return Expression::atom_to_expression(first);
+            let (mut expr, ops) = Expression::atom_to_expression(first);
+            for op in ops.into_iter().flatten() {
+                expr = Expression::UnaryOperation {
+                    operator: op,
+                    right: Box::new(expr),
+                };
+            }
+            return expr;
         }
 
         // ws on the left and right of op needs to be added, and each op needs to have that info
@@ -118,12 +185,26 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
         }
 
         // work on expression
-        let mut left = Expression::atom_to_expression(first);
+        let (mut left, mut pending_unary) = Expression::atom_to_expression(first);
+        // if true, it will take from left_pending, if false it will take pending_unary
+        let mut pending_order_is_left = pending_unary.iter().map(|_| false).collect::<Vec<_>>();
         let mut left_pending = Vec::new();
 
         for (i, (ws, op)) in priorities.iter().enumerate() {
-            let right = Expression::atom_to_expression(atoms.remove(0));
+            let (right, mut right_pending_unary) = Expression::atom_to_expression(atoms.remove(0));
             let next_op = priorities.get(i + 1);
+
+            // is there next unary
+            if !right_pending_unary.is_empty() {
+                pending_unary.append(&mut right_pending_unary);
+                left_pending.push((left, op));
+                left = right;
+                for _ in 0..pending_unary.len() {
+                    pending_order_is_left.push(false);
+                }
+                pending_order_is_left.push(true);
+                continue;
+            }
 
             // is the next op higher in priority?
             if let Some((next_ws, next_op)) = next_op {
@@ -131,8 +212,9 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                 if (next_ws < ws) || (next_ws == ws && next_op > op) {
                     // beause we have to build from the right now, we need to store the left
                     // expr(left, op, right)
-                    left_pending.insert(0, (left, op));
+                    left_pending.push((left, op));
                     left = right;
+                    pending_order_is_left.push(true);
                     continue;
                 }
             }
@@ -144,16 +226,29 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                 operator: *op,
                 right: Box::new(right),
             };
-            for (left_inner, op_inner) in left_pending.drain(..) {
-                left = Expression::Operation {
-                    left: Box::new(left_inner),
-                    operator: *op_inner,
-                    right: Box::new(left),
-                };
+            dbg!(&pending_order_is_left);
+            for take_left in pending_order_is_left.drain(..) {
+                if take_left {
+                    let (left_inner, op_inner) = left_pending.pop().unwrap();
+                    left = Expression::Operation {
+                        left: Box::new(left_inner),
+                        operator: *op_inner,
+                        right: Box::new(left),
+                    };
+                } else {
+                    let op_inner = pending_unary.remove(0);
+                    dbg!(&op_inner);
+                    for operator in op_inner {
+                        left = Expression::UnaryOperation {
+                            operator,
+                            right: Box::new(left),
+                        };
+                    }
+                }
             }
         }
 
-        left
+        dbg!(left)
     }
 }
 
@@ -218,7 +313,7 @@ impl<'a> Atom<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum UnaryOperator {
     Not,
     Minus,
