@@ -28,3 +28,24 @@ assert(4 >= 1)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn comparisons_chain() {
+    // the first comparison converts it into a boolean
+    let code = r#"
+assert(1 == 1 == true)!
+assert(1 != 2 == true)!
+assert(1 > 2 == false)!
+assert(1 <= 1 == true)!
+assert(2 > 1 == true)!
+assert(1 >= 2 == false)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+// #[test]
+// fn undefined_comparisons() {
+//     let code = r#"
+// assert(undefined == undefined)!"#;
+//     Interpreter::new_eval(code).unwrap();
+// }

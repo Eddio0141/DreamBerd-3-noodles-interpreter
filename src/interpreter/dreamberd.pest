@@ -12,9 +12,10 @@ func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
 // contains all the different types of expressions
-expression =  { expr_atom ~ (ws* ~ expr_op ~ ws* ~ expr_atom)* }
+// instead of brackets to define precedence, we combined number of whitespaces from the operator to the operands to define precedence
+expression = ${ expr_atom ~ (ws* ~ expr_op ~ ws* ~ expr_atom)* }
 expr_unary =  { logical_expr_unary_not }
-expr_atom  =  { expr_unary* ~ (var_or_value_or_func | func_call) }
+expr_atom  =  { expr_unary* ~ ws* ~ (var_or_value_or_func | func_call) }
 expr_op    = _{ comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt | logical_and | logical_or }
 // the different types of operators
 logical_expr_unary_not = { ";" }
@@ -33,5 +34,5 @@ var_or_value_or_func = { identifier }
 identifier      = { identifier_char+ }
 identifier_char = { !(ws | term_char | expr_unary | expr_op) ~ ANY }
 
-ws         = _{ " " | "\t" | "\n" | "\r" | "(" | ")" }
+ws         =  { " " | "\t" | "\n" | "\r" | "(" | ")" }
 WHITESPACE = _{ ws }
