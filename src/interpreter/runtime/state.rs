@@ -64,6 +64,14 @@ impl<'a> InterpreterState<'a> {
             .find_map(|vars| vars.get_var(name).copied())
     }
 
+    pub fn set_var(&self, name: &'a str, value: Value) -> Option<()> {
+        self.vars
+            .borrow_mut()
+            .iter_mut()
+            .rev()
+            .find_map(|vars| vars.set_var(name, value))
+    }
+
     pub fn add_func(&self, name: &'a str, func: FunctionVariant<'a>) {
         self.funcs
             .borrow_mut()
@@ -86,8 +94,13 @@ impl<'a> VariableState<'a> {
         self.0.get(name)
     }
 
-    pub fn set_var(&mut self, name: &'a str, value: Value) {
-        self.0.insert(name, value);
+    pub fn set_var(&mut self, name: &'a str, value: Value) -> Option<()> {
+        if let Some(var) = self.0.get_mut(name) {
+            *var = value;
+            Some(())
+        } else {
+            None
+        }
     }
 }
 

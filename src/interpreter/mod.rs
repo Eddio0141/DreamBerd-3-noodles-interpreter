@@ -12,7 +12,7 @@ use self::{
 mod ast;
 pub mod error;
 mod parser;
-mod runtime;
+pub mod runtime;
 
 pub struct Interpreter<'a> {
     state: InterpreterState<'a>,

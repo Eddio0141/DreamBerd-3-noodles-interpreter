@@ -1,4 +1,4 @@
-use crate::Interpreter;
+use crate::{interpreter::runtime, Error, Interpreter};
 
 #[test]
 fn declare() {
@@ -10,7 +10,7 @@ assert(a == 1)!"#;
 
 #[test]
 fn declare_int() {
-    let code = r#"var var 1 = 2!
+    let code = r#"var  var 1 = 2!
 assert(1 == 2)!"#;
 
     Interpreter::new_eval(code).unwrap();
@@ -54,4 +54,22 @@ fn declare_spaces_swap() {
 assert(a(==(1(!"#;
 
     Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn re_assign() {
+    let code = r#"var var a = 1!
+a = 2 * 3!
+assert(a == 6)!"#;
+
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn assign_non_existant() {
+    let code = r#"a = 1!"#;
+    matches!(
+        Interpreter::new_eval(code).unwrap_err(),
+        Error::EvalError(runtime::Error::VariableNotFound(_))
+    );
 }

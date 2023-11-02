@@ -2,7 +2,7 @@ use pest::iterators::Pairs;
 
 use crate::Interpreter;
 
-use self::{function::FunctionCall, variable::VariableDecl};
+use self::{function::FunctionCall, variable::*};
 
 use super::{
     parser::Rule,
@@ -42,6 +42,7 @@ impl<'a> Ast<'a> {
             let parsed = match statement.as_rule() {
                 Rule::var_var => Statement::VariableDecl(statement.into()),
                 Rule::func_call => Statement::FunctionCall(statement.into()),
+                Rule::var_set => Statement::VarSet(statement.into()),
                 _ => unreachable!(),
             };
 
@@ -75,6 +76,7 @@ impl<'a> Ast<'a> {
 pub enum Statement<'a> {
     FunctionCall(FunctionCall<'a>),
     VariableDecl(VariableDecl<'a>),
+    VarSet(VarSet<'a>),
 }
 
 impl<'a> Statement<'a> {
@@ -86,6 +88,7 @@ impl<'a> Statement<'a> {
         match self {
             Statement::FunctionCall(function) => function.eval(interpreter).map(|_| None),
             Statement::VariableDecl(decl) => decl.eval(interpreter).map(|_| None),
+            Statement::VarSet(var_set) => var_set.eval(interpreter).map(|_| None),
         }
     }
 }

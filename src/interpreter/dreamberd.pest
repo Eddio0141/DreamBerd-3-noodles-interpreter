@@ -2,12 +2,13 @@
 program = { SOI ~ statement* ~ EOI }
 // statements can be either have a terminator or not, depending on what you doing
 statement           = { statement_with_term }
-statement_with_term = { (var_var | func_call) ~ term }
+statement_with_term = { (var_var | var_set | func_call) ~ term }
 
 term      = { term_char+ }
 term_char = { "!" }
 
 var_var        = ${ "var" ~ ws+ ~ "var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
+var_set        = ${ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
 func_call      = ${ identifier ~ func_call_args? }
 func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 
