@@ -51,7 +51,7 @@ impl<'a> From<Atom<'a>> for Expression<'a> {
 
 impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
     fn from(value: Pair<'a, super::Rule>) -> Self {
-        let value = value.into_inner();
+        let mut value = value.into_inner();
 
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
@@ -62,30 +62,25 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
         // ws count and op
         let mut priorities = Vec::new();
         // atoms
-        let mut atoms = Vec::new();
-        let mut last_ws = None;
+        let mut atoms = vec![value.next().unwrap()];
+        let mut last_ws = 0;
         let mut last_op = None;
+        // let mut prev = None;
         for pair in value {
             match pair.as_rule() {
                 Rule::ws => {
-                    let ws = pair.as_str().len();
-                    if let Some(last_op_inner) = last_op {
-                        priorities.push((last_ws.unwrap() + ws, last_op_inner));
-                        last_op = None;
-                    }
-                    last_ws = Some(ws);
+                    last_ws += pair.as_str().len();
                 }
                 Rule::expr_atom => {
+                    priorities.push((last_ws, last_op.unwrap()));
                     atoms.push(pair);
+                    last_ws = 0;
                 }
                 _ => {
                     last_op = Some(pair.into());
                 }
             }
         }
-
-        // last op should be None as operations are always followed by an atom
-        assert!(last_op.is_none(), "last op is not None");
 
         // work on expression
         let mut left = Expression::atom_to_expression(atoms.remove(0));
@@ -107,14 +102,20 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                         continue;
                     }
 
-                    assert!(left_pending.is_empty(), "left pending is not empty");
-
                     // left has to be evaluated first
                     left = Expression::Operation {
                         left: Box::new(left),
                         operator: *op,
                         right: Box::new(right),
                     };
+
+                    for (left_inner, op_inner) in left_pending.drain(..) {
+                        left = Expression::Operation {
+                            left: Box::new(left_inner),
+                            operator: *op_inner,
+                            right: Box::new(left),
+                        };
+                    }
                 }
                 None => {
                     // no more ops, so we can just do the operation
@@ -132,7 +133,6 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                             right: Box::new(left),
                         };
                     }
-                    left_pending.clear();
                 }
             }
         }
