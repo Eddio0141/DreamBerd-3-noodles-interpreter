@@ -8,6 +8,7 @@ criterion_group!(
     variable::declare_many,
     expressions::compare_expressions,
     expressions::compare_expressions_chain,
-    expressions::unary_chain
+    expressions::unary_chain,
+    expressions::unary_chain_spaced
 );
 criterion_main!(benches);
