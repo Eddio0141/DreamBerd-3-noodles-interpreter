@@ -66,6 +66,36 @@ assert(1>=2==false)!
     Interpreter::new_eval(code).unwrap();
 }
 
+#[test]
+fn math_expr() {
+    let code = r#"
+assert(1+1==2)!
+assert(1-1==0)!
+assert(2*3==6)!
+assert(6/2==3)!
+assert(6%2==0)!
+assert(6**2==36)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn math_expr_order() {
+    // 1 + 1 * 2 = 3
+    // (1 - 1) * 2 = 0
+    // 2 * 3 + 1 = 7
+    // 2 * (3 + 1) = 8
+    // 2 * (3 + (4 * 5)) + 6 = 52
+    let code = r#"
+assert(1+1*2==3)!
+assert(1-1 * 2  == 0)!
+assert(2*3+1==7)!
+assert(2 *3+1  ==  8)!
+assert(2 * 3+ 4*5 + 6  ==52)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
 // #[test]
 // fn undefined_comparisons() {
 //     let code = r#"

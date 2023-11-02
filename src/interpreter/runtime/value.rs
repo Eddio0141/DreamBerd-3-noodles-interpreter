@@ -1,4 +1,7 @@
-use std::{fmt::Display, ops::Not};
+use std::{
+    fmt::Display,
+    ops::{Add, Div, Mul, Not, Rem, Sub},
+};
 
 #[derive(Debug, Clone, Copy)]
 /// A value that is of a certain type
@@ -10,12 +13,31 @@ pub enum Value {
 
 impl Value {
     /// Match the type of the other value
-    pub fn match_type(self, other: &Self) -> Self {
+    fn match_type(self, other: &Self) -> Self {
         match other {
-            Self::Number(_) => Self::Number(self.into()),
+            // TODO is this right
+            Self::Number(_) => Self::Number(self.try_into().unwrap()),
             Self::Boolean(_) => Self::Boolean(self.into()),
             Self::Undefined => Self::Undefined,
         }
+    }
+
+    fn can_be_num(&self) -> bool {
+        matches!(self, Self::Number(_))
+            || matches!(self, Self::Boolean(_))
+            || matches!(self, Self::Undefined)
+    }
+
+    pub fn pow(self, rhs: Self) -> Self {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(
+                f64::try_from(self)
+                    .unwrap()
+                    .powf(f64::try_from(rhs).unwrap()),
+            );
+        }
+
+        unreachable!();
     }
 }
 
@@ -47,13 +69,17 @@ impl From<Value> for bool {
     }
 }
 
-impl From<Value> for f64 {
-    fn from(value: Value) -> Self {
-        match value {
+impl TryFrom<Value> for f64 {
+    type Error = ();
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let num = match value {
             Value::Number(num) => num,
             Value::Boolean(value) => value as u8 as f64,
             Value::Undefined => f64::NAN,
-        }
+        };
+
+        Ok(num)
     }
 }
 
@@ -63,8 +89,8 @@ impl PartialEq for Value {
         let other = other.match_type(self);
 
         match self {
-            Value::Number(value) => *value == other.into(),
-            Value::Boolean(value) => *value == other.into(),
+            Value::Number(value) => *value == f64::try_from(other).unwrap(),
+            Value::Boolean(value) => *value == bool::from(other),
             Value::Undefined => matches!(other, Value::Undefined),
         }
     }
@@ -75,9 +101,69 @@ impl PartialOrd for Value {
         let other = other.match_type(self);
 
         match self {
-            Value::Number(value) => value.partial_cmp(&other.into()),
+            Value::Number(value) => value.partial_cmp(&other.try_into().unwrap()),
             Value::Boolean(value) => value.partial_cmp(&other.into()),
             Value::Undefined => None,
         }
+    }
+}
+
+impl Add for Value {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(f64::try_from(self).unwrap() + f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
+    }
+}
+
+impl Sub for Value {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(f64::try_from(self).unwrap() - f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
+    }
+}
+
+impl Mul for Value {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(f64::try_from(self).unwrap() * f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
+    }
+}
+
+impl Div for Value {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(f64::try_from(self).unwrap() / f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
+    }
+}
+
+impl Rem for Value {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        if self.can_be_num() && rhs.can_be_num() {
+            return Value::Number(f64::try_from(self).unwrap() % f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
     }
 }

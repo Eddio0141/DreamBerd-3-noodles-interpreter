@@ -102,7 +102,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                 if (next_ws < ws) || (next_ws == ws && next_op > op) {
                     // beause we have to build from the right now, we need to store the left
                     // expr(left, op, right)
-                    left_pending.push((left, op));
+                    left_pending.insert(0, (left, op));
                     left = right;
                     continue;
                 }
@@ -150,6 +150,12 @@ impl<'a> Expression<'a> {
                     Operator::LessThanOrEqual => Value::Boolean(left <= right),
                     Operator::And => Value::Boolean(left.into() && right.into()),
                     Operator::Or => Value::Boolean(left.into() || right.into()),
+                    Operator::Add => left + right,
+                    Operator::Subtract => left - right,
+                    Operator::Multiply => left * right,
+                    Operator::Exponential => left.pow(right),
+                    Operator::Divide => left / right,
+                    Operator::Modulo => left % right,
                 };
 
                 Ok(value)
@@ -227,6 +233,13 @@ pub enum Operator {
     // logical
     And,
     Or,
+    // arithmetic
+    Add,
+    Subtract,
+    Multiply,
+    Exponential,
+    Divide,
+    Modulo,
 }
 
 impl<'a> From<Pair<'a, Rule>> for Operator {
@@ -240,6 +253,12 @@ impl<'a> From<Pair<'a, Rule>> for Operator {
             Rule::comp_le => Operator::LessThanOrEqual,
             Rule::logical_and => Operator::And,
             Rule::logical_or => Operator::Or,
+            Rule::math_add => Operator::Add,
+            Rule::math_sub => Operator::Subtract,
+            Rule::math_mul => Operator::Multiply,
+            Rule::math_exp => Operator::Exponential,
+            Rule::math_div => Operator::Divide,
+            Rule::math_mod => Operator::Modulo,
             _ => unreachable!(),
         }
     }
@@ -256,6 +275,12 @@ impl From<Operator> for usize {
             Operator::LessThanOrEqual => 0,
             Operator::And => 0,
             Operator::Or => 0,
+            Operator::Add => 0,
+            Operator::Subtract => 0,
+            Operator::Multiply => 1,
+            Operator::Exponential => 2,
+            Operator::Divide => 1,
+            Operator::Modulo => 1,
         }
     }
 }
