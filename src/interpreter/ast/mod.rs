@@ -17,7 +17,7 @@ mod variable;
 #[derive(Debug)]
 /// An abstract syntax tree that represents a scope of code
 pub struct Ast<'a> {
-    pub statements: Vec<Statement<'a>>,
+    statements: Vec<Statement<'a>>,
 }
 
 impl<'a> Ast<'a> {

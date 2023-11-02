@@ -12,8 +12,8 @@ use super::Rule;
 #[derive(Debug)]
 /// A function call that is 100% certain its a function call
 pub struct FunctionCall<'a> {
-    pub name: &'a str,
-    pub args: Vec<Expression<'a>>,
+    name: &'a str,
+    args: Vec<Expression<'a>>,
 }
 
 impl<'a> From<Pair<'a, super::Rule>> for FunctionCall<'a> {

@@ -11,8 +11,8 @@ use super::Rule;
 #[derive(Debug)]
 /// Declared variable
 pub struct VariableDecl<'a> {
-    pub name: &'a str,
-    pub expression: Expression<'a>,
+    name: &'a str,
+    expression: Expression<'a>,
 }
 
 impl<'a> From<Pair<'a, Rule>> for VariableDecl<'a> {
@@ -44,8 +44,8 @@ impl<'a> VariableDecl<'a> {
 
 #[derive(Debug)]
 pub struct VarSet<'a> {
-    pub name: &'a str,
-    pub expression: Expression<'a>,
+    name: &'a str,
+    expression: Expression<'a>,
 }
 
 impl<'a> From<Pair<'a, Rule>> for VarSet<'a> {

@@ -11,7 +11,7 @@ use pest::iterators::Pair;
 #[derive(Debug)]
 /// Either a variable, or a value, or a function call
 pub struct UncertainExpr<'a> {
-    pub identifier: &'a str,
+    identifier: &'a str,
 }
 
 impl<'a> From<Pair<'a, Rule>> for UncertainExpr<'a> {

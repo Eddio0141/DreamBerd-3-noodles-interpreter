@@ -12,7 +12,7 @@ use self::{
 mod ast;
 pub mod error;
 mod parser;
-pub mod runtime;
+mod runtime;
 
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
