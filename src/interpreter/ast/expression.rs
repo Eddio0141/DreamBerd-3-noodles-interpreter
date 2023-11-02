@@ -199,9 +199,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                 pending_unary.append(&mut right_pending_unary);
                 left_pending.push((left, op));
                 left = right;
-                for _ in 0..pending_unary.len() {
-                    pending_order_is_left.push(false);
-                }
+                pending_order_is_left.extend(vec![false; pending_unary.len()]);
                 pending_order_is_left.push(true);
                 continue;
             }
