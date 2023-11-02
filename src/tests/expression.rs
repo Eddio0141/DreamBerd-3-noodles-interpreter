@@ -105,6 +105,12 @@ assert(2 * - 3 + 4    ==    -14)!
     Interpreter::new_eval(code).unwrap();
 }
 
+#[test]
+fn divide_by_zero() {
+    let code = "assert(1/0 == undefined)!";
+    Interpreter::new_eval(code).unwrap();
+}
+
 // #[test]
 // fn undefined_comparisons() {
 //     let code = r#"

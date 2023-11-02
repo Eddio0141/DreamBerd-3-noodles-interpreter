@@ -149,7 +149,12 @@ impl Div for Value {
 
     fn div(self, rhs: Self) -> Self::Output {
         if self.can_be_num() && rhs.can_be_num() {
-            return Value::Number(f64::try_from(self).unwrap() / f64::try_from(rhs).unwrap());
+            let rhs = f64::try_from(rhs).unwrap();
+            return if rhs == 0.0 {
+                Value::Undefined
+            } else {
+                Value::Number(f64::try_from(self).unwrap() / rhs)
+            };
         }
 
         unreachable!();
