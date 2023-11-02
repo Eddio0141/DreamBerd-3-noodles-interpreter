@@ -282,7 +282,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dreamberd_3_noodles_interpreter"
+name = "dreamberd_noodles_interpreter"
 version = "0.1.0"
 dependencies = [
  "anyhow",

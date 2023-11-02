@@ -4,7 +4,7 @@ cargo-features = ["different-binary-name"]
 authors = ["Eddie Cope (yuu0141 / eddio0141) <eddio0141@gmail.com>"]
 description = "A floppy interpreter for DreamBerd"
 edition = "2021"
-name = "dreamberd_3_noodles_interpreter"
+name = "dreamberd_noodles_interpreter"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,7 +18,7 @@ thiserror = "1.0.50"
 
 [[bin]]
 filename = "noodles"
-name = "dreamberd_3_noodles_interpreter"
+name = "dreamberd_noodles_interpreter"
 
 [dev-dependencies]
 criterion = {version = "0.5.1", features = ["html_reports"]}
