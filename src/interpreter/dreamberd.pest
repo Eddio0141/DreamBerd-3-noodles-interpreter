@@ -22,7 +22,7 @@ logical_expr_unary_not = { ";" }
 logical_and            = { "&&" }
 logical_or             = { "||" }
 comp_eq                = { "==" }
-comp_ne                = { "!=" }
+comp_ne                = { ";=" }
 comp_le                = { "<=" }
 comp_ge                = { ">=" }
 comp_lt                = { "<" }
