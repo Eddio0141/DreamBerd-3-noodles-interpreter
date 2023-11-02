@@ -28,13 +28,42 @@ impl<'a> Expression<'a> {
     fn atom_to_expression(value: Pair<'a, Rule>) -> Self {
         let mut value = value.into_inner().rev();
         let mut expr = Expression::Atom(value.next().unwrap().into());
+        let mut last_op = None;
+        let mut apply = false;
+        // !;!!;
         for pair in value {
             if pair.as_rule() == Rule::ws {
                 continue;
             }
 
+            let op = pair.into();
+            match last_op {
+                Some(last_op) => {
+                    if last_op == op {
+                        apply = !apply;
+                    } else {
+                        if apply {
+                            expr = Expression::UnaryOperation {
+                                operator: last_op,
+                                right: Box::new(expr),
+                            };
+                        }
+                        // because operator is not the same (new op), which means it will apply
+                        apply = true;
+                    }
+                }
+                None => {
+                    apply = true;
+                }
+            }
+
+            last_op = Some(op);
+        }
+
+        // one last adding
+        if apply {
             expr = Expression::UnaryOperation {
-                operator: pair.into(),
+                operator: last_op.unwrap(),
                 right: Box::new(expr),
             };
         }
@@ -189,7 +218,7 @@ impl<'a> Atom<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum UnaryOperator {
     Not,
     Minus,
