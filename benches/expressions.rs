@@ -41,3 +41,21 @@ pub fn compare_expressions_chain(c: &mut Criterion) {
         });
     });
 }
+
+pub fn unary_chain(c: &mut Criterion) {
+    let mut stdout = std::io::sink();
+    let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+
+    c.bench_function("unary_chain", |b| {
+        b.iter(|| {
+            interpreter
+                .eval(black_box(
+                    r#"
+                print ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;true!
+                print ----------------------------------------------------------------------------------------------------1!
+            "#,
+                ))
+                .unwrap();
+        });
+    });
+}
