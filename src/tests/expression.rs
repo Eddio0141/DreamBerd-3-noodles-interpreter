@@ -83,17 +83,6 @@ assert(6--6==12)!
 }
 
 #[test]
-fn test() {
-    // -(2 + -(3 + 4 * 5)) + 6
-    // -(2 + -(-(3 + 4 * 5))) + 6
-    // -2+- 3+4*5+6
-    let code = r#"
-print(- 6+3)!
-    "#;
-    Interpreter::new_eval(code).unwrap();
-}
-
-#[test]
 fn math_expr_order() {
     // 1 + 1 * 2 = 3
     // (1 - 1) * 2 = 0
