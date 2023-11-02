@@ -10,19 +10,19 @@ use super::Rule;
 
 #[derive(Debug)]
 /// Declared variable
-pub struct VariableDecl<'a> {
-    name: &'a str,
-    expression: Expression<'a>,
+pub struct VariableDecl {
+    name: String,
+    expression: Expression,
 }
 
-impl<'a> From<Pair<'a, Rule>> for VariableDecl<'a> {
-    fn from(value: Pair<'a, Rule>) -> Self {
+impl From<Pair<'_, Rule>> for VariableDecl {
+    fn from(value: Pair<'_, Rule>) -> Self {
         // skip until identifier
         let mut value = value
             .into_inner()
             .skip_while(|pair| pair.as_rule() != Rule::identifier);
 
-        let name = value.next().unwrap().as_str();
+        let name = value.next().unwrap().as_str().to_string();
 
         // skip until expression
         let mut value = value.skip_while(|pair| pair.as_rule() != Rule::expression);
@@ -33,27 +33,27 @@ impl<'a> From<Pair<'a, Rule>> for VariableDecl<'a> {
     }
 }
 
-impl<'a> VariableDecl<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
+impl VariableDecl {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.declare_var(self.name, value);
+        interpreter.state.declare_var(&self.name, value);
 
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct VarSet<'a> {
-    name: &'a str,
-    expression: Expression<'a>,
+pub struct VarSet {
+    name: String,
+    expression: Expression,
 }
 
-impl<'a> From<Pair<'a, Rule>> for VarSet<'a> {
-    fn from(value: Pair<'a, Rule>) -> Self {
+impl From<Pair<'_, Rule>> for VarSet {
+    fn from(value: Pair<'_, Rule>) -> Self {
         // skip until identifier
         let mut value = value.into_inner();
 
-        let name = value.next().unwrap().as_str();
+        let name = value.next().unwrap().as_str().to_string();
 
         // skip until expression
         let mut value = value.skip_while(|pair| pair.as_rule() != Rule::expression);
@@ -64,10 +64,10 @@ impl<'a> From<Pair<'a, Rule>> for VarSet<'a> {
     }
 }
 
-impl<'a> VarSet<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
+impl VarSet {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.set_var(self.name, value);
+        interpreter.state.set_var(&self.name, value);
         Ok(())
     }
 }

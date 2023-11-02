@@ -16,26 +16,26 @@ mod runtime;
 
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
-    state: InterpreterState<'a>,
+    state: InterpreterState,
     stdout: RefCell<&'a mut dyn Write>,
 }
 
-impl<'a> Interpreter<'a> {
+impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn eval(&self, code: &'a str) -> Result<(), self::error::Error> {
+    pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
         let parsed = PestParser::parse(Rule::program, code).map_err(Box::new)?;
         let ast = Ast::parse(parsed);
-        stdlib::load(self);
-        ast.eval(self)?;
+        ast.eval(self, true)?;
         Ok(())
     }
 
     /// Create a new interpreter and evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn new_eval(code: &'a str) -> Result<(), self::error::Error> {
+    pub fn new_eval(code: &str) -> Result<(), self::error::Error> {
         let mut stdout = std::io::stdout().lock();
         let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+        stdlib::load(&interpreter);
         interpreter.eval(code)
     }
 }
@@ -54,9 +54,12 @@ impl<'a> InterpreterBuilder<'a> {
 
     /// Build the interpreter
     pub fn build(self) -> Interpreter<'a> {
-        Interpreter {
+        let interpreter = Interpreter {
             stdout: RefCell::new(self.stdout),
             state: InterpreterState::default(),
-        }
+            // owned_inputs: RefCell::new(Vec::new()),
+        };
+        stdlib::load(&interpreter);
+        interpreter
     }
 }

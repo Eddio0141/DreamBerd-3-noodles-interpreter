@@ -16,13 +16,13 @@ mod variable;
 
 #[derive(Debug)]
 /// An abstract syntax tree that represents a scope of code
-pub struct Ast<'a> {
-    statements: Vec<Statement<'a>>,
+pub struct Ast {
+    statements: Vec<Statement>,
 }
 
-impl<'a> Ast<'a> {
+impl Ast {
     /// Parse a pest parse tree into an AST
-    pub fn parse(mut pairs: Pairs<'a, Rule>) -> Self {
+    pub fn parse(mut pairs: Pairs<'_, Rule>) -> Self {
         // program rule
         let pairs = pairs.next().unwrap().into_inner();
 
@@ -52,9 +52,12 @@ impl<'a> Ast<'a> {
         Self { statements }
     }
 
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter, skip_scope_stack: bool) -> Result<Value, Error> {
         let state = &interpreter.state;
-        state.push_scope();
+
+        if !skip_scope_stack {
+            state.push_scope();
+        }
 
         let mut ret_value = None;
         for statement in &self.statements {
@@ -64,7 +67,9 @@ impl<'a> Ast<'a> {
             }
         }
 
-        state.pop_scope();
+        if !skip_scope_stack {
+            state.pop_scope();
+        }
 
         // function calls return undefined if they don't return anything
         Ok(ret_value.unwrap_or(Value::Undefined))
@@ -73,18 +78,15 @@ impl<'a> Ast<'a> {
 
 #[derive(Debug)]
 /// Single statement that does something
-pub enum Statement<'a> {
-    FunctionCall(FunctionCall<'a>),
-    VariableDecl(VariableDecl<'a>),
-    VarSet(VarSet<'a>),
+pub enum Statement {
+    FunctionCall(FunctionCall),
+    VariableDecl(VariableDecl),
+    VarSet(VarSet),
 }
 
-impl<'a> Statement<'a> {
+impl Statement {
     /// Evaluates the statement
-    pub fn eval(
-        &self,
-        interpreter: &Interpreter<'a>,
-    ) -> Result<Option<Value>, runtime::error::Error> {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Option<Value>, runtime::error::Error> {
         match self {
             Statement::FunctionCall(function) => function.eval(interpreter).map(|_| None),
             Statement::VariableDecl(decl) => decl.eval(interpreter).map(|_| None),

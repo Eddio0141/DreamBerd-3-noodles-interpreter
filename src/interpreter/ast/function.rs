@@ -11,16 +11,16 @@ use super::Rule;
 
 #[derive(Debug)]
 /// A function call that is 100% certain its a function call
-pub struct FunctionCall<'a> {
-    name: &'a str,
-    args: Vec<Expression<'a>>,
+pub struct FunctionCall {
+    name: String,
+    args: Vec<Expression>,
 }
 
-impl<'a> From<Pair<'a, super::Rule>> for FunctionCall<'a> {
-    fn from(value: Pair<'a, super::Rule>) -> Self {
+impl From<Pair<'_, super::Rule>> for FunctionCall {
+    fn from(value: Pair<'_, super::Rule>) -> Self {
         let mut value = value.into_inner();
 
-        let name = value.next().unwrap().as_str();
+        let name = value.next().unwrap().as_str().to_string();
 
         let args = if let Some(value) = value.peek() {
             let mut args = Vec::new();
@@ -42,11 +42,11 @@ impl<'a> From<Pair<'a, super::Rule>> for FunctionCall<'a> {
     }
 }
 
-impl<'a> FunctionCall<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+impl FunctionCall {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         interpreter.state.invoke_func(
             interpreter,
-            self.name,
+            &self.name,
             self.args
                 .iter()
                 .map(|arg| arg.eval(interpreter))

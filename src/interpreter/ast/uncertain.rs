@@ -10,29 +10,29 @@ use pest::iterators::Pair;
 
 #[derive(Debug)]
 /// Either a variable, or a value, or a function call
-pub struct UncertainExpr<'a> {
-    identifier: &'a str,
+pub struct UncertainExpr {
+    identifier: String,
 }
 
-impl<'a> From<Pair<'a, Rule>> for UncertainExpr<'a> {
-    fn from(value: pest::iterators::Pair<'a, super::Rule>) -> Self {
+impl From<Pair<'_, Rule>> for UncertainExpr {
+    fn from(value: pest::iterators::Pair<'_, super::Rule>) -> Self {
         let mut value = value.into_inner();
 
-        let identifier = value.next().unwrap().as_str();
+        let identifier = value.next().unwrap().as_str().to_string();
 
         Self { identifier }
     }
 }
 
-impl<'a> UncertainExpr<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+impl UncertainExpr {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         let state = &interpreter.state;
 
-        if let Some(value) = state.get_var(self.identifier) {
+        if let Some(value) = state.get_var(&self.identifier) {
             return Ok(value);
         }
 
-        if let Ok(value) = state.invoke_func(interpreter, self.identifier, Vec::new()) {
+        if let Ok(value) = state.invoke_func(interpreter, &self.identifier, Vec::new()) {
             return Ok(value);
         }
 

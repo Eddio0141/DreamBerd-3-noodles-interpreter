@@ -8,7 +8,7 @@ pub mod debug;
 pub mod stdio;
 
 pub fn load(interpreter: &Interpreter) {
-    let funcs: Vec<(&str, fn(&_, _) -> _)> =
+    let funcs: Vec<(&_, fn(&Interpreter<'_>, _) -> _)> =
         vec![("assert", debug::assert), ("print", stdio::print)];
 
     for func in funcs {

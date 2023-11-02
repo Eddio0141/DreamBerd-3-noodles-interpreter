@@ -11,26 +11,26 @@ use super::Rule;
 
 #[derive(Debug)]
 /// Expression that can be evaluated
-pub enum Expression<'a> {
-    Atom(Atom<'a>),
+pub enum Expression {
+    Atom(Atom),
     UnaryOperation {
         operator: UnaryOperator,
-        right: Box<Expression<'a>>,
+        right: Box<Expression>,
     },
     Operation {
-        left: Box<Expression<'a>>,
+        left: Box<Expression>,
         operator: Operator,
-        right: Box<Expression<'a>>,
+        right: Box<Expression>,
     },
 }
 
-impl<'a> Expression<'a> {
+impl Expression {
     /// Convert a pair into an expression
     /// - Returns the built expression and if any unprocessed unary operators
     ///     - Each item in the vector is a vector of unary operators
     ///     - Outer vector is meaning there's a ws between the unary operator groups
     /// - Order of the unary operators is from left to right
-    fn atom_to_expression(value: Pair<'a, Rule>) -> (Self, Vec<Vec<UnaryOperator>>) {
+    fn atom_to_expression(value: Pair<'_, Rule>) -> (Self, Vec<Vec<UnaryOperator>>) {
         let mut value = value.into_inner().rev();
         let mut expr = Expression::Atom(value.next().unwrap().into());
         let mut last_op = None;
@@ -132,14 +132,14 @@ fn check_if_apply_unary(
     ret
 }
 
-impl<'a> From<Atom<'a>> for Expression<'a> {
-    fn from(value: Atom<'a>) -> Self {
+impl From<Atom> for Expression {
+    fn from(value: Atom) -> Self {
         Expression::Atom(value)
     }
 }
 
-impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
-    fn from(value: Pair<'a, super::Rule>) -> Self {
+impl From<Pair<'_, super::Rule>> for Expression {
+    fn from(value: Pair<'_, super::Rule>) -> Self {
         let mut value = value.into_inner();
         let first = value.next().unwrap();
 
@@ -248,8 +248,8 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
     }
 }
 
-impl<'a> Expression<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+impl Expression {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         match self {
             Expression::Atom(atom) => atom.eval(interpreter),
             Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
@@ -285,13 +285,13 @@ impl<'a> Expression<'a> {
 }
 
 #[derive(Debug)]
-pub enum Atom<'a> {
-    UncertainExpr(UncertainExpr<'a>),
-    FunctionCall(FunctionCall<'a>),
+pub enum Atom {
+    UncertainExpr(UncertainExpr),
+    FunctionCall(FunctionCall),
 }
 
-impl<'a> From<Pair<'a, Rule>> for Atom<'a> {
-    fn from(value: Pair<'a, Rule>) -> Self {
+impl From<Pair<'_, Rule>> for Atom {
+    fn from(value: Pair<'_, Rule>) -> Self {
         match value.as_rule() {
             Rule::var_or_value_or_func => Atom::UncertainExpr(value.into()),
             Rule::func_call => Atom::FunctionCall(value.into()),
@@ -300,8 +300,8 @@ impl<'a> From<Pair<'a, Rule>> for Atom<'a> {
     }
 }
 
-impl<'a> Atom<'a> {
-    pub fn eval(&self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+impl Atom {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         match self {
             Atom::UncertainExpr(expr) => expr.eval(interpreter),
             Atom::FunctionCall(expr) => expr.eval(interpreter),
@@ -315,12 +315,8 @@ pub enum UnaryOperator {
     Minus,
 }
 
-impl<'a> UnaryOperator {
-    pub fn eval(
-        &self,
-        right: &Expression<'a>,
-        interpreter: &Interpreter<'a>,
-    ) -> Result<Value, Error> {
+impl UnaryOperator {
+    pub fn eval(&self, right: &Expression, interpreter: &Interpreter) -> Result<Value, Error> {
         let value = match self {
             UnaryOperator::Not => !right.eval(interpreter)?,
             UnaryOperator::Minus => -right.eval(interpreter)?,
@@ -330,8 +326,8 @@ impl<'a> UnaryOperator {
     }
 }
 
-impl<'a> From<Pair<'a, Rule>> for UnaryOperator {
-    fn from(value: Pair<'a, Rule>) -> Self {
+impl From<Pair<'_, Rule>> for UnaryOperator {
+    fn from(value: Pair<'_, Rule>) -> Self {
         let value = value.into_inner().next().unwrap();
         match value.as_rule() {
             Rule::logical_unary_not => UnaryOperator::Not,
@@ -362,8 +358,8 @@ pub enum Operator {
     Modulo,
 }
 
-impl<'a> From<Pair<'a, Rule>> for Operator {
-    fn from(value: Pair<'a, Rule>) -> Self {
+impl From<Pair<'_, Rule>> for Operator {
+    fn from(value: Pair<'_, Rule>) -> Self {
         match value.as_rule() {
             Rule::comp_eq => Operator::Equal,
             Rule::comp_ne => Operator::NotEqual,
