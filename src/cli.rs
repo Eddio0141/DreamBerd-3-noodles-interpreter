@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use dreamberd_3_noodles_interpreter::interpreter::Interpreter;
+use dreamberd_noodles_interpreter::interpreter::Interpreter;
 
 #[derive(Parser)]
 #[command(author, about, version)]

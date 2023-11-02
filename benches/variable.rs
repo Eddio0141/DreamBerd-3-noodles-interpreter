@@ -1,5 +1,5 @@
 use criterion::{black_box, Criterion};
-use dreamberd_3_noodles_interpreter::interpreter::InterpreterBuilder;
+use dreamberd_noodles_interpreter::InterpreterBuilder;
 
 pub fn declare_many(c: &mut Criterion) {
     let mut stdout = std::io::sink();

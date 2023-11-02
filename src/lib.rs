@@ -6,14 +6,14 @@
 //!
 //! ## Simple use
 //! ```
-//! # use dreamberd_3_noodles_interpreter::interpreter::*;
+//! # use dreamberd_noodles_interpreter::interpreter::*;
 //! let code = "print(12345)!";
 //! Interpreter::new_eval(code).unwrap();
 //! ```
 //!
 //! ## Advanced configurations!
 //! ```
-//! # use dreamberd_3_noodles_interpreter::interpreter::*;
+//! # use dreamberd_noodles_interpreter::interpreter::*;
 //! let mut stdout = Vec::new();
 //!
 //! let code = r#"
@@ -31,8 +31,8 @@
 //! "#;
 //! ```
 
-pub use interpreter::error::Error;
-pub use interpreter::Interpreter;
+pub use interpreter::error::*;
+pub use interpreter::*;
 
 pub mod interpreter;
 #[cfg(test)]
