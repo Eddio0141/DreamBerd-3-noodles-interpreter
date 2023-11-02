@@ -68,7 +68,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
         // ws count and op
         let mut priorities = Vec::new();
         // atoms
-        let mut atoms = vec![first];
+        let mut atoms = Vec::new();
         let mut last_ws = 0;
         let mut last_op = None;
         // let mut prev = None;
@@ -89,7 +89,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
         }
 
         // work on expression
-        let mut left = Expression::atom_to_expression(atoms.remove(0));
+        let mut left = Expression::atom_to_expression(first);
         let mut left_pending = Vec::new();
 
         for (i, (ws, op)) in priorities.iter().enumerate() {
