@@ -224,7 +224,6 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                 operator: *op,
                 right: Box::new(right),
             };
-            dbg!(&pending_order_is_left);
             for take_left in pending_order_is_left.drain(..) {
                 if take_left {
                     let (left_inner, op_inner) = left_pending.pop().unwrap();
@@ -235,7 +234,6 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
                     };
                 } else {
                     let op_inner = pending_unary.remove(0);
-                    dbg!(&op_inner);
                     for operator in op_inner {
                         left = Expression::UnaryOperation {
                             operator,
@@ -246,7 +244,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
             }
         }
 
-        dbg!(left)
+        left
     }
 }
 
