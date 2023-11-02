@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Add, Div, Mul, Not, Rem, Sub},
+    ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -162,6 +162,18 @@ impl Rem for Value {
     fn rem(self, rhs: Self) -> Self::Output {
         if self.can_be_num() && rhs.can_be_num() {
             return Value::Number(f64::try_from(self).unwrap() % f64::try_from(rhs).unwrap());
+        }
+
+        unreachable!();
+    }
+}
+
+impl Neg for Value {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        if self.can_be_num() {
+            return Value::Number(-f64::try_from(self).unwrap());
         }
 
         unreachable!();

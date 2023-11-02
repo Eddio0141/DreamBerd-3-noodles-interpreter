@@ -192,6 +192,7 @@ impl<'a> Atom<'a> {
 #[derive(Debug)]
 pub enum UnaryOperator {
     Not,
+    Minus,
 }
 
 impl<'a> UnaryOperator {
@@ -200,22 +201,21 @@ impl<'a> UnaryOperator {
         right: &Expression<'a>,
         interpreter: &Interpreter<'a>,
     ) -> Result<Value, Error> {
-        match self {
-            UnaryOperator::Not => {
-                let value = right.eval(interpreter)?;
+        let value = match self {
+            UnaryOperator::Not => !right.eval(interpreter)?,
+            UnaryOperator::Minus => -right.eval(interpreter)?,
+        };
 
-                match self {
-                    UnaryOperator::Not => Ok(!value),
-                }
-            }
-        }
+        Ok(value)
     }
 }
 
 impl<'a> From<Pair<'a, Rule>> for UnaryOperator {
     fn from(value: Pair<'a, Rule>) -> Self {
+        let value = value.into_inner().next().unwrap();
         match value.as_rule() {
-            Rule::expr_unary => UnaryOperator::Not,
+            Rule::logical_unary_not => UnaryOperator::Not,
+            Rule::math_unary_minus => UnaryOperator::Minus,
             _ => unreachable!(),
         }
     }

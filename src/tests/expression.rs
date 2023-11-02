@@ -75,6 +75,9 @@ assert(2*3==6)!
 assert(6/2==3)!
 assert(6%2==0)!
 assert(6**2==36)!
+assert(-6*-2==6*2)!
+assert(--6==6)!
+assert(6--6==12)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -86,12 +89,14 @@ fn math_expr_order() {
     // 2 * 3 + 1 = 7
     // 2 * (3 + 1) = 8
     // 2 * (3 + (4 * 5)) + 6 = 52
+    // 2 * -(-3 + 4) - -5 + -(-6) = 9
     let code = r#"
 assert(1+1*2==3)!
 assert(1-1 * 2  == 0)!
 assert(2*3+1==7)!
 assert(2 *3+1  ==  8)!
 assert(2 * 3+ 4*5 + 6  ==52)!
+assert(2 * - -3+4 - -5 + - -6    == 9)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
