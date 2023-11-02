@@ -52,6 +52,12 @@ impl<'a> From<Atom<'a>> for Expression<'a> {
 impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
     fn from(value: Pair<'a, super::Rule>) -> Self {
         let mut value = value.into_inner();
+        let first = value.next().unwrap();
+
+        // check quick return
+        if value.peek().is_none() {
+            return Expression::atom_to_expression(first);
+        }
 
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
@@ -62,7 +68,7 @@ impl<'a> From<Pair<'a, super::Rule>> for Expression<'a> {
         // ws count and op
         let mut priorities = Vec::new();
         // atoms
-        let mut atoms = vec![value.next().unwrap()];
+        let mut atoms = vec![first];
         let mut last_ws = 0;
         let mut last_op = None;
         // let mut prev = None;
