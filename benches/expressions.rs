@@ -11,7 +11,7 @@ pub fn compare_expressions(c: &mut Criterion) {
                 .eval(black_box(
                     r#"
                 print 1 == 2!
-                print 1 != 2!
+                print 1 ;= 2!
                 print 1 < 2!
                 print 1 <= 2!
                 print 1 > 2!
