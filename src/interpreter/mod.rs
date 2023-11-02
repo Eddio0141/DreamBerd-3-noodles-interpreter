@@ -14,12 +14,15 @@ pub mod error;
 mod parser;
 pub mod runtime;
 
+/// The DreamBerd interpreter
 pub struct Interpreter<'a> {
     state: InterpreterState<'a>,
     stdout: RefCell<&'a mut dyn Write>,
 }
 
 impl<'a> Interpreter<'a> {
+    /// Evaluate the given code
+    /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &'a str) -> Result<(), self::error::Error> {
         let parsed = PestParser::parse(Rule::program, code).map_err(Box::new)?;
         let ast = Ast::parse(parsed);
@@ -49,6 +52,7 @@ impl<'a> InterpreterBuilder<'a> {
         Self { stdout }
     }
 
+    /// Build the interpreter
     pub fn build(self) -> Interpreter<'a> {
         Interpreter {
             stdout: RefCell::new(self.stdout),
