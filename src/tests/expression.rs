@@ -111,6 +111,33 @@ fn divide_by_zero() {
     Interpreter::new_eval(code).unwrap();
 }
 
+#[test]
+fn loose_comparison() {
+    // TODO object comparison
+    // TODO string comparison
+    // TODO float comparison
+    // TODO bigint comparison
+    // TODO symbol comparison
+    // TODO null and undefined comparison
+    // TODO object to primitive comparison, same type
+    // TODO bool to string comparison
+    // TODO number to string comparison
+    // TODO string to number comparison
+    // TODO number to bigint comparison
+    // TODO bigint to number comparison
+    // TODO string to bigint comparison
+    // TODO bigint to string comparison
+    let code = r#"
+assert(15 == 15)!
+assert(true == true)!
+assert(false == false)!
+assert(undefined == undefined)!
+assert(true == 1)!
+assert(false == 0)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
 // #[test]
 // fn undefined_comparisons() {
 //     let code = r#"
