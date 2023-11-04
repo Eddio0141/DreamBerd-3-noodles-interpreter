@@ -39,7 +39,7 @@ impl InterpreterState {
         &self,
         interpreter: &Interpreter<'_>,
         name: &str,
-        args: Vec<Value>,
+        args: Vec<&Value>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.funcs.borrow().iter().find_map(|func| func.0.get(name)) {
             return func.eval(interpreter, args);
@@ -61,7 +61,7 @@ impl InterpreterState {
             .borrow()
             .iter()
             .rev()
-            .find_map(|vars| vars.get_var(name).copied())
+            .find_map(|vars| vars.get_var(name).cloned())
     }
 
     pub fn set_var(&self, name: &str, value: Value) {
@@ -69,7 +69,7 @@ impl InterpreterState {
         let vars_iter = vars.iter_mut().rev();
 
         for vars in vars_iter {
-            if vars.set_var(name, value).is_some() {
+            if vars.set_var(name, &value).is_some() {
                 return;
             }
         }
@@ -100,9 +100,9 @@ impl VariableState {
         self.0.get(name)
     }
 
-    pub fn set_var(&mut self, name: &str, value: Value) -> Option<()> {
+    pub fn set_var(&mut self, name: &str, value: &Value) -> Option<()> {
         if let Some(var) = self.0.get_mut(name) {
-            *var = value;
+            *var = value.clone();
             Some(())
         } else {
             None
@@ -118,7 +118,7 @@ impl FunctionState {
         &self,
         name: &str,
         interpreter: &Interpreter,
-        args: Vec<Value>,
+        args: Vec<&Value>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.0.get(name) {
             return func.eval(interpreter, args);
@@ -131,11 +131,11 @@ impl FunctionState {
 #[derive(Debug)]
 pub enum FunctionVariant {
     Ast(Ast),
-    Native(fn(&Interpreter, Vec<Value>) -> Result<Value, Error>),
+    Native(fn(&Interpreter, Vec<&Value>) -> Result<Value, Error>),
 }
 
 impl FunctionVariant {
-    pub fn eval(&self, interpreter: &Interpreter<'_>, args: Vec<Value>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter<'_>, args: Vec<&Value>) -> Result<Value, Error> {
         match self {
             FunctionVariant::Ast(ast) => ast.eval(interpreter, false),
             FunctionVariant::Native(func) => func(interpreter, args),

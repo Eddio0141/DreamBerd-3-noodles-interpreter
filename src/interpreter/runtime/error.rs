@@ -8,4 +8,6 @@ pub enum Error {
     InvalidArgumentCount { expected: usize, got: usize },
     #[error("Runtime exception: {0}")]
     RuntimeException(String),
+    #[error("TypeError: {0}")]
+    Type(String),
 }

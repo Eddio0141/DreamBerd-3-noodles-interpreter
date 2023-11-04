@@ -270,12 +270,12 @@ impl Expression {
                     Operator::LessThanOrEqual => Value::Boolean(left <= right),
                     Operator::And => Value::Boolean(left.into() && right.into()),
                     Operator::Or => Value::Boolean(left.into() || right.into()),
-                    Operator::Add => left + right,
-                    Operator::Subtract => left - right,
-                    Operator::Multiply => left * right,
-                    Operator::Exponential => left.pow(right),
-                    Operator::Divide => left / right,
-                    Operator::Modulo => left % right,
+                    Operator::Add => (left + right)?,
+                    Operator::Subtract => (left - right)?,
+                    Operator::Multiply => (left * right)?,
+                    Operator::Exponential => left.pow(&right),
+                    Operator::Divide => (left / right)?,
+                    Operator::Modulo => (left % right)?,
                 };
 
                 Ok(value)
@@ -319,7 +319,7 @@ impl UnaryOperator {
     pub fn eval(&self, right: &Expression, interpreter: &Interpreter) -> Result<Value, Error> {
         let value = match self {
             UnaryOperator::Not => !right.eval(interpreter)?,
-            UnaryOperator::Minus => -right.eval(interpreter)?,
+            UnaryOperator::Minus => (-right.eval(interpreter)?)?,
         };
 
         Ok(value)

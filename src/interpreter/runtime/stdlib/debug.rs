@@ -3,7 +3,7 @@ use crate::{
     Interpreter,
 };
 
-pub fn assert(_interpreter: &Interpreter, args: Vec<Value>) -> Result<Value, Error> {
+pub fn assert(_interpreter: &Interpreter, args: Vec<&Value>) -> Result<Value, Error> {
     if args.len() != 1 {
         return Err(Error::InvalidArgumentCount {
             expected: 1,

@@ -44,13 +44,12 @@ impl From<Pair<'_, super::Rule>> for FunctionCall {
 
 impl FunctionCall {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
-        interpreter.state.invoke_func(
-            interpreter,
-            &self.name,
-            self.args
-                .iter()
-                .map(|arg| arg.eval(interpreter))
-                .collect::<Result<Vec<_>, _>>()?,
-        )
+        let mut args = Vec::new();
+        for arg in &self.args {
+            args.push(arg.eval(interpreter)?);
+        }
+        let args = args.iter().collect::<Vec<_>>();
+
+        interpreter.state.invoke_func(interpreter, &self.name, args)
     }
 }
