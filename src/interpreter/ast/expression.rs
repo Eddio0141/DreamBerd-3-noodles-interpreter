@@ -273,7 +273,7 @@ impl Expression {
                     Operator::Add => (left + right)?,
                     Operator::Subtract => (left - right)?,
                     Operator::Multiply => (left * right)?,
-                    Operator::Exponential => left.pow(&right),
+                    Operator::Exponential => left.pow(&right)?,
                     Operator::Divide => (left / right)?,
                     Operator::Modulo => (left % right)?,
                 };
