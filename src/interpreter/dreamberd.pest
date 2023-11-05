@@ -45,7 +45,8 @@ var_or_value_or_func = { identifier }
 var_or_string_or_func = ${ string_surround+ ~ (string_escape | string_char)* ~ string_surround+ }
 string_char           =  { !("\r" | "\n" | string_surround) ~ ANY }
 string_escape         =  { "\\" ~ ("\"" | "\'" | "\\" | "n") }
-string_surround       =  { "\"" | "\'" }
+// string_surround       =  { "\"" | "\'" }
+string_surround = { "\"" }
 
 identifier      = { identifier_char+ }
 identifier_char = { !(ws | term_char | expr_unary | expr_op) ~ ANY }
