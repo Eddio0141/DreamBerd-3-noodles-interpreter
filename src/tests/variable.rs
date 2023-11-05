@@ -78,6 +78,8 @@ fn name_string() {
 assert("a" === 1)!
 assert("b" ;== 1)!
 var var "b" = 1!
-assert("b" === 1)!"#;
+assert("b" === 1)!
+assert("a" === "b")!
+"#;
     Interpreter::new_eval(code).unwrap();
 }
