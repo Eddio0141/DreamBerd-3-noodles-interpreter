@@ -42,7 +42,7 @@ math_mod          = { "%" }
 var_or_value_or_func = { identifier }
 
 // because we can define stuff with the same name as a string
-var_or_string_or_func = ${ string_surround+ ~ (string_char | string_escape)* ~ string_surround+ }
+var_or_string_or_func = ${ string_surround+ ~ (string_escape | string_char)* ~ string_surround+ }
 string_char           =  { !("\r" | "\n" | string_surround) ~ ANY }
 string_escape         =  { "\\" ~ ("\"" | "\'" | "\\" | "n") }
 string_surround       =  { "\"" | "\'" }
