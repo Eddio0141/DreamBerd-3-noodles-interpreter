@@ -144,10 +144,28 @@ fn comp_less_than() {
     // TODO string comparison
     // TODO compare with bigint
     // TODO compare with null
+    // TODO symbol comparison
+    // TODO float comparison
     let code = r#"
 assert true < 2!
 assert false < 1!
 assert undefined < 1 == false!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn comp_strict() {
+    // TODO null and null comparison
+    // TODO null and undefined comparison
+    // TODO test NaN comparison
+    // TODO float comparison
+    // TODO string comparison
+    let code = r#"
+assert(1 === 1)!
+assert(true === 1 == false)!
+assert(false === 0 == false)!
+assert(undefined === undefined)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }

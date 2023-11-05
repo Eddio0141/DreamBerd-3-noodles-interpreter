@@ -263,6 +263,7 @@ impl Expression {
 
                 let value = match operator {
                     Operator::Equal => Value::Boolean(left == right),
+                    Operator::StrictEqual => Value::Boolean(left.strict_eq(&right)),
                     Operator::NotEqual => Value::Boolean(left != right),
                     Operator::GreaterThan => Value::Boolean(left > right),
                     Operator::GreaterThanOrEqual => Value::Boolean(left >= right),
@@ -341,6 +342,7 @@ impl From<Pair<'_, Rule>> for UnaryOperator {
 pub enum Operator {
     // comparison
     Equal,
+    StrictEqual,
     NotEqual,
     GreaterThan,
     GreaterThanOrEqual,
@@ -375,6 +377,7 @@ impl From<Pair<'_, Rule>> for Operator {
             Rule::math_exp => Operator::Exponential,
             Rule::math_div => Operator::Divide,
             Rule::math_mod => Operator::Modulo,
+            Rule::comp_strict_eq => Operator::StrictEqual,
             _ => unreachable!(),
         }
     }
@@ -383,7 +386,8 @@ impl From<Pair<'_, Rule>> for Operator {
 impl From<Operator> for usize {
     fn from(value: Operator) -> Self {
         match value {
-            Operator::Equal => 0usize,
+            Operator::Equal => 0,
+            Operator::StrictEqual => 0,
             Operator::NotEqual => 0,
             Operator::GreaterThan => 0,
             Operator::GreaterThanOrEqual => 0,

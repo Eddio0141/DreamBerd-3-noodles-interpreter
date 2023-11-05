@@ -37,14 +37,38 @@ impl Value {
         std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 
-    // fn strict_eq(&self, other: &Self) -> bool {
-    //     // different type means not equal
-    //     if !self.same_type(other) {
-    //         return false;
-    //     }
+    pub fn strict_eq(&self, other: &Self) -> bool {
+        // different type means not equal
+        if !self.same_type(other) {
+            return false;
+        }
 
-    //     todo!()
-    // }
+        match self {
+            Value::Number(value) => *value == f64::try_from(other).unwrap(),
+            Value::Boolean(value) => *value == other.into(),
+            Value::Undefined => {
+                matches!(other, Value::Undefined) || matches!(other, Value::Object(None))
+            }
+            Value::BigInt(value) => *value == BigInt::try_from(other).unwrap(),
+            Value::String(value) => value == <&Value as Into<&String>>::into(other),
+            Value::Symbol(value) => value == <&Value as Into<&Symbol>>::into(other),
+            Value::Object(value) => {
+                let other = if let Value::Object(other) = other {
+                    other
+                } else {
+                    unreachable!()
+                };
+
+                match value {
+                    Some(value) => match other {
+                        Some(other) => Rc::ptr_eq(value, other), // check reference
+                        None => false,
+                    },
+                    None => other.is_none(),
+                }
+            }
+        }
+    }
 
     fn is_primitive(&self) -> bool {
         !matches!(self, Value::Object(_))
@@ -55,7 +79,7 @@ impl Value {
         match self {
             Value::Number(value) => value == &f64::try_from(other).unwrap(),
             Value::Boolean(value) => value == &bool::from(other),
-            Value::BigInt(value) => value == &BigInt::try_from(other).unwrap(),
+            Value::BigInt(value) => *value == BigInt::try_from(other).unwrap(),
             Value::String(value) => *value == other.to_string(),
             Value::Undefined => {
                 matches!(other, Value::Undefined) || matches!(other, Value::Object(None))
@@ -220,6 +244,16 @@ impl Display for Value {
                 }
             ),
             Value::Symbol(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+impl<'a> From<&'a Value> for &'a String {
+    fn from(value: &'a Value) -> Self {
+        if let Value::String(value) = value {
+            value
+        } else {
+            unreachable!()
         }
     }
 }
@@ -453,5 +487,21 @@ impl Display for Symbol {
                 None => "",
             }
         )
+    }
+}
+
+impl PartialEq for Symbol {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<'a> From<&'a Value> for &'a Symbol {
+    fn from(value: &'a Value) -> Self {
+        if let Value::Symbol(value) = value {
+            value
+        } else {
+            unreachable!()
+        }
     }
 }

@@ -17,12 +17,13 @@ func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 expression = ${ expr_atom ~ (ws* ~ expr_op ~ ws* ~ expr_atom)* }
 expr_unary =  { logical_unary_not | math_unary_minus }
 expr_atom  =  { (expr_unary ~ ws*)* ~ ws* ~ (var_or_value_or_func | func_call) }
-expr_op    = _{ comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt | logical_and | logical_or | math_add | math_sub | math_exp | math_mul | math_div | math_mod }
+expr_op    = _{ comp_strict_eq | comp_eq | comp_ne | comp_le | comp_ge | comp_lt | comp_gt | logical_and | logical_or | math_add | math_sub | math_exp | math_mul | math_div | math_mod }
 // the different types of operators
 logical_unary_not = { ";" }
 logical_and       = { "&&" }
 logical_or        = { "||" }
 comp_eq           = { "==" }
+comp_strict_eq    = { "===" }
 comp_ne           = { ";=" }
 comp_le           = { "<=" }
 comp_ge           = { ">=" }
