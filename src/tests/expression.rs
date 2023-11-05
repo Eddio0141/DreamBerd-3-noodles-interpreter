@@ -138,9 +138,16 @@ assert(false == 0)!
     Interpreter::new_eval(code).unwrap();
 }
 
-// #[test]
-// fn undefined_comparisons() {
-//     let code = r#"
-// assert(undefined == undefined)!"#;
-//     Interpreter::new_eval(code).unwrap();
-// }
+#[test]
+fn comp_less_than() {
+    // TODO object comparison [@@toPrimitive](), valueOf(), toString()
+    // TODO string comparison
+    // TODO compare with bigint
+    // TODO compare with null
+    let code = r#"
+assert true < 2!
+assert false < 1!
+assert undefined < 1 == false!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}

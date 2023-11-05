@@ -155,7 +155,51 @@ impl PartialEq for Value {
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        todo!()
+        // TODO object to primitive, [@@toPrimitive]() with "number", valueOf(), toString()
+        let left = if self.is_primitive() {
+            self
+        } else {
+            return None;
+        };
+
+        let other = if other.is_primitive() {
+            other
+        } else {
+            return None;
+        };
+
+        if let Value::String(left) = left {
+            if let Value::String(right) = other {
+                // both is string, compare lexicographically
+                return Some(left.cmp(right));
+            }
+        }
+
+        let left_bigint;
+        let left = if let Value::BigInt(left) = left {
+            left
+        } else {
+            let left = f64::try_from(left).unwrap_or(f64::NAN);
+            if left.is_nan() {
+                return None;
+            }
+            left_bigint = BigInt::from_f64(left).unwrap();
+            &left_bigint
+        };
+
+        let other_bigint;
+        let other = if let Value::BigInt(other) = other {
+            other
+        } else {
+            let other = f64::try_from(other).unwrap_or(f64::NAN);
+            if other.is_nan() {
+                return None;
+            }
+            other_bigint = BigInt::from_f64(other).unwrap();
+            &other_bigint
+        };
+
+        Some(left.cmp(other))
     }
 }
 
@@ -273,7 +317,6 @@ impl TryFrom<&Value> for BigInt {
                     "Cannot convert undefined to BigInt".to_string(),
                 ))
             }
-            // TODO expensive
             Value::BigInt(value) => value.clone(),
             Value::String(value) => value
                 .parse()
