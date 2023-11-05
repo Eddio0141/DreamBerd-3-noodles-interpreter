@@ -169,3 +169,19 @@ assert(undefined === undefined)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn comp_strict_neg() {
+    // TODO null and null comparison
+    // TODO null and undefined comparison
+    // TODO test NaN comparison
+    // TODO float comparison
+    // TODO string comparison
+    let code = r#"
+assert(1 ;== 1 == false)!
+assert(true ;== 1)!
+assert(false ;== 0)!
+assert(undefined ;== undefined == false)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}

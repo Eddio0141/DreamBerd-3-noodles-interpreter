@@ -265,6 +265,7 @@ impl Expression {
                     Operator::Equal => Value::Boolean(left == right),
                     Operator::StrictEqual => Value::Boolean(left.strict_eq(&right)),
                     Operator::NotEqual => Value::Boolean(left != right),
+                    Operator::StrictNotEqual => Value::Boolean(!left.strict_eq(&right)),
                     Operator::GreaterThan => Value::Boolean(left > right),
                     Operator::GreaterThanOrEqual => Value::Boolean(left >= right),
                     Operator::LessThan => Value::Boolean(left < right),
@@ -344,6 +345,7 @@ pub enum Operator {
     Equal,
     StrictEqual,
     NotEqual,
+    StrictNotEqual,
     GreaterThan,
     GreaterThanOrEqual,
     LessThan,
@@ -364,7 +366,9 @@ impl From<Pair<'_, Rule>> for Operator {
     fn from(value: Pair<'_, Rule>) -> Self {
         match value.as_rule() {
             Rule::comp_eq => Operator::Equal,
+            Rule::comp_strict_eq => Operator::StrictEqual,
             Rule::comp_ne => Operator::NotEqual,
+            Rule::comp_strict_ne => Operator::StrictNotEqual,
             Rule::comp_gt => Operator::GreaterThan,
             Rule::comp_ge => Operator::GreaterThanOrEqual,
             Rule::comp_lt => Operator::LessThan,
@@ -377,7 +381,6 @@ impl From<Pair<'_, Rule>> for Operator {
             Rule::math_exp => Operator::Exponential,
             Rule::math_div => Operator::Divide,
             Rule::math_mod => Operator::Modulo,
-            Rule::comp_strict_eq => Operator::StrictEqual,
             _ => unreachable!(),
         }
     }
@@ -389,6 +392,7 @@ impl From<Operator> for usize {
             Operator::Equal => 0,
             Operator::StrictEqual => 0,
             Operator::NotEqual => 0,
+            Operator::StrictNotEqual => 0,
             Operator::GreaterThan => 0,
             Operator::GreaterThanOrEqual => 0,
             Operator::LessThan => 0,
