@@ -7,14 +7,19 @@ use crate::{
 
 use super::state::FunctionVariant;
 
-pub mod debug;
-pub mod stdio;
+mod debug;
+mod info;
+mod stdio;
 
 pub fn load(interpreter: &Interpreter) {
     type Func = fn(&Interpreter<'_>, Vec<&Value>) -> Result<Value, Error>;
 
     // funcs
-    let funcs: Vec<(_, Func)> = vec![("assert", debug::assert), ("print", stdio::print)];
+    let funcs: Vec<(_, Func)> = vec![
+        ("assert", debug::assert),
+        ("print", stdio::print),
+        ("typeof", info::get_typeof),
+    ];
 
     for func in funcs {
         let (name, func) = func;
@@ -24,5 +29,12 @@ pub fn load(interpreter: &Interpreter) {
     }
 
     // vars
-    interpreter.state.add_var("undefined", Value::Undefined);
+    let vars = vec![
+        ("undefined", Value::Undefined),
+        ("null", Value::Object(None)),
+    ];
+
+    for (name, value) in vars {
+        interpreter.state.add_var(name, value);
+    }
 }
