@@ -1,6 +1,6 @@
-use std::io::Cursor;
+use crate::Interpreter;
 
-use crate::{interpreter::InterpreterBuilder, Interpreter};
+use super::interpreter_test_output;
 
 #[test]
 fn assert_success() {
@@ -16,9 +16,5 @@ fn assert_fail() {
 
 #[test]
 fn print() {
-    let code = "print 1!";
-    let mut buffer = Cursor::new(Vec::new());
-    let interpreter = InterpreterBuilder::with_stdout(&mut buffer).build();
-    interpreter.eval(code).unwrap();
-    assert_eq!(buffer.get_ref(), b"1\n");
+    interpreter_test_output("print 1!", "1\n");
 }

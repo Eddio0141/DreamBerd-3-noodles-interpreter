@@ -16,7 +16,7 @@ func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
 // instead of brackets to define precedence, we combined number of whitespaces from the operator to the operands to define precedence
 expression = ${ expr_atom ~ (ws* ~ expr_op ~ ws* ~ expr_atom)* }
 expr_unary =  { logical_unary_not | math_unary_minus }
-expr_atom  =  { (expr_unary ~ ws*)* ~ ws* ~ (var_or_value_or_func | func_call) }
+expr_atom  =  { (expr_unary ~ ws*)* ~ ws* ~ (var_or_string_or_func | var_or_value_or_func | func_call) }
 expr_op    = _{ comp_strict_eq | comp_eq | comp_strict_ne | comp_ne | comp_le | comp_ge | comp_lt | comp_gt | logical_and | logical_or | math_add | math_sub | math_exp | math_mul | math_div | math_mod }
 // the different types of operators
 logical_unary_not = { ";" }
@@ -40,6 +40,12 @@ math_mod          = { "%" }
 
 // because we can define a variable with the same name as an integer, and we also can't tell if its a function without arguments
 var_or_value_or_func = { identifier }
+
+// because we can define stuff with the same name as a string
+var_or_string_or_func = ${ string_surround+ ~ (string_char | string_escape)* ~ string_surround+ }
+string_char           =  { !("\r" | "\n" | string_surround) ~ ANY }
+string_escape         =  { "\\" ~ ("\"" | "\'" | "\\" | "n") }
+string_surround       =  { "\"" | "\'" }
 
 identifier      = { identifier_char+ }
 identifier_char = { !(ws | term_char | expr_unary | expr_op) ~ ANY }

@@ -6,7 +6,7 @@ use pest::iterators::Pair;
 
 use super::function::FunctionCall;
 use super::runtime::value::Value;
-use super::uncertain::UncertainExpr;
+use super::uncertain::*;
 use super::Rule;
 
 #[derive(Debug)]
@@ -289,6 +289,7 @@ impl Expression {
 #[derive(Debug)]
 pub enum Atom {
     UncertainExpr(UncertainExpr),
+    UncertainString(UncertainString),
     FunctionCall(FunctionCall),
 }
 
@@ -296,6 +297,7 @@ impl From<Pair<'_, Rule>> for Atom {
     fn from(value: Pair<'_, Rule>) -> Self {
         match value.as_rule() {
             Rule::var_or_value_or_func => Atom::UncertainExpr(value.into()),
+            Rule::var_or_string_or_func => Atom::UncertainString(value.into()),
             Rule::func_call => Atom::FunctionCall(value.into()),
             _ => unreachable!(),
         }
@@ -305,7 +307,8 @@ impl From<Pair<'_, Rule>> for Atom {
 impl Atom {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         match self {
-            Atom::UncertainExpr(expr) => expr.eval(interpreter),
+            Atom::UncertainExpr(expr) => Ok(expr.eval(interpreter)),
+            Atom::UncertainString(expr) => Ok(expr.eval(interpreter)),
             Atom::FunctionCall(expr) => expr.eval(interpreter),
         }
     }
