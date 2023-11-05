@@ -13,6 +13,7 @@ pub mod stdio;
 pub fn load(interpreter: &Interpreter) {
     type Func = fn(&Interpreter<'_>, Vec<&Value>) -> Result<Value, Error>;
 
+    // funcs
     let funcs: Vec<(_, Func)> = vec![("assert", debug::assert), ("print", stdio::print)];
 
     for func in funcs {
@@ -21,4 +22,7 @@ pub fn load(interpreter: &Interpreter) {
             .state
             .add_func(name, FunctionVariant::Native(func));
     }
+
+    // vars
+    interpreter.state.add_var("undefined", Value::Undefined);
 }

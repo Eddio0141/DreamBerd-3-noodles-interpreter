@@ -48,7 +48,7 @@ impl InterpreterState {
         Err(Error::FunctionNotFound(name.to_string()))
     }
 
-    pub fn declare_var(&self, name: &str, value: Value) {
+    pub fn add_var(&self, name: &str, value: Value) {
         self.vars
             .borrow_mut()
             .last_mut()

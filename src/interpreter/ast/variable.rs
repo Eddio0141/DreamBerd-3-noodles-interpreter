@@ -36,7 +36,7 @@ impl From<Pair<'_, Rule>> for VariableDecl {
 impl VariableDecl {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.declare_var(&self.name, value);
+        interpreter.state.add_var(&self.name, value);
 
         Ok(())
     }
