@@ -71,3 +71,12 @@ fn assign_non_existant() {
 assert(a == 1)!"#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn name_string() {
+    let code = r#"var var "a" = 1!
+assert("a" === 1)!
+assert("b" ;== 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
