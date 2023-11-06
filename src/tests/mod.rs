@@ -1,6 +1,7 @@
 use crate::InterpreterBuilder;
 
 mod expression;
+mod function;
 mod stdlib;
 mod syntax;
 mod variable;

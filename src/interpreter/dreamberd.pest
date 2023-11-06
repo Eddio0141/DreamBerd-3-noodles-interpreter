@@ -1,16 +1,28 @@
 // represents the whole program
 program = { SOI ~ statement* ~ EOI }
 // statements can be either have a terminator or not, depending on what you doing
-statement           = { statement_with_term }
+statement           = { statement_without_term | statement_with_term }
 statement_with_term = { (var_var | var_set | func_call) ~ term }
+// function definition can have a scope block or an expression so it may or may not have a terminator
+statement_without_term = { scope_block | func_def }
 
 term      = { term_char+ }
 term_char = { "!" }
 
+scope_block = { "{" ~ statement* ~ "}" }
+
+func_def = ${ func_start ~ ws+ ~ identifier ~ (ws+ ~ func_args? | ws+) ~ arrow ~ ws* ~ (scope_block | (expression ~ term)) }
+// as long as any letter in function is used in order
+func_start = ${ &("f" | "u" | "n" | "c" | "t" | "i" | "o" | "n") ~ "f"? ~ "u"? ~ "n"? ~ "c"? ~ "t"? ~ "i"? ~ "o"? ~ "n"? }
+func_args  = !{ identifier ~ (comma ~ identifier)* }
+
+arrow = _{ "=>" }
+comma = _{ "," }
+
 var_var        = ${ "var" ~ ws+ ~ "var" ~ ws+ ~ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
 var_set        = ${ identifier ~ ws+ ~ "=" ~ ws+ ~ expression }
 func_call      = ${ identifier ~ func_call_args? }
-func_call_args = ${ ws+ ~ expression ~ (ws* ~ "," ~ ws* ~ expression)* }
+func_call_args = ${ ws+ ~ expression ~ (ws* ~ comma ~ ws* ~ expression)* }
 
 // contains all the different types of expressions
 // instead of brackets to define precedence, we combined number of whitespaces from the operator to the operands to define precedence
@@ -49,7 +61,7 @@ string_escape         =  { "\\" ~ ("\"" | "\'" | "\\" | "n") }
 string_surround = { "\"" }
 
 identifier      = { identifier_char+ }
-identifier_char = { !(ws | term_char | expr_unary | expr_op) ~ ANY }
+identifier_char = { !(ws | term_char | expr_unary | expr_op | arrow | comma) ~ ANY }
 
 ws         =  { " " | "\t" | "\n" | "\r" | "(" | ")" }
 WHITESPACE = _{ ws }

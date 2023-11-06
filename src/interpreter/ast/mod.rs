@@ -36,13 +36,15 @@ impl Ast {
 
             // now should be in a statement
             let mut statement = statement.into_inner().next().unwrap().into_inner();
-            let (statement, _) = (statement.next().unwrap(), statement.next().unwrap());
+            let statement = statement.next().unwrap();
 
             // process it
             let parsed = match statement.as_rule() {
                 Rule::var_var => Statement::VariableDecl(statement.into()),
                 Rule::func_call => Statement::FunctionCall(statement.into()),
                 Rule::var_set => Statement::VarSet(statement.into()),
+                Rule::func_def => Statement::FunctionCall(statement.into()),
+                Rule::scope_block => Statement::ScopeBlock(Ast::parse(statement.into_inner())),
                 _ => unreachable!(),
             };
 
@@ -80,6 +82,7 @@ impl Ast {
 /// Single statement that does something
 pub enum Statement {
     FunctionCall(FunctionCall),
+    ScopeBlock(Ast),
     VariableDecl(VariableDecl),
     VarSet(VarSet),
 }
@@ -91,6 +94,7 @@ impl Statement {
             Statement::FunctionCall(function) => function.eval(interpreter).map(|_| None),
             Statement::VariableDecl(decl) => decl.eval(interpreter).map(|_| None),
             Statement::VarSet(var_set) => var_set.eval(interpreter).map(|_| None),
+            Statement::ScopeBlock(ast) => ast.eval(interpreter, false).map(|_| None),
         }
     }
 }
