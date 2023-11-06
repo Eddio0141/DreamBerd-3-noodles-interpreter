@@ -8,7 +8,7 @@ use crate::Interpreter;
 use super::expression::Expression;
 use super::Rule;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Declared variable
 pub struct VariableDecl {
     name: String,
@@ -42,7 +42,7 @@ impl VariableDecl {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarSet {
     name: String,
     expression: Expression,

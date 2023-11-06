@@ -11,9 +11,9 @@ term_char = { "!" }
 
 scope_block = { "{" ~ statement* ~ "}" }
 
-func_def = ${ func_start ~ ws+ ~ identifier ~ (ws+ ~ func_args? | ws+) ~ arrow ~ ws* ~ (scope_block | (expression ~ term)) }
+func_def = ${ func_start ~ ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term)) }
 // as long as any letter in function is used in order
-func_start = ${ &("f" | "u" | "n" | "c" | "t" | "i" | "o" | "n") ~ "f"? ~ "u"? ~ "n"? ~ "c"? ~ "t"? ~ "i"? ~ "o"? ~ "n"? }
+func_start = _{ &("f" | "u" | "n" | "c" | "t" | "i" | "o" | "n") ~ "f"? ~ "u"? ~ "n"? ~ "c"? ~ "t"? ~ "i"? ~ "o"? ~ "n"? }
 func_args  = !{ identifier ~ (comma ~ identifier)* }
 
 arrow = _{ "=>" }
@@ -63,5 +63,6 @@ string_surround = { "\"" }
 identifier      = { identifier_char+ }
 identifier_char = { !(ws | term_char | expr_unary | expr_op | arrow | comma) ~ ANY }
 
+ws_silent  = _{ " " | "\t" | "\n" | "\r" | "(" | ")" }
 ws         =  { " " | "\t" | "\n" | "\r" | "(" | ")" }
 WHITESPACE = _{ ws }

@@ -9,7 +9,7 @@ use super::runtime::value::Value;
 use super::uncertain::*;
 use super::Rule;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Expression that can be evaluated
 pub enum Expression {
     Atom(Atom),
@@ -286,7 +286,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Atom {
     UncertainExpr(UncertainExpr),
     UncertainString(UncertainString),

@@ -5,7 +5,7 @@ use crate::{interpreter::runtime::value::Value, Interpreter};
 use super::Rule;
 use pest::iterators::Pair;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Either a variable, or a value, or a function call
 pub struct UncertainExpr {
     identifier: String,
@@ -48,7 +48,7 @@ impl UncertainExpr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Either a variable, or a string, or a function call
 pub struct UncertainString {
     value: String,

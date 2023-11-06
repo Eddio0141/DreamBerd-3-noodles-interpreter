@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use crate::{interpreter::ast::Ast, Interpreter};
+use crate::{
+    interpreter::ast::{self, function::FunctionDef},
+    Interpreter,
+};
 
 use super::{error::Error, value::Value};
 
@@ -78,7 +81,7 @@ impl InterpreterState {
         vars.last_mut().unwrap().declare_var(name, value);
     }
 
-    pub fn add_func(&self, name: &str, func: FunctionVariant) {
+    pub fn add_func(&self, name: &str, func: Function) {
         self.funcs
             .borrow_mut()
             .last_mut()
@@ -111,34 +114,49 @@ impl VariableState {
 }
 
 #[derive(Debug, Default)]
-pub struct FunctionState(pub HashMap<String, FunctionVariant>);
+pub struct FunctionState(pub HashMap<String, Function>);
 
-impl FunctionState {
-    pub fn invoke_func(
-        &self,
-        name: &str,
-        interpreter: &Interpreter,
-        args: Vec<&Value>,
-    ) -> Result<Value, Error> {
-        if let Some(func) = self.0.get(name) {
-            return func.eval(interpreter, args);
+#[derive(Debug)]
+pub struct Function {
+    args: Vec<String>,
+    variant: FunctionVariant,
+}
+
+impl Function {
+    pub fn new_native(
+        arg_count: usize,
+        func: fn(&Interpreter, Vec<&Value>) -> Result<Value, Error>,
+    ) -> Self {
+        Self {
+            args: Vec::new(),
+            variant: FunctionVariant::Native(func),
         }
+    }
 
-        Err(Error::FunctionNotFound(name.to_string()))
+    pub fn eval(&self, interpreter: &Interpreter, args: Vec<&Value>) -> Result<Value, Error> {
+        match &self.variant {
+            FunctionVariant::FunctionDefined(func) => func.eval(
+                interpreter,
+                self.args.iter().map(|s| s as &str).collect::<Vec<_>>(),
+                args,
+            ),
+            FunctionVariant::Native(func) => func(interpreter, args),
+        }
+    }
+}
+
+impl From<&FunctionDef> for Function {
+    fn from(value: &FunctionDef) -> Self {
+        Self {
+            args: value.args.clone(),
+            // TODO make this borrow
+            variant: FunctionVariant::FunctionDefined(value.body.to_owned()),
+        }
     }
 }
 
 #[derive(Debug)]
 pub enum FunctionVariant {
-    Ast(Ast),
+    FunctionDefined(ast::function::FunctionVariant),
     Native(fn(&Interpreter, Vec<&Value>) -> Result<Value, Error>),
-}
-
-impl FunctionVariant {
-    pub fn eval(&self, interpreter: &Interpreter<'_>, args: Vec<&Value>) -> Result<Value, Error> {
-        match self {
-            FunctionVariant::Ast(ast) => ast.eval(interpreter, false),
-            FunctionVariant::Native(func) => func(interpreter, args),
-        }
-    }
 }

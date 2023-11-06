@@ -5,7 +5,7 @@ use crate::{
     Interpreter,
 };
 
-use super::state::FunctionVariant;
+use super::state::Function;
 
 mod debug;
 mod info;
@@ -15,17 +15,17 @@ pub fn load(interpreter: &Interpreter) {
     type Func = fn(&Interpreter<'_>, Vec<&Value>) -> Result<Value, Error>;
 
     // funcs
-    let funcs: Vec<(_, Func)> = vec![
-        ("assert", debug::assert),
-        ("print", stdio::print),
-        ("typeof", info::get_typeof),
+    let funcs: Vec<(_, _, Func)> = vec![
+        ("assert", 1, debug::assert),
+        ("print", 1, stdio::print),
+        ("typeof", 1, info::get_typeof),
     ];
 
     for func in funcs {
-        let (name, func) = func;
+        let (name, arg_count, func) = func;
         interpreter
             .state
-            .add_func(name, FunctionVariant::Native(func));
+            .add_func(name, Function::new_native(arg_count, func));
     }
 
     // vars

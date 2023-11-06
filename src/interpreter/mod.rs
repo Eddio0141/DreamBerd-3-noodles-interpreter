@@ -25,8 +25,8 @@ impl Interpreter<'_> {
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
         let parsed = PestParser::parse(Rule::program, code).map_err(Box::new)?;
-        let ast = Ast::parse(parsed);
-        ast.eval(self, true)?;
+        let ast = Ast::from(parsed);
+        ast.eval_global(self)?;
         Ok(())
     }
 
