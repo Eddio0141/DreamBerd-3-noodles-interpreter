@@ -64,7 +64,7 @@ pub struct FunctionDef {
 
 impl From<Pair<'_, Rule>> for FunctionDef {
     fn from(value: Pair<'_, Rule>) -> Self {
-        let mut value = dbg!(value).into_inner();
+        let mut value = value.into_inner();
 
         let name = value.next().unwrap().as_str().to_string();
         let next = value.next().unwrap();
@@ -82,7 +82,7 @@ impl From<Pair<'_, Rule>> for FunctionDef {
             (Vec::new(), next)
         };
 
-        let body = match dbg!(&next).as_rule() {
+        let body = match next.as_rule() {
             Rule::scope_block => FunctionVariant::Ast(next.into_inner().into()),
             Rule::expression => FunctionVariant::Expression(next.into()),
             _ => unreachable!("Unexpected rule: {:?}", next.as_rule()),

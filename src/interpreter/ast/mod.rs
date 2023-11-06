@@ -110,7 +110,7 @@ impl From<Pairs<'_, Rule>> for Ast {
             };
 
             // process it
-            let parsed = match dbg!(&statement).as_rule() {
+            let parsed = match statement.as_rule() {
                 Rule::var_var => Statement::VariableDecl(statement.into()),
                 Rule::func_call => Statement::FunctionCall(statement.into()),
                 Rule::var_set => Statement::VarSet(statement.into()),
