@@ -55,3 +55,13 @@ fn string_escape_chars() {
     let code = r#"print "\' \" \\ \n"!"#;
     interpreter_test_output(code, "\' \" \\ \n\n");
 }
+
+#[test]
+fn function_missing_order() {
+    let code = r#"union a() => 1!
+fn b() => 2!
+n c() => 3!
+fnto d() => 4!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
