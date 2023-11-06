@@ -35,8 +35,13 @@ impl Ast {
             }
 
             // now should be in a statement
-            let mut statement = statement.into_inner().next().unwrap().into_inner();
-            let statement = statement.next().unwrap();
+            let statement = statement.into_inner().next().unwrap();
+            let statement = match statement.as_rule() {
+                Rule::statement_with_term | Rule::statement_without_term => {
+                    statement.into_inner().next().unwrap()
+                }
+                _ => statement,
+            };
 
             // process it
             let parsed = match statement.as_rule() {
@@ -45,7 +50,7 @@ impl Ast {
                 Rule::var_set => Statement::VarSet(statement.into()),
                 Rule::func_def => Statement::FunctionCall(statement.into()),
                 Rule::scope_block => Statement::ScopeBlock(Ast::parse(statement.into_inner())),
-                _ => unreachable!(),
+                _ => unreachable!("Unexpected rule: {:?}", statement.as_rule()),
             };
 
             statements.push(parsed);
