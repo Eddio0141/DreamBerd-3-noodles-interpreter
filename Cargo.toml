@@ -10,17 +10,21 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.75"
-clap = {version = "4.4.7", features = ["derive"]}
+anyhow = {version = "1.0.75", optional = true}
+clap = {version = "4.4.7", features = ["derive"], optional = true}
 num-bigint = "0.4.4"
 num-traits = "0.2.17"
 pest = "2.7.5"
 pest_derive = "2.7.5"
 thiserror = "1.0.50"
 
+[features]
+bin = ["dep:anyhow", "dep:clap"]
+
 [[bin]]
 filename = "noodles"
 name = "dreamberd_noodles_interpreter"
+required-features = ["bin"]
 
 [dev-dependencies]
 criterion = {version = "0.5.1", features = ["html_reports"]}
