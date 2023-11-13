@@ -2,7 +2,6 @@
 
 use crate::{interpreter::runtime::value::Value, Interpreter};
 
-use super::Rule;
 use pest::iterators::Pair;
 
 #[derive(Debug, Clone)]

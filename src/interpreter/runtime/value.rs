@@ -45,7 +45,7 @@ impl Value {
 
         match self {
             Value::Number(value) => *value == f64::try_from(other).unwrap(),
-            Value::Boolean(value) => *value == other.into(),
+            Value::Boolean(value) => *value == <&Value as Into<bool>>::into(other),
             Value::Undefined => {
                 matches!(other, Value::Undefined) || matches!(other, Value::Object(None))
             }

@@ -1,12 +1,15 @@
 //! Contains variable related structures
 
+use nom::IResult;
+use nom::bytes::complete::tag;
 use pest::iterators::Pair;
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
 
+use super::parsers::ws;
+use super::{ParserInput, Statement};
 use super::expression::Expression;
-use super::Rule;
 
 #[derive(Debug, Clone)]
 /// Declared variable
@@ -39,6 +42,13 @@ impl VariableDecl {
         interpreter.state.add_var(&self.name, value);
 
         Ok(())
+    }
+
+    pub fn parse(input: ParserInput) -> IResult<ParserInput, Statement> {
+        let funcs = input.static_analysis.current_funcs();
+
+        let var = tag("var");
+        let ws = ws();
     }
 }
 

@@ -1,18 +1,15 @@
 use std::{cell::RefCell, io::Write};
 
-use pest::Parser;
-
-use crate::interpreter::ast::Ast;
-
 use self::{
-    parser::{PestParser, Rule},
+    ast::Ast,
     runtime::{state::InterpreterState, stdlib},
 };
 
 mod ast;
 pub mod error;
-mod parser;
+pub mod parsers;
 mod runtime;
+mod static_analysis;
 
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
@@ -24,8 +21,7 @@ impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
-        let parsed = PestParser::parse(Rule::program, code).map_err(Box::new)?;
-        let ast = Ast::from(parsed);
+        let ast = Ast::parse(code, None);
         ast.eval_global(self)?;
         Ok(())
     }

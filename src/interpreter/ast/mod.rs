@@ -1,19 +1,23 @@
-use pest::iterators::Pairs;
+use std::collections::{HashMap, LinkedList};
 
-use crate::Interpreter;
+use nom::{branch::alt, combinator::map, multi::many0, IResult, InputLength};
+
+use crate::{interpreter::static_analysis::Analysis, Interpreter};
 
 use self::{
+    expression::Expression,
     function::{FunctionCall, FunctionDef},
     variable::*,
 };
 
 use super::{
-    parser::Rule,
     runtime::{self, error::Error, state::InterpreterState, value::Value},
+    static_analysis::{FunctionInfo, Scope},
 };
 
 mod expression;
 pub mod function;
+mod parsers;
 mod uncertain;
 mod variable;
 
@@ -83,50 +87,35 @@ impl Ast {
         // function calls return undefined if they don't return anything
         Ok(ret_value.unwrap_or(Value::Undefined))
     }
-}
 
-impl From<Pairs<'_, Rule>> for Ast {
-    /// Parse a pest parse tree into an AST
-    fn from(mut value: Pairs<'_, Rule>) -> Self {
-        // program rule
-        let pairs = value.next().unwrap().into_inner();
-
-        let mut statements = Vec::new();
-        let mut funcs = Vec::new();
-
-        for statement in pairs {
-            // end of input check
-            if statement.as_rule() == Rule::EOI {
-                break;
-            }
-
-            // now should be in a statement
-            let statement = statement.into_inner().next().unwrap();
-            let statement = match statement.as_rule() {
-                Rule::statement_with_term | Rule::statement_without_term => {
-                    statement.into_inner().next().unwrap()
-                }
-                _ => statement,
-            };
-
-            // process it
-            let parsed = match statement.as_rule() {
-                Rule::var_var => Statement::VariableDecl(statement.into()),
-                Rule::func_call => Statement::FunctionCall(statement.into()),
-                Rule::var_set => Statement::VarSet(statement.into()),
-                Rule::func_def => {
-                    //
-                    funcs.insert(0, statement.into());
-                    continue;
-                }
-                Rule::scope_block => Statement::ScopeBlock(statement.into_inner().into()),
-                _ => unreachable!("Unexpected rule: {:?}", statement.as_rule()),
-            };
-
-            statements.push(parsed);
+    /// Parses code into an AST
+    pub fn parse(code: &str) -> Self {
+        if let Statement::ScopeBlock(ast) = Self::parse_scope(ParserInput {
+            code,
+            static_analysis: AnalysisProgress(Analysis::analyze(code).global_scope),
+        }) {
+            ast
+        } else {
+            unreachable!("parse_scope returned something other than a scope block")
         }
+    }
 
-        Self { statements, funcs }
+    fn parse_scope(input: ParserInput) -> Statement {
+        // TODO comment
+
+        // first, we parse functions
+        // TODO does this work in scopes
+        let scope = input.static_analysis.0;
+
+        let funcs = scope
+            .functions
+            .iter()
+            .map(|func| FunctionDef::parse(input).unwrap().1)
+            .collect();
+
+        let (_, statements) = many0(Statement::parse)(input).unwrap();
+
+        Statement::ScopeBlock(Self { funcs, statements })
     }
 }
 
@@ -137,6 +126,7 @@ pub enum Statement {
     ScopeBlock(Ast),
     VariableDecl(VariableDecl),
     VarSet(VarSet),
+    Expression(Expression),
 }
 
 impl Statement {
@@ -147,6 +137,52 @@ impl Statement {
             Statement::VariableDecl(decl) => decl.eval(interpreter).map(|_| None),
             Statement::VarSet(var_set) => var_set.eval(interpreter).map(|_| None),
             Statement::ScopeBlock(ast) => ast.eval_scope(interpreter).map(|_| None),
+            // does nothing
+            Statement::Expression(_) => Ok(None),
         }
+    }
+
+    pub fn parse<'a>(input: ParserInput) -> IResult<ParserInput, Self> {
+        alt((
+            VariableDecl::parse,
+            VarSet::parse,
+            Ast::parse_scope,
+            // those are fallback parsers
+            FunctionCall::parse,
+            Expression::parse,
+        ))(input)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ParserInput<'a> {
+    code: &'a str,
+    static_analysis: AnalysisProgress<'a>,
+}
+
+impl<'a> InputLength for ParserInput<'a> {
+    fn input_len(&self) -> usize {
+        self.code.input_len()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct AnalysisProgress<'a> {
+    // global scope -> some scope -> some scope -> current scope
+    scope_depth: Vec<Scope<'a>>,
+    // N/A -> scope vec -> scope vec -> ...
+    index_depth: Vec<usize>,
+    // TODO store current funcs
+}
+
+impl AnalysisProgress<'_> {
+    /// Gets all global functions and functions in the current scope
+    pub fn current_funcs(&self) -> HashMap<&str, &FunctionInfo> {
+        self.scope_depth
+            .iter()
+            .rev()
+            .map(|scope| scope.functions.iter().map(|(k, v)| (*k, v)))
+            .flatten()
+            .collect()
     }
 }
