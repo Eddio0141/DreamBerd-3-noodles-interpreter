@@ -92,7 +92,7 @@ impl Ast {
     pub fn parse(code: &str) -> Self {
         if let Statement::ScopeBlock(ast) = Self::parse_scope(ParserInput {
             code,
-            static_analysis: AnalysisProgress(Analysis::analyze(code).global_scope),
+            static_analysis: AnalysisProgress::new(Analysis::analyze(code).global_scope),
         }) {
             ast
         } else {
@@ -184,5 +184,12 @@ impl AnalysisProgress<'_> {
             .map(|scope| scope.functions.iter().map(|(k, v)| (*k, v)))
             .flatten()
             .collect()
+    }
+
+    pub fn new(scope: Scope) -> Self {
+        Self {
+            scope_depth: vec![scope],
+            index_depth: Vec::new(),
+        }
     }
 }
