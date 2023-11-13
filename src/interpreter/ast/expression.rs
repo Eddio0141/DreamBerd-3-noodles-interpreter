@@ -7,7 +7,6 @@ use pest::iterators::Pair;
 use super::function::FunctionCall;
 use super::runtime::value::Value;
 use super::uncertain::*;
-use super::Rule;
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -414,7 +413,7 @@ impl From<Operator> for usize {
 
 impl PartialEq for Operator {
     fn eq(&self, other: &Self) -> bool {
-        usize::from(*self) == (*other).into()
+        usize::from(*self) == usize::from(*self)
     }
 }
 

@@ -1,13 +1,15 @@
 //! Contains function related structures
 
+use nom::IResult;
 use pest::iterators::Pair;
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
+use crate::interpreter::static_analysis::FunctionInfo;
 use crate::Interpreter;
 
 use super::expression::Expression;
-use super::{Ast, Rule};
+use super::{Ast, ParserInput};
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -60,6 +62,12 @@ pub struct FunctionDef {
     pub name: String,
     pub args: Vec<String>,
     pub body: FunctionVariant,
+}
+
+impl FunctionDef {
+    pub fn parse<'a>(code: ParserInput<'a>) -> IResult<ParserInput<'a>, Self> {
+        todo!()
+    }
 }
 
 impl From<Pair<'_, Rule>> for FunctionDef {
