@@ -1,15 +1,15 @@
 //! Contains variable related structures
 
-use nom::IResult;
 use nom::bytes::complete::tag;
+use nom::IResult;
 use pest::iterators::Pair;
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
 
+use super::expression::Expression;
 use super::parsers::ws;
 use super::{ParserInput, Statement};
-use super::expression::Expression;
 
 #[derive(Debug, Clone)]
 /// Declared variable
