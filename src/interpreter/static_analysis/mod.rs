@@ -37,7 +37,7 @@ impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(code: &str) -> Self {
         let global_scope = Self::scope_info(code, None);
-        let global_cope = Self::scope_info(code, Some(global_scope));
+        let global_scope = Self::scope_info(code, Some(global_scope));
 
         Self { global_scope }
     }
@@ -52,6 +52,7 @@ impl<'a> Analysis<'a> {
         // TODO global funcs are made by `function` keyword, rest of them are variable scope rules
         // TODO variables in function / scope are scoped to the function
         let mut funcs = HashMap::new();
+        let mut funcs_hint = hint.map(|hint| hint.functions);
         let mut push_func = |identifier, args, line, life_time| {
             if funcs.contains_key(&identifier) {
                 return;
@@ -77,12 +78,20 @@ impl<'a> Analysis<'a> {
             );
         };
 
-        let function_info = |identifier| funcs.get_key_value(&identifier);
+        let function_info = |identifier| match funcs.get_key_value(&identifier) {
+            Some((_, func)) => {
+                if func.line < line_count {
+                    Some(func)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
 
         let mut pending_ws_skip = 0;
 
         // eat until terminator that isn't a function
-        // note:
         let mut eat_until_real_term = || {
             while let (Some(term), eaten_code, ws_count) = eat_chunks_until_term_in_chunk(code) {
                 pending_ws_skip += ws_count;
