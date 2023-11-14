@@ -9,7 +9,7 @@ use crate::interpreter::static_analysis::FunctionInfo;
 use crate::Interpreter;
 
 use super::expression::Expression;
-use super::{Ast, ParserInput};
+use super::{Ast, ParserInput, Statement};
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -53,6 +53,10 @@ impl FunctionCall {
         let args = args.iter().collect::<Vec<_>>();
 
         interpreter.state.invoke_func(interpreter, &self.name, args)
+    }
+
+    pub fn parse(mut input: ParserInput) -> IResult<ParserInput, Self> {
+        todo!()
     }
 }
 

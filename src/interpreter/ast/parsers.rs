@@ -1,11 +1,12 @@
+use std::ops::RangeFrom;
+
 use crate::interpreter::parsers::*;
 use nom::{
-    bytes::complete::{tag, take_while, take_while1},
+    bytes::complete::{take_while, take_while1},
     character::complete,
-    error::ParseError,
+    error::ErrorKind,
     multi::many0_count,
-    sequence::Tuple,
-    IResult,
+    AsChar, IResult, InputIter, InputLength, InputTake, Slice, UnspecializedInput,
 };
 
 fn is_ws(ch: char) -> bool {
@@ -13,66 +14,74 @@ fn is_ws(ch: char) -> bool {
 }
 
 /// At least one whitespace repeated
-pub fn ws1<'a, Error>() -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error>
+pub fn ws1<'a, Input>(input: Input) -> IResult<Input, Input>
 where
-    Error: ParseError<&'a str>,
+    Input: InputLength + InputIter<Item = char> + InputTake + Clone + UnspecializedInput,
 {
-    take_while1(is_ws)
+    take_while1(is_ws)(input)
 }
 
 /// Any amount of whitespace repeated
-pub fn ws<'a, Error>() -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error>
+pub fn ws<'a, Input>(input: Input) -> IResult<Input, Input>
 where
-    Error: ParseError<&'a str>,
+    Input: InputLength + InputIter<Item = char> + InputTake + Clone + UnspecializedInput,
 {
-    take_while(is_ws)
+    take_while(is_ws)(input)
 }
 
-pub fn is_var_var(code: &str) -> bool {
-    let var = tag::<_, _, nom::error::Error<_>>("var");
-    let ws = ws1();
-
-    let Ok((code, _)) = (var, ws, var).parse(code) else {
-        return false;
-    };
-
-    todo!()
-}
-
-pub fn identifier_optional_term<'a, Error>(
+pub fn identifier_optional_term<'a, Input>(
     term_char: char,
-) -> impl Fn(&'a str) -> IResult<&'a str, &'a str, Error>
+) -> impl FnMut(Input) -> IResult<Input, &'a str>
 where
-    Error: ParseError<&'a str>,
+    Input: InputIter<Item = char> + InputTake + Copy + Into<&'a str>,
 {
     // ident -> ws
     // or
     // ident -> term_char -> ws
-    let mut got_first_char = false;
-    take_while1(|c| {
-        let end = is_ws(c) || (got_first_char && term_char == c);
-        if end {
-            return false;
+
+    move |input| {
+        let mut input_iter = input.iter_indices();
+        let first_ch_err = move || {
+            Err(nom::Err::Failure(nom::error::Error::new(
+                input.clone(),
+                ErrorKind::TakeWhile1,
+            )))
+        };
+
+        match input_iter.next() {
+            Some((_, first_ch)) => {
+                if WHITESPACE.contains(&first_ch) {
+                    return first_ch_err();
+                }
+            }
+            None => return first_ch_err(),
         }
-        if !got_first_char {
-            got_first_char = true;
-            return true;
+
+        for (i, ch) in input_iter {
+            if term_char != ch && !is_ws(ch) {
+                continue;
+            }
+
+            let (left, right) = input.take_split(i);
+            return Ok((left, right.into()));
         }
-        !end
-    })
+
+        todo!()
+    }
 }
 
-pub fn term<'a, Error>() -> impl Fn(&'a str) -> IResult<&'a str, usize, Error>
+pub fn term<'a, Input>(input: Input) -> IResult<Input, usize>
 where
-    Error: ParseError<&'a str>,
+    Input: InputIter<Item = char> + Slice<RangeFrom<usize>> + Clone + InputLength,
 {
     let term = complete::char('!');
-    many0_count(term)
+    many0_count(term)(input)
 }
 
-pub fn equals<'a, Error>() -> impl Fn(&'a str) -> IResult<&'a str, usize, Error>
+pub fn equals<'a, Input, Error>(input: Input) -> IResult<Input, char>
 where
-    Error: ParseError<&'a str>,
+    Input: Slice<RangeFrom<usize>> + InputIter,
+    <Input as InputIter>::Item: AsChar,
 {
-    complete::char('=')
+    complete::char('=')(input)
 }

@@ -2,11 +2,12 @@
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
+use nom::IResult;
 use pest::iterators::Pair;
 
 use super::function::FunctionCall;
 use super::runtime::value::Value;
-use super::uncertain::*;
+use super::{uncertain::*, ParserInput, Statement};
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -100,6 +101,10 @@ impl Expression {
         }
 
         (expr, unary_ops)
+    }
+
+    pub fn parse(mut input: ParserInput) -> IResult<ParserInput, Statement> {
+        todo!()
     }
 }
 

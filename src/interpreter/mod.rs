@@ -21,7 +21,7 @@ impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
-        let ast = Ast::parse(code, None);
+        let ast = Ast::parse(code);
         ast.eval_global(self)?;
         Ok(())
     }

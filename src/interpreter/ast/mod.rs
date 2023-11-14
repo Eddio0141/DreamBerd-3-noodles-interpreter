@@ -1,6 +1,13 @@
-use std::collections::{HashMap, LinkedList};
+use std::{
+    collections::HashMap,
+    ops::RangeFrom,
+    str::{CharIndices, Chars},
+};
 
-use nom::{branch::alt, combinator::map, multi::many0, IResult, InputLength};
+use nom::{
+    branch::alt, combinator::map, Compare, IResult, InputIter, InputLength, InputTake, Needed,
+    Slice, UnspecializedInput,
+};
 
 use crate::{interpreter::static_analysis::Analysis, Interpreter};
 
@@ -90,32 +97,36 @@ impl Ast {
 
     /// Parses code into an AST
     pub fn parse(code: &str) -> Self {
-        if let Statement::ScopeBlock(ast) = Self::parse_scope(ParserInput {
+        if let (_, Statement::ScopeBlock(ast)) = Self::parse_scope(ParserInput {
             code,
-            static_analysis: AnalysisProgress::new(Analysis::analyze(code).global_scope),
-        }) {
+            static_analysis: &AnalysisProgress::new(Analysis::analyze(code).global_scope),
+        })
+        .unwrap()
+        {
             ast
         } else {
             unreachable!("parse_scope returned something other than a scope block")
         }
     }
 
-    fn parse_scope(input: ParserInput) -> Statement {
+    fn parse_scope(input: ParserInput) -> IResult<ParserInput, Statement> {
         // TODO comment
 
         // first, we parse functions
         // TODO does this work in scopes
-        let scope = input.static_analysis.0;
+        let scope = input.static_analysis.scope_depth.last().unwrap();
 
-        let funcs = scope
-            .functions
-            .iter()
-            .map(|func| FunctionDef::parse(input).unwrap().1)
-            .collect();
+        // let funcs = scope
+        //     .functions
+        //     .iter()
+        //     .map(|func| FunctionDef::parse(input).unwrap().1)
+        //     .collect();
 
-        let (_, statements) = many0(Statement::parse)(input).unwrap();
+        // let (_, statements) = many0(Statement::parse)(input).unwrap();
 
-        Statement::ScopeBlock(Self { funcs, statements })
+        // Statement::ScopeBlock(Self { funcs, statements })
+
+        todo!()
     }
 }
 
@@ -148,21 +159,22 @@ impl Statement {
             VarSet::parse,
             Ast::parse_scope,
             // those are fallback parsers
-            FunctionCall::parse,
+            map(FunctionCall::parse, |func| Statement::FunctionCall(func)),
             Expression::parse,
         ))(input)
     }
 }
 
-#[derive(Debug, Clone)]
-struct ParserInput<'a> {
-    code: &'a str,
-    static_analysis: AnalysisProgress<'a>,
-}
+impl From<Statement> for Expression {
+    /// Extracts the expression variant from the statement
+    /// # Panics
+    /// - If the statement is not an expression
+    fn from(value: Statement) -> Self {
+        let Statement::Expression(expression) = value else {
+            panic!("Statement is not an expression")
+        };
 
-impl<'a> InputLength for ParserInput<'a> {
-    fn input_len(&self) -> usize {
-        self.code.input_len()
+        expression
     }
 }
 
@@ -191,5 +203,108 @@ impl AnalysisProgress<'_> {
             scope_depth: vec![scope],
             index_depth: Vec::new(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ParserInput<'a> {
+    code: &'a str,
+    static_analysis: &'a AnalysisProgress<'a>,
+}
+
+impl<'a> InputLength for ParserInput<'a> {
+    fn input_len(&self) -> usize {
+        self.code.input_len()
+    }
+}
+
+impl InputTake for ParserInput<'_> {
+    fn take(&self, count: usize) -> Self {
+        let code = self.code.take(count);
+        Self {
+            code,
+            static_analysis: &self.static_analysis,
+        }
+    }
+
+    fn take_split(&self, count: usize) -> (Self, Self) {
+        let (left, right) = self.code.take_split(count);
+        (
+            Self {
+                code: left,
+                static_analysis: &self.static_analysis,
+            },
+            Self {
+                code: right,
+                static_analysis: &self.static_analysis,
+            },
+        )
+    }
+}
+
+impl<'a> InputIter for ParserInput<'a> {
+    type Item = char;
+    type Iter = CharIndices<'a>;
+    type IterElem = Chars<'a>;
+
+    fn iter_indices(&self) -> Self::Iter {
+        self.code.char_indices()
+    }
+
+    fn iter_elements(&self) -> Self::IterElem {
+        self.code.chars()
+    }
+
+    fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(Self::Item) -> bool,
+    {
+        for (o, c) in self.code.char_indices() {
+            if predicate(c) {
+                return Some(o);
+            }
+        }
+        None
+    }
+
+    fn slice_index(&self, count: usize) -> Result<usize, Needed> {
+        let mut cnt = 0;
+        for (index, _) in self.code.char_indices() {
+            if cnt == count {
+                return Ok(index);
+            }
+            cnt += 1;
+        }
+        if cnt == count {
+            return Ok(self.code.len());
+        }
+        Err(Needed::Unknown)
+    }
+}
+
+impl<'a> Compare<&'a str> for ParserInput<'a> {
+    fn compare(&self, t: &'a str) -> nom::CompareResult {
+        self.code.compare(t)
+    }
+
+    fn compare_no_case(&self, t: &'a str) -> nom::CompareResult {
+        self.code.compare_no_case(t)
+    }
+}
+
+impl UnspecializedInput for ParserInput<'_> {}
+
+impl Slice<RangeFrom<usize>> for ParserInput<'_> {
+    fn slice(&self, range: RangeFrom<usize>) -> Self {
+        Self {
+            code: self.code.slice(range),
+            static_analysis: self.static_analysis,
+        }
+    }
+}
+
+impl<'a> From<ParserInput<'a>> for &'a str {
+    fn from(input: ParserInput<'a>) -> Self {
+        input.code
     }
 }
