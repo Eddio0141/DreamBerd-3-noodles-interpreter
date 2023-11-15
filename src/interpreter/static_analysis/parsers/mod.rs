@@ -3,14 +3,11 @@
 #[cfg(test)]
 mod tests;
 
-use nom::bytes::complete::take_while;
-use pest_derive::Parser;
+use nom::{bytes::complete::take_while, IResult};
 
 use crate::interpreter::parsers::*;
 
-#[derive(Parser)]
-#[grammar = "interpreter/dreamberd.pest"]
-struct PestParser;
+use super::{FunctionInfo, Position};
 
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
@@ -149,4 +146,14 @@ pub fn eat_chunks_until_term_in_chunk(code: &str) -> (Option<&str>, &str, usize)
     }
 
     (None, code, total_skipped)
+}
+
+/// Parses successfully if it's a function call
+pub fn func_call<'a>(
+    input: &'a str,
+    global_funcs: &Vec<FunctionInfo>,
+    local_funcs: &Vec<FunctionInfo>,
+    position: Position,
+) -> IResult<&'a str, Position> {
+    let (input, identifier) = identifier(input)?;
 }

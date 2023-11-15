@@ -19,7 +19,7 @@ use self::{
 
 use super::{
     runtime::{self, error::Error, state::InterpreterState, value::Value},
-    static_analysis::{FunctionInfo, Scope},
+    static_analysis::{FunctionInfo, ScopeInfo},
 };
 
 mod expression;
@@ -32,7 +32,6 @@ mod variable;
 /// An abstract syntax tree that represents a scope of code
 pub struct Ast {
     funcs: Vec<FunctionDef>,
-    statements: Vec<Statement>,
 }
 
 impl Ast {
@@ -181,7 +180,7 @@ impl From<Statement> for Expression {
 #[derive(Debug, Clone)]
 struct AnalysisProgress<'a> {
     // global scope -> some scope -> some scope -> current scope
-    scope_depth: Vec<Scope<'a>>,
+    scope_depth: Vec<ScopeInfo<'a>>,
     // N/A -> scope vec -> scope vec -> ...
     index_depth: Vec<usize>,
     // TODO store current funcs
@@ -198,7 +197,7 @@ impl AnalysisProgress<'_> {
             .collect()
     }
 
-    pub fn new(scope: Scope) -> Self {
+    pub fn new(scope: ScopeInfo) -> Self {
         Self {
             scope_depth: vec![scope],
             index_depth: Vec::new(),

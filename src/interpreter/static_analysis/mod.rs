@@ -2,78 +2,76 @@
 
 mod parsers;
 
-use std::collections::HashMap;
-
 use parsers::*;
 
 /// Contains useful data about the code
 #[derive(Debug, Clone)]
 pub struct Analysis<'a> {
-    pub global_scope: Scope<'a>,
-}
-
-/// Scope information
-#[derive(Debug, Clone)]
-pub struct Scope<'a> {
-    /// Functions in this scope, sorted by position they exist from, including when being hoisted
-    pub functions: HashMap<&'a str, FunctionInfo>,
-    /// Inner scopes
-    /// - They appear in the order they are defined
-    pub scope: Vec<Scope<'a>>,
+    /// Functions that's hoisted
+    /// - This is only possible for functions that has a function assigned to it
+    pub hoisted_funcs: Vec<FunctionInfo<'a>>,
 }
 
 #[derive(Debug, Clone)]
 /// Information for a function
 /// # Note
 /// - This only applies for functions defined with `function` keyword and functions assigned to a variable
-pub struct FunctionInfo {
+pub struct FunctionInfo<'a> {
+    pub identifier: &'a str,
     pub arg_count: usize,
+    /// Index of the line where the function will become usable
     pub exist_start_line: usize,
     /// Where the expression / scope is located as an index
     pub body_location: usize,
 }
 
+/// Position information
+pub struct Position {
+    pub line: usize,
+    pub index: usize,
+}
+
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(code: &str) -> Self {
-        let global_scope = Self::scope_info(code, None);
-        let global_scope = Self::scope_info(code, Some(global_scope));
-
-        Self { global_scope }
+        // two passes to properly filter out functions and other stuff
+        let info = Self::scope_info(code, None);
+        Self::scope_info(code, Some(info))
     }
 
     /// Gets scope information
     /// - By passing in hint from the previous iteration, it will properly update the scope information
-    fn scope_info<'b>(code_original: &str, hint: Option<Scope<'b>>) -> Scope<'b> {
+    fn scope_info<'b>(code_original: &str, hint: Option<Self>) -> Self {
         let (mut code, mut line_count) = eat_whitespace(code_original);
 
         // so far found functions
         // TODO global funcs are made by `function` keyword, rest of them are variable scope rules
         // TODO variables in function / scope are scoped to the function
-        let mut funcs = HashMap::new();
-        let mut funcs_hint = hint.map(|hint| hint.functions);
-        let mut push_func = |identifier, args, line, index, life_time| {
-            if funcs.contains_key(&identifier) {
-                return;
-            }
-
-            if let Some(life_time) = life_time {
-                if !is_valid_lifetime(life_time) {
-                    return;
+        let mut funcs_global = Vec::new();
+        let mut funcs_local = Vec::new();
+        let mut push_func =
+            |identifier, arg_count, exist_start_line, body_location, life_time, global_func| {
+                if let Some(life_time) = life_time {
+                    if !is_valid_lifetime(life_time) {
+                        return;
+                    }
                 }
-            }
 
-            funcs.insert(
-                identifier,
-                FunctionInfo {
-                    arg_count: args,
-                    exist_start_line: line,
-                    body_location: index,
-                },
-            );
-        };
+                let func = FunctionInfo {
+                    identifier,
+                    arg_count,
+                    exist_start_line,
+                    body_location,
+                };
 
-        let function_info = |identifier| match funcs.get_key_value(&identifier) {
+                if global_func {
+                    funcs_global.push(func);
+                } else {
+                    funcs_local.push(func);
+                }
+            };
+
+        let function_info = |identifier| match funcs_global.get_key_value(&identifier) {
             Some((_, func)) => {
                 if func.exist_start_line < line_count {
                     Some(func)
@@ -111,6 +109,8 @@ impl<'a> Analysis<'a> {
             pending_ws_skip += ws;
             code
         };
+
+        let mut scope_index = 0usize;
 
         // go through code
         // TODO comment
@@ -266,6 +266,11 @@ impl<'a> Analysis<'a> {
                 continue;
             }
 
+            // scope?
+            if chunk.starts_with("{") {
+                scope_index += 1;
+            }
+
             // TODO `var var func = arg1, arg2 => (expression ! | { block })`
             // TODO `var var func = arg1,arg2=>(expression ! | { block })`
             // TODO `var var func = =>(expression! | {block})`
@@ -278,8 +283,8 @@ impl<'a> Analysis<'a> {
             }
         }
 
-        Scope {
-            functions: funcs,
+        ScopeInfo {
+            functions: funcs_global,
             // TODO
             scope: Vec::new(),
         }
