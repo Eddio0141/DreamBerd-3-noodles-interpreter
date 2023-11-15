@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    interpreter::ast::{self, function::FunctionDef},
+    interpreter::evaluators::{self, function::FunctionDef},
     Interpreter,
 };
 
@@ -157,6 +157,6 @@ impl From<&FunctionDef> for Function {
 
 #[derive(Debug)]
 pub enum FunctionVariant {
-    FunctionDefined(ast::function::FunctionVariant),
+    FunctionDefined(evaluators::function::FunctionVariant),
     Native(fn(&Interpreter, Vec<&Value>) -> Result<Value, Error>),
 }

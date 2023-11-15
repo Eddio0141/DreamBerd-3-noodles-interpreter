@@ -1,12 +1,12 @@
 use std::{cell::RefCell, io::Write};
 
 use self::{
-    ast::Ast,
     runtime::{state::InterpreterState, stdlib},
+    static_analysis::Analysis,
 };
 
-mod ast;
 pub mod error;
+mod evaluators;
 pub mod parsers;
 mod runtime;
 mod static_analysis;
@@ -21,9 +21,9 @@ impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
-        let ast = Ast::parse(code);
-        ast.eval_global(self)?;
-        Ok(())
+        let analysis = Analysis::analyze(code);
+
+        todo!("implement statement by statement parse / execution")
     }
 
     /// Create a new interpreter and evaluate the given code
