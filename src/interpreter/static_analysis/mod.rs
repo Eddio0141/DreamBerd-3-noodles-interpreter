@@ -26,11 +26,11 @@ pub struct Scope<'a> {
 /// Information for a function
 /// # Note
 /// - This only applies for functions defined with `function` keyword and functions assigned to a variable
-/// - If the function has a time limit on how long it will exist, `time_constraint` will be true
 pub struct FunctionInfo {
     pub arg_count: usize,
-    pub line: usize,
-    pub time_constraint: bool,
+    pub exist_start_line: usize,
+    /// Where the expression / scope is located as an index
+    pub body_location: usize,
 }
 
 impl<'a> Analysis<'a> {
@@ -44,16 +44,15 @@ impl<'a> Analysis<'a> {
 
     /// Gets scope information
     /// - By passing in hint from the previous iteration, it will properly update the scope information
-    fn scope_info<'b>(mut code: &str, hint: Option<Scope<'b>>) -> Scope<'b> {
-        let (code_inner, mut line_count) = eat_whitespace(code);
-        code = code_inner;
+    fn scope_info<'b>(code_original: &str, hint: Option<Scope<'b>>) -> Scope<'b> {
+        let (mut code, mut line_count) = eat_whitespace(code_original);
 
         // so far found functions
         // TODO global funcs are made by `function` keyword, rest of them are variable scope rules
         // TODO variables in function / scope are scoped to the function
         let mut funcs = HashMap::new();
         let mut funcs_hint = hint.map(|hint| hint.functions);
-        let mut push_func = |identifier, args, line, life_time| {
+        let mut push_func = |identifier, args, line, index, life_time| {
             if funcs.contains_key(&identifier) {
                 return;
             }
@@ -68,19 +67,15 @@ impl<'a> Analysis<'a> {
                 identifier,
                 FunctionInfo {
                     arg_count: args,
-                    line,
-                    // time constraint, currently only has seconds
-                    time_constraint: match life_time {
-                        Some(life_time) => life_time.ends_with('s'),
-                        None => false,
-                    },
+                    exist_start_line: line,
+                    body_location: index,
                 },
             );
         };
 
         let function_info = |identifier| match funcs.get_key_value(&identifier) {
             Some((_, func)) => {
-                if func.line < line_count {
+                if func.exist_start_line < line_count {
                     Some(func)
                 } else {
                     None
@@ -135,7 +130,7 @@ impl<'a> Analysis<'a> {
             // function ident=>(expression! | {block})
             if is_function_header(chunk) {
                 // function call, not a definition
-                if let Some((_, function_info)) = function_info(chunk) {
+                if let Some(function_info) = function_info(chunk) {
                     if function_info.arg_count > 0 {
                         // because it has arg, it'll just pass everything into this until the terminator
                         // should be fine
@@ -254,6 +249,8 @@ impl<'a> Analysis<'a> {
                     }
                 };
 
+                let index = code_original.len() - code.len();
+
                 // expression / block
                 // is this a function call?
                 if function_info(chunk).is_some() || !chunk.starts_with('{') {
@@ -265,7 +262,7 @@ impl<'a> Analysis<'a> {
                 }
 
                 // valid function definition
-                push_func(identifier, arg_count, line_count, None);
+                push_func(identifier, arg_count, line_count, index, None);
                 continue;
             }
 
