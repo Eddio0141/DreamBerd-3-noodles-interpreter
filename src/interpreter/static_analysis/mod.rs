@@ -33,66 +33,35 @@ pub struct Position {
 
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
-    pub fn analyze(code: &str) -> Self {
-        // two passes to properly filter out functions and other stuff
-        let info = Self::scope_info(code, None);
-        Self::scope_info(code, Some(info))
-    }
-
-    /// Gets scope information
-    /// - By passing in hint from the previous iteration, it will properly update the scope information
-    fn scope_info<'b>(code_original: &str, hint: Option<Self>) -> Self {
+    pub fn analyze(code_original: &str) -> Self {
         let (mut code, mut line_count) = eat_whitespace(code_original);
 
         // so far found functions
-        // TODO global funcs are made by `function` keyword, rest of them are variable scope rules
-        // TODO variables in function / scope are scoped to the function
-        let mut funcs_global = Vec::new();
-        let mut funcs_local = Vec::new();
-        let mut push_func =
-            |identifier, arg_count, exist_start_line, body_location, life_time, global_func| {
-                if let Some(life_time) = life_time {
-                    if !is_valid_lifetime(life_time) {
-                        return;
-                    }
-                }
-
-                let func = FunctionInfo {
-                    identifier,
-                    arg_count,
-                    exist_start_line,
-                    body_location,
-                };
-
-                if global_func {
-                    funcs_global.push(func);
-                } else {
-                    funcs_local.push(func);
-                }
-            };
-
-        let function_info = |identifier| match funcs_global.get_key_value(&identifier) {
-            Some((_, func)) => {
-                if func.exist_start_line < line_count {
-                    Some(func)
-                } else {
-                    None
+        let mut hoisted_funcs = Vec::new();
+        let mut push_func = |identifier, arg_count, exist_start_line, body_location, life_time| {
+            if let Some(life_time) = life_time {
+                if !is_valid_lifetime(life_time) {
+                    return;
                 }
             }
-            None => None,
+
+            let func = FunctionInfo {
+                identifier,
+                arg_count,
+                exist_start_line,
+                body_location,
+            };
+
+            hoisted_funcs.push(func);
         };
 
         let mut pending_ws_skip = 0;
 
         // eat until terminator that isn't a function
         let mut eat_until_real_term = || {
-            while let (Some(term), eaten_code, ws_count) = eat_chunks_until_term_in_chunk(code) {
+            if let (Some(term), eaten_code, ws_count) = eat_chunks_until_term_in_chunk(code) {
                 pending_ws_skip += ws_count;
                 code = eaten_code;
-                if function_info(term).is_none() {
-                    // found a terminator that isn't a function
-                    break;
-                }
             }
         };
 
@@ -129,16 +98,6 @@ impl<'a> Analysis<'a> {
             // function ident arg1,arg2=>(expression! | {block})
             // function ident=>(expression! | {block})
             if is_function_header(chunk) {
-                // function call, not a definition
-                if let Some(function_info) = function_info(chunk) {
-                    if function_info.arg_count > 0 {
-                        // because it has arg, it'll just pass everything into this until the terminator
-                        // should be fine
-                        eat_until_real_term();
-                        continue;
-                    }
-                }
-
                 // is a function definition, currently at `ident` part
                 // now should be the identifier
                 let Some(chunk) = eat_chunk() else {
@@ -251,17 +210,14 @@ impl<'a> Analysis<'a> {
 
                 let index = code_original.len() - code.len();
 
-                // expression / block
-                // is this a function call?
-                if function_info(chunk).is_some() || !chunk.starts_with('{') {
-                    // doesn't matter if its a function without args, it will be implicit string, which will take until terminator
-                    // or this is an expression
-                    eat_until_real_term();
-                } else {
+                // block
+                if chunk.starts_with('{') {
                     // TODO block
+                } else {
+                    // expression
+                    eat_until_real_term();
                 }
 
-                // valid function definition
                 push_func(identifier, arg_count, line_count, index, None);
                 continue;
             }
@@ -283,11 +239,7 @@ impl<'a> Analysis<'a> {
             }
         }
 
-        ScopeInfo {
-            functions: funcs_global,
-            // TODO
-            scope: Vec::new(),
-        }
+        Self { hoisted_funcs }
     }
 }
 
