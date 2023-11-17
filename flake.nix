@@ -3,6 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     systems.url = "github:nix-systems/default";
     devenv.url = "github:cachix/devenv";
+    fenix.url = "github:nix-community/fenix";
   };
 
   nixConfig = {
@@ -26,7 +27,10 @@
               modules = [
                 {
                   # https://devenv.sh/reference/options/
-                  languages.rust.enable = true;
+                  languages.rust = {
+                    enable = true;
+                    channel = "nightly";
+                  };
 
                   packages = with pkgs; [
                     gnuplot_qt
