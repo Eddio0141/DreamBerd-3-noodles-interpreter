@@ -3,11 +3,23 @@
 #[cfg(test)]
 mod tests;
 
-use nom::{bytes::complete::take_while, IResult};
+use std::borrow::Borrow;
+
+use nom::{
+    branch::alt,
+    bytes::complete::*,
+    character::complete::digit1,
+    combinator::*,
+    error::ParseError,
+    multi::many0_count,
+    number::complete::double,
+    sequence::{delimited, terminated, tuple, Tuple},
+    *,
+};
 
 use crate::interpreter::parsers::*;
 
-use super::{FunctionInfo, Position};
+use super::Position;
 
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
@@ -148,13 +160,55 @@ pub fn eat_chunks_until_term_in_chunk(code: &str) -> (Option<&str>, &str, usize)
     (None, code, total_skipped)
 }
 
-/// Parses successfully if it's a function call
-pub fn func_call<'a>(
-    input: &'a str,
-    global_funcs: &Vec<FunctionInfo>,
-    local_funcs: &Vec<FunctionInfo>,
-    position: Position,
-) -> IResult<&'a str, Position> {
-    let (input, identifier) = identifier(input)?;
+/// Parses successfully if it's a `var var` statement
+pub fn var_var<'a>(input: &'a str, position: Position) -> IResult<&'a str, Position> {
+    let var = tag("var");
+    let identifier = identifier(life_time);
+    // var ws+ var ws+ identifier
+    // let (input, (_, _, _, _, identifier)) = (var, ws, var, ws, identifier).parse(input)?;
+    let _ = (var, ws, var, ws).parse(input);
     todo!()
+}
+
+pub fn identifier<'a, I, E, P, PO>(terminating_parser: P) -> impl Fn(I) -> IResult<I, I, E>
+where
+    I: InputTakeAtPosition<Item = char> + InputIter + InputTake + Borrow<str> + Copy + InputLength,
+    E: ParseError<I>,
+    P: Parser<I, PO, E> + Copy,
+{
+    move |input| {
+        let ws_char = || {
+            verify(take(1usize), |s: &str| {
+                !s.is_empty() && !is_ws(s.chars().next().unwrap())
+            })
+        };
+        let identifier = tuple((
+            ws_char(),
+            many0_count(not(alt((
+                ws_char().map(|_| ()),
+                terminating_parser.map(|_| ()),
+            )))),
+        ));
+        let (_, (_, rest)) = peek(identifier)(input)?;
+
+        // rest + 1 character
+        Ok(input.take_split(rest + 1))
+    }
+}
+
+fn life_time<'a>(input: &'a str) -> IResult<&'a str, LifeTime> {
+    let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
+    let seconds = terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
+    let lines = map_res(digit1, |s: &str| s.parse()).map(|l| LifeTime::Lines(l));
+    delimited(
+        character::complete::char('<'),
+        alt((infinity, seconds, lines)),
+        character::complete::char('>'),
+    )(input)
+}
+
+pub enum LifeTime {
+    Infinity,
+    Seconds(f64),
+    Lines(usize),
 }
