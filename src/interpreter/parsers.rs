@@ -1,11 +1,23 @@
-use nom::{bytes::complete::take_till, IResult};
+use nom::{bytes::complete::*, *};
 
 pub static WHITESPACE: [char; 6] = [' ', '\t', '\n', '\r', '(', ')'];
 
-fn is_ws(ch: char) -> bool {
+pub fn is_ws(ch: char) -> bool {
     WHITESPACE.contains(&ch)
 }
 
-pub fn identifier<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
-    take_till(is_ws)(input)
+/// At least one whitespace repeated
+pub fn ws1<'a, Input>(input: Input) -> IResult<Input, Input>
+where
+    Input: InputTakeAtPosition<Item = char>,
+{
+    take_while1(is_ws)(input)
+}
+
+/// Any amount of whitespace repeated
+pub fn ws<'a, Input>(input: Input) -> IResult<Input, Input>
+where
+    Input: InputTakeAtPosition<Item = char>,
+{
+    take_while(is_ws)(input)
 }

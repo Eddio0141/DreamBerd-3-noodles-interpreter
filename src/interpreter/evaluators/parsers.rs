@@ -9,26 +9,6 @@ use nom::{
     AsChar, IResult, InputIter, InputLength, InputTake, Slice, UnspecializedInput,
 };
 
-fn is_ws(ch: char) -> bool {
-    WHITESPACE.contains(&ch)
-}
-
-/// At least one whitespace repeated
-pub fn ws1<'a, Input>(input: Input) -> IResult<Input, Input>
-where
-    Input: InputLength + InputIter<Item = char> + InputTake + Clone + UnspecializedInput,
-{
-    take_while1(is_ws)(input)
-}
-
-/// Any amount of whitespace repeated
-pub fn ws<'a, Input>(input: Input) -> IResult<Input, Input>
-where
-    Input: InputLength + InputIter<Item = char> + InputTake + Clone + UnspecializedInput,
-{
-    take_while(is_ws)(input)
-}
-
 pub fn identifier_optional_term<'a, Input>(
     term_char: char,
 ) -> impl FnMut(Input) -> IResult<Input, &'a str>

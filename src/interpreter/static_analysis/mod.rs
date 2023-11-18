@@ -20,7 +20,7 @@ pub struct FunctionInfo<'a> {
     pub identifier: &'a str,
     pub arg_count: usize,
     /// Index of the line where the function will become usable
-    pub exist_start_line: usize,
+    pub hoisted_line: usize,
     /// Where the expression / scope is located as an index
     pub body_location: usize,
 }
@@ -60,7 +60,7 @@ impl<'a> Analysis<'a> {
                 let func = FunctionInfo {
                     identifier,
                     arg_count,
-                    exist_start_line,
+                    hoisted_line: exist_start_line,
                     body_location,
                 };
 
