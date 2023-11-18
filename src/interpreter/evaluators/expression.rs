@@ -1,8 +1,8 @@
 //! Contains expression related structures
 
 use crate::interpreter::runtime::error::Error;
-use crate::Interpreter;
 use crate::interpreter::runtime::value::Value;
+use crate::Interpreter;
 use nom::IResult;
 
 use super::function::FunctionCall;
