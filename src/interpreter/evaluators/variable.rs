@@ -1,8 +1,16 @@
 //! Contains variable related structures
 
-use nom::IResult;
+use crate::parsers::ws;
+use nom::branch::*;
+use nom::bytes::complete::*;
+use nom::character::complete::digit1;
+use nom::combinator::*;
+use nom::number::complete::double;
+use nom::sequence::*;
+use nom::*;
 
 use crate::interpreter::runtime::error::Error;
+use crate::parsers::identifier;
 use crate::Interpreter;
 
 use super::expression::Expression;
@@ -22,7 +30,7 @@ impl<'a> VariableDecl<'a> {
         Ok(())
     }
 
-    pub fn parse(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse(input: &'a str) -> IResult<&'a str, &'a str> {
         // let funcs = code.static_analysis.current_funcs();
 
         // if let Some((_, func)) = funcs.get_key_value("var") {
@@ -33,25 +41,12 @@ impl<'a> VariableDecl<'a> {
         //     }
         // }
 
-        // // not a function call, is a declaration
-        // let var = tag("var");
-
-        // // var ~ ws+ ~ var ~ ws+ ~ ident ~ ws* ~ "=" ~ ws* ~ expr ~ ws* ~ "!"
-        // // note: ident can be chained with =, but ident itself can be =
-        // let (input, (_, _, _, _, identifier, _, _, _, expression, _, term)) = (
-        //     var,
-        //     ws1,
-        //     var,
-        //     ws1,
-        //     identifier_optional_term('='),
-        //     ws,
-        //     equals::<_, nom::error::Error<ParserInput>>,
-        //     ws,
-        //     Expression::parse,
-        //     ws,
-        //     term,
-        // )
-        //     .parse(code)?;
+        // // n
+        let var = || tag("var");
+        let identifier = identifier(life_time);
+        // var ws+ var ws+ identifier
+        let (input, (_, _, _, _, identifier, life_time)) =
+            (var(), ws, var(), ws, identifier, opt(life_time)).parse(input)?;
 
         // let decl = Self {
         //     expression: expression.into(),
@@ -63,6 +58,23 @@ impl<'a> VariableDecl<'a> {
         // Ok((input, Statement::VariableDecl(decl)))
         todo!()
     }
+}
+
+fn life_time<'a>(input: &'a str) -> IResult<&'a str, LifeTime> {
+    let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
+    let seconds = terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
+    let lines = map_res(digit1, |s: &str| s.parse()).map(|l| LifeTime::Lines(l));
+    delimited(
+        character::complete::char('<'),
+        alt((infinity, seconds, lines)),
+        character::complete::char('>'),
+    )(input)
+}
+
+pub enum LifeTime {
+    Infinity,
+    Seconds(f64),
+    Lines(usize),
 }
 
 #[derive(Debug, Clone)]
