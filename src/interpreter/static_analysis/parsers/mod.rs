@@ -3,9 +3,14 @@
 #[cfg(test)]
 mod tests;
 
-use nom::bytes::complete::*;
+use nom::{
+    branch::alt, bytes::complete::*, character, combinator::*, multi::*, sequence::*, Parser,
+};
 
-use crate::interpreter::parsers::*;
+use crate::{
+    interpreter::parsers::*,
+    parsers::types::{PosResult, Position},
+};
 
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
@@ -82,6 +87,42 @@ pub fn is_function_header(mut chunk: &str) -> bool {
     }
 
     true
+}
+
+pub fn till_term(input: Position) -> PosResult<()> {
+    let str = |input: Position| -> PosResult<()> {
+        let quote = alt((
+            character::complete::char::<_, nom::error::Error<_>>('"'),
+            character::complete::char('\''),
+        ));
+        let (input, mut left_quotes) = many0(quote)(input).unwrap();
+        let (input, _) = many0(verify(
+            tuple((
+                take::<_, Position, nom::error::Error<_>>(1usize),
+                peek(take(1usize)),
+            )),
+            |(f, s)| {
+                !(f.input.chars().next().unwrap() != '\\'
+                    && s.input.chars().next().unwrap() == left_quotes[0])
+            },
+        ))(input)
+        .unwrap();
+        // since we checking right to left now
+        left_quotes.reverse();
+
+        verify(take(left_quotes.len()), |s: &Position| {
+            s.input
+                .chars()
+                .zip(left_quotes)
+                .all(|(input_c, left_quote)| input_c == left_quote)
+        })
+        .map(|_| ())
+        .parse(input)
+    };
+
+    let (input, _) = many0(alt((str, is_not("!").map(|_| ()))))(input)?;
+
+    Ok((input, ()))
 }
 
 /// Eats chunks until terminator symbol

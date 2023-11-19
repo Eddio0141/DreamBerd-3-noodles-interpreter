@@ -4,6 +4,8 @@ mod parsers;
 
 use parsers::*;
 
+use crate::parsers::{types::Position, *};
+
 /// Contains useful data about the code
 #[derive(Debug, Clone)]
 pub struct Analysis<'a> {
@@ -27,8 +29,9 @@ pub struct FunctionInfo<'a> {
 
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
-    pub fn analyze(code_original: &str) -> Self {
-        let (mut code, mut line_count) = eat_whitespace(code_original);
+    pub fn analyze(input: &str) -> Self {
+        let input = Position::new(input);
+        let (input, _) = ws(input).unwrap();
 
         // so far found functions
         let mut hoisted_funcs = Vec::new();
@@ -48,16 +51,6 @@ impl<'a> Analysis<'a> {
             };
 
             hoisted_funcs.push(func);
-        };
-
-        let mut pending_ws_skip = 0;
-
-        // eat until terminator that isn't a function
-        let mut eat_until_real_term = || {
-            if let (Some(term), eaten_code, ws_count) = eat_chunks_until_term_in_chunk(code) {
-                pending_ws_skip += ws_count;
-                code = eaten_code;
-            }
         };
 
         let mut eat_chunk = |code: &mut &str| -> Option<&str> {
@@ -203,7 +196,7 @@ impl<'a> Analysis<'a> {
                     }
                 };
 
-                let index = code_original.len() - code.len();
+                let index = code.len() - code.len();
 
                 // block
                 if chunk.starts_with('{') {

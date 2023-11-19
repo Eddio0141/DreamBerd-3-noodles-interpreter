@@ -1,4 +1,7 @@
-use std::str::{CharIndices, Chars};
+use std::{
+    ops::RangeFrom,
+    str::{CharIndices, Chars},
+};
 
 use nom::{
     error::{ErrorKind, ParseError},
@@ -6,7 +9,7 @@ use nom::{
 };
 
 /// Position information for parsing
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Position<'a> {
     pub line: usize,
     pub column: usize,
@@ -159,6 +162,20 @@ impl InputTakeAtPosition for Position<'_> {
                     ))
                 }
             }
+        }
+    }
+}
+
+impl Slice<RangeFrom<usize>> for Position<'_> {
+    fn slice(&self, range: RangeFrom<usize>) -> Self {
+        let (left, right) = (&self.input[..range.start], &self.input[range]);
+        let (line, column) = calc_line_column(left);
+
+        Self {
+            line: self.line + line,
+            column: self.column + column,
+            index: self.index + range.start,
+            input: right,
         }
     }
 }
