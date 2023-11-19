@@ -17,9 +17,7 @@ use nom::{
     *,
 };
 
-use crate::interpreter::parsers::*;
-
-use super::Position;
+use crate::{interpreter::parsers::*, parsers::types::Position};
 
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
@@ -161,12 +159,12 @@ pub fn eat_chunks_until_term_in_chunk(code: &str) -> (Option<&str>, &str, usize)
 }
 
 /// Parses successfully if it's a `var var` statement
-pub fn var_var<'a>(input: &'a str, position: Position) -> IResult<&'a str, Position> {
-    let var = tag("var");
+pub fn var_var<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+    let var = || tag("var");
     let identifier = identifier(life_time);
     // var ws+ var ws+ identifier
-    // let (input, (_, _, _, _, identifier)) = (var, ws, var, ws, identifier).parse(input)?;
-    let _ = (var, ws, var, ws).parse(input);
+    let (input, (_, _, _, _, identifier, life_time)) =
+        (var(), ws, var(), ws, identifier, opt(life_time)).parse(input)?;
     todo!()
 }
 

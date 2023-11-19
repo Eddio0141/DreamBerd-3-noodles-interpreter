@@ -1,5 +1,9 @@
 use nom::{bytes::complete::*, *};
 
+use self::types::*;
+
+pub mod types;
+
 pub static WHITESPACE: [char; 6] = [' ', '\t', '\n', '\r', '(', ')'];
 
 pub fn is_ws(ch: char) -> bool {
@@ -7,11 +11,11 @@ pub fn is_ws(ch: char) -> bool {
 }
 
 /// At least one whitespace repeated
-pub fn ws1<'a, Input>(input: Input) -> IResult<Input, Input>
+pub fn ws1<'a, Input>(input: Position) -> PosResult<()>
 where
     Input: InputTakeAtPosition<Item = char>,
 {
-    take_while1(is_ws)(input)
+    take_while1(is_ws).map(|_| ()).parse(input)
 }
 
 /// Any amount of whitespace repeated

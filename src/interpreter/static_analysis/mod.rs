@@ -25,12 +25,6 @@ pub struct FunctionInfo<'a> {
     pub body_location: usize,
 }
 
-/// Position information
-pub struct Position {
-    pub line: usize,
-    pub index: usize,
-}
-
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(code_original: &str) -> Self {
@@ -66,9 +60,9 @@ impl<'a> Analysis<'a> {
             }
         };
 
-        let mut eat_chunk = || -> Option<&str> {
+        let mut eat_chunk = |code: &mut &str| -> Option<&str> {
             let (chunk, code_eaten, ws_skip) = parsers::eat_chunk(code);
-            code = code_eaten;
+            *code = code_eaten;
             pending_ws_skip = ws_skip;
 
             chunk
@@ -88,7 +82,7 @@ impl<'a> Analysis<'a> {
             line_count += pending_ws_skip;
             pending_ws_skip = 0;
 
-            let Some(chunk) = eat_chunk() else {
+            let Some(chunk) = eat_chunk(&mut code) else {
                 break;
             };
 
@@ -101,20 +95,20 @@ impl<'a> Analysis<'a> {
             if is_function_header(chunk) {
                 // is a function definition, currently at `ident` part
                 // now should be the identifier
-                let Some(chunk) = eat_chunk() else {
+                let Some(chunk) = eat_chunk(&mut code) else {
                     // no identifier, and this is the end of the code
                     break;
                 };
 
                 let (identifier, chunk) = if chunk.starts_with("=>") {
                     // its missing an identifier, so we treat the arrow as the identifier
-                    let next_chunk = eat_chunk();
+                    let next_chunk = eat_chunk(&mut code);
                     (chunk, next_chunk)
                 } else {
                     match chunk.find("=>") {
                         Some(index) => (&chunk[..index], Some(&chunk[index..])), // identifier and what comes after
                         None => {
-                            let next_chunk = eat_chunk();
+                            let next_chunk = eat_chunk(&mut code);
                             (chunk, next_chunk)
                         }
                     }
@@ -144,7 +138,7 @@ impl<'a> Analysis<'a> {
 
                         // progress chunk if no comma in this chunk
                         if !chunk.contains(',') {
-                            let next_chunk = eat_chunk();
+                            let next_chunk = eat_chunk(&mut code);
                             match next_chunk {
                                 Some(next_chunk) => chunk = next_chunk,
                                 None => {
@@ -163,7 +157,7 @@ impl<'a> Analysis<'a> {
                         chunk = eat_whitespace(chunk);
 
                         if chunk.is_empty() {
-                            let next_chunk = eat_chunk();
+                            let next_chunk = eat_chunk(&mut code);
                             match next_chunk {
                                 Some(next_chunk) => chunk = next_chunk,
                                 None => {
@@ -198,7 +192,7 @@ impl<'a> Analysis<'a> {
                     let chunk = &chunk[2..];
                     let chunk = eat_whitespace(chunk);
                     if chunk.is_empty() {
-                        let next_chunk = eat_chunk();
+                        let next_chunk = eat_chunk(&mut code);
 
                         match next_chunk {
                             Some(next_chunk) => next_chunk,
