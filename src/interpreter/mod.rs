@@ -1,6 +1,8 @@
 use std::{cell::RefCell, io::Write};
 
 use self::{
+    evaluators::statement::Statement,
+    parsers::types::Position,
     runtime::{state::InterpreterState, stdlib},
     static_analysis::Analysis,
 };
@@ -14,6 +16,7 @@ mod static_analysis;
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
     state: InterpreterState,
+    analysis: RefCell<Option<Analysis<'a>>>,
     stdout: RefCell<&'a mut dyn Write>,
 }
 
@@ -22,8 +25,15 @@ impl Interpreter<'_> {
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
+        self.analysis.replace(Some(analysis));
 
-        todo!("implement statement by statement parse / execution")
+        let mut code = Position::new(code);
+        while let Ok((code_after, statement)) = Statement::parse(code, self) {
+            code = code_after;
+            statement.eval();
+        }
+
+        Ok(())
     }
 
     /// Create a new interpreter and evaluate the given code
@@ -53,7 +63,7 @@ impl<'a> InterpreterBuilder<'a> {
         let interpreter = Interpreter {
             stdout: RefCell::new(self.stdout),
             state: InterpreterState::default(),
-            // owned_inputs: RefCell::new(Vec::new()),
+            analysis: RefCell::new(None),
         };
         stdlib::load(&interpreter);
         interpreter

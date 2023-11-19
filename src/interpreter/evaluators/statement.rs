@@ -1,16 +1,29 @@
-use nom::IResult;
+use crate::{
+    parsers::types::{PosResult, Position},
+    Interpreter,
+};
 
-use crate::Interpreter;
+use super::variable::VariableDecl;
 
-pub fn eval_statement<'a>(code: &'a str, interpreter: &Interpreter) -> IResult<&'a str, &'a str> {
-    todo!()
+pub enum Statement<'a> {
+    VariableDecl(VariableDecl<'a>),
+}
 
-    // alt((
-    //     VariableDecl::parse,
-    //     VarSet::parse,
-    //     Ast::parse_scope,
-    //     // those are fallback parsers
-    //     map(FunctionCall::parse, |func| Statement::FunctionCall(func)),
-    //     Expression::parse,
-    // ))(input)
+impl<'a> Statement<'a> {
+    pub fn parse(input: Position, interpreter: &Interpreter) -> PosResult<'a, Self> {
+        todo!()
+
+        // alt((
+        //     VariableDecl::parse,
+        //     VarSet::parse,
+        //     Ast::parse_scope,
+        //     // those are fallback parsers
+        //     map(FunctionCall::parse, |func| Statement::FunctionCall(func)),
+        //     Expression::parse,
+        // ))(input)
+    }
+
+    pub fn eval(&self) {
+        todo!()
+    }
 }

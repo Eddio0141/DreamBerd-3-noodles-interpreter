@@ -9,12 +9,12 @@ use super::expression::Expression;
 
 #[derive(Debug, Clone)]
 /// Declared variable
-pub struct VariableDecl {
-    name: String,
+pub struct VariableDecl<'a> {
+    name: &'a str,
     expression: Expression,
 }
 
-impl VariableDecl {
+impl<'a> VariableDecl<'a> {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
         interpreter.state.add_var(&self.name, value);
@@ -22,7 +22,7 @@ impl VariableDecl {
         Ok(())
     }
 
-    pub fn parse<'a>(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse(code: &'a str) -> IResult<&'a str, &'a str> {
         // let funcs = code.static_analysis.current_funcs();
 
         // if let Some((_, func)) = funcs.get_key_value("var") {

@@ -1,5 +1,5 @@
 mod expression;
-pub mod function;
+mod function;
 mod parsers;
-mod statement;
+pub mod statement;
 mod variable;

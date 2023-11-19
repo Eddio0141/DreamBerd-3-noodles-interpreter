@@ -181,6 +181,15 @@ impl<'a> Position<'a> {
             },
         )
     }
+
+    pub fn new(input: &'a str) -> Self {
+        Self {
+            line: 1,
+            column: 1,
+            index: 0,
+            input,
+        }
+    }
 }
 
 pub type PosResult<'a, O, E = nom::error::Error<Position<'a>>> =
