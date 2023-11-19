@@ -164,8 +164,7 @@ impl InputTakeAtPosition for Position<'_> {
 }
 
 impl<'a> Position<'a> {
-    fn left_right_split(&self, left: &str, right: &str, len: usize) -> (Self, Self) {
-        let (left, right) = (&self.input[..len], &self.input[len..]);
+    fn left_right_split(&self, left: &'a str, right: &'a str, len: usize) -> (Self, Self) {
         let (line, column) = calc_line_column(left);
         (
             Self {
