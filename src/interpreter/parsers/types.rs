@@ -1,5 +1,5 @@
 use std::{
-    ops::RangeFrom,
+    ops::{Range, RangeFrom, RangeTo},
     str::{CharIndices, Chars},
 };
 
@@ -21,13 +21,13 @@ where
     pub extra: T,
 }
 
-impl InputLength for Position<'_> {
+impl<T: Clone> InputLength for Position<'_, T> {
     fn input_len(&self) -> usize {
         self.input.input_len()
     }
 }
 
-impl<'a> InputIter for Position<'a> {
+impl<'a, T: Clone> InputIter for Position<'a, T> {
     type Item = char;
     type Iter = CharIndices<'a>;
     type IterElem = Chars<'a>;
@@ -51,7 +51,7 @@ impl<'a> InputIter for Position<'a> {
         }
         None
     }
-    #[inline]
+
     fn slice_index(&self, count: usize) -> Result<usize, Needed> {
         let mut cnt = 0;
         for (index, _) in self.input.char_indices() {
@@ -67,7 +67,7 @@ impl<'a> InputIter for Position<'a> {
     }
 }
 
-impl InputTake for Position<'_> {
+impl<T: Clone> InputTake for Position<'_, T> {
     fn take(&self, count: usize) -> Self {
         let mut new = *self;
         new.input = self.input.take(count);
@@ -93,7 +93,7 @@ fn calc_line_column(input: &str) -> (usize, usize) {
     (line, column)
 }
 
-impl InputTakeAtPosition for Position<'_> {
+impl<T: Clone> InputTakeAtPosition for Position<'_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
@@ -170,22 +170,74 @@ impl InputTakeAtPosition for Position<'_> {
     }
 }
 
-impl Slice<RangeFrom<usize>> for Position<'_> {
+impl<T: Clone> Slice<RangeFrom<usize>> for Position<'_, T> {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
-        let (left, right) = (&self.input[..range.start], &self.input[range]);
-        let (line, column) = calc_line_column(left);
+        let (left, right) = (&self.input[..range.start], &self.input[range.start..]);
 
         Self {
-            line: self.line + line,
-            column: self.column + column,
-            index: self.index + range.start,
+            line: self.line,
+            column: self.column,
+            index: self.index,
             input: right,
             extra: self.extra.clone(),
         }
     }
 }
 
+impl<T: Clone> Slice<RangeTo<usize>> for Position<'_, T> {
+    fn slice(&self, range: RangeTo<usize>) -> Self {
+        let (left, right) = (&self.input[..range.end], &self.input[range.end..]);
+        let (line, column) = calc_line_column(right);
+
+        Self {
+            line: self.line - line,
+            column: self.column - column,
+            index: self.index - right.len(),
+            input: left,
+            extra: self.extra.clone(),
+        }
+    }
+}
+
+impl<T: Clone> Slice<Range<usize>> for Position<'_, T> {
+    fn slice(&self, range: Range<usize>) -> Self {
+        // position would be left + right
+        let (left, right) = (&self.input[range], &self.input[range.end..]);
+        let (line, column) = calc_line_column(right);
+
+        Self {
+            line: self.line - line,
+            column: self.column - column,
+            index: self.index - right.len(),
+            input: left,
+            extra: self.extra.clone(),
+        }
+    }
+}
+
+impl<T: Clone> Compare<&str> for Position<'_, T> {
+    fn compare(&self, t: &str) -> CompareResult {
+        self.input.compare(t)
+    }
+
+    fn compare_no_case(&self, t: &str) -> CompareResult {
+        self.input.compare_no_case(t)
+    }
+}
+
 impl<'a> Position<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self {
+            line: 1,
+            column: 1,
+            index: 0,
+            input,
+            extra: (),
+        }
+    }
+}
+
+impl<'a, E: Clone> Position<'a, E> {
     fn left_right_split(&self, left: &'a str, right: &'a str, len: usize) -> (Self, Self) {
         let (line, column) = calc_line_column(left);
         (
@@ -205,21 +257,7 @@ impl<'a> Position<'a> {
             },
         )
     }
-}
 
-impl<'a> Position<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self {
-            line: 1,
-            column: 1,
-            index: 0,
-            input,
-            extra: (),
-        }
-    }
-}
-
-impl<'a, E: Clone> Position<'a, E> {
     pub fn new_with_extra(input: &'a str, extra: E) -> Self {
         Self {
             line: 1,
