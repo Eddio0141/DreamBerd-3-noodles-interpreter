@@ -53,28 +53,9 @@ impl<'a> Analysis<'a> {
             hoisted_funcs.push(func);
         };
 
-        let mut eat_chunk = |code: &mut &str| -> Option<&str> {
-            let (chunk, code_eaten, ws_skip) = parsers::eat_chunk(code);
-            *code = code_eaten;
-            pending_ws_skip = ws_skip;
-
-            chunk
-        };
-
-        let mut eat_whitespace = |code| -> &str {
-            let (code, ws) = parsers::eat_whitespace(code);
-            pending_ws_skip += ws;
-            code
-        };
-
-        let mut scope_index = 0usize;
-
         // go through code
         // TODO comment
         loop {
-            line_count += pending_ws_skip;
-            pending_ws_skip = 0;
-
             let Some(chunk) = eat_chunk(&mut code) else {
                 break;
             };
@@ -208,11 +189,6 @@ impl<'a> Analysis<'a> {
 
                 push_func(identifier, arg_count, line_count, index, None);
                 continue;
-            }
-
-            // scope?
-            if chunk.starts_with("{") {
-                scope_index += 1;
             }
 
             // TODO `var var func = arg1, arg2 => (expression ! | { block })`
