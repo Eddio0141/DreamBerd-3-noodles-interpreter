@@ -1,16 +1,20 @@
+use nom::combinator::peek;
+
 use crate::{
-    parsers::types::{PosResult, Position},
-    Interpreter,
+    interpreter::evaluators::function::FunctionCall, parsers::types::Position, Interpreter,
 };
 
-use super::variable::VariableDecl;
+use super::{parsers::EvalResult, variable::VariableDecl};
 
 pub enum Statement<'a> {
     VariableDecl(VariableDecl<'a>),
 }
 
 impl<'a> Statement<'a> {
-    pub fn parse(input: Position, interpreter: &Interpreter) -> PosResult<'a, Self> {
+    pub fn parse(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
+        // test for function call
+        if let Ok((_, next_chunk)) = peek(FunctionCall::parse)(input) {}
+
         todo!()
 
         // alt((

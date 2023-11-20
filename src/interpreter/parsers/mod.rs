@@ -22,6 +22,13 @@ pub fn ws(input: Position) -> PosResult<()> {
     take_while(is_ws).map(|_| ()).parse(input)
 }
 
+/// Takes a chunk of code until the next whitespace
+pub fn chunk(input: Position) -> PosResult<&str> {
+    take_while(|ch| !is_ws(ch))
+        .map(|slice: Position<'_>| slice.input)
+        .parse(input)
+}
+
 pub fn identifier<'a, I, E, P, PO>(terminating_parser: P) -> impl Fn(I) -> IResult<I, I, E>
 where
     I: InputTakeAtPosition<Item = char> + InputIter + InputTake + Borrow<str> + Copy + InputLength,

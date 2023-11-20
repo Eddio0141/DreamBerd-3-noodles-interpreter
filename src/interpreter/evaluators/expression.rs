@@ -3,9 +3,9 @@
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::Interpreter;
-use nom::IResult;
 
 use super::function::FunctionCall;
+use super::parsers::EvalResult;
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -23,7 +23,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn parse<'a>(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse<'a>(code: &'a str) -> EvalResult<'a, Self> {
         todo!()
     }
 }

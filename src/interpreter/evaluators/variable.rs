@@ -1,19 +1,16 @@
 //! Contains variable related structures
 
-use crate::parsers::ws;
-use nom::branch::*;
-use nom::bytes::complete::*;
-use nom::character::complete::digit1;
-use nom::combinator::*;
-use nom::number::complete::double;
-use nom::sequence::*;
-use nom::*;
+use crate::parsers::types::Position;
+use nom::{
+    branch::*, bytes::complete::*, character::complete::*, combinator::*, number::complete::double,
+    sequence::*, *,
+};
 
 use crate::interpreter::runtime::error::Error;
-use crate::parsers::identifier;
 use crate::Interpreter;
 
 use super::expression::Expression;
+use super::parsers::EvalResult;
 
 #[derive(Debug, Clone)]
 /// Declared variable
@@ -30,7 +27,7 @@ impl<'a> VariableDecl<'a> {
         Ok(())
     }
 
-    pub fn parse(input: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
         // let funcs = code.static_analysis.current_funcs();
 
         // if let Some((_, func)) = funcs.get_key_value("var") {
@@ -42,11 +39,11 @@ impl<'a> VariableDecl<'a> {
         // }
 
         // // n
-        let var = || tag("var");
-        let identifier = identifier(life_time);
+        // let var = || tag("var");
+        // let identifier = identifier(life_time);
         // var ws+ var ws+ identifier
-        let (input, (_, _, _, _, identifier, life_time)) =
-            (var(), ws, var(), ws, identifier, opt(life_time)).parse(input)?;
+        // let (input, (_, _, _, _, identifier, life_time)) =
+        //     (var(), ws, var(), ws, identifier, opt(life_time)).parse(input)?;
 
         // let decl = Self {
         //     expression: expression.into(),
@@ -90,7 +87,7 @@ impl VarSet {
         Ok(())
     }
 
-    pub fn parse<'a>(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse<'a>(code: &'a str) -> EvalResult<'a, Self> {
         // let funcs = input.static_analysis.current_funcs();
 
         // let identifier = identifier_optional_term('=');

@@ -1,12 +1,12 @@
 //! Contains function related structures
 
-use nom::IResult;
-
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
+use crate::parsers::types::Position;
 use crate::Interpreter;
 
 use super::expression::Expression;
+use super::parsers::EvalResult;
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -26,7 +26,7 @@ impl FunctionCall {
         interpreter.state.invoke_func(interpreter, &self.name, args)
     }
 
-    pub fn parse<'a>(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse<'a>(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
         todo!()
     }
 }
@@ -40,7 +40,7 @@ pub struct FunctionDef {
 }
 
 impl FunctionDef {
-    pub fn parse<'a>(code: &'a str) -> IResult<&'a str, &'a str> {
+    pub fn parse<'a>(code: &'a str) -> EvalResult<'a, Self> {
         todo!()
     }
 }

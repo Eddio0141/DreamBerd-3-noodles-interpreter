@@ -8,13 +8,17 @@ use nom::{
     *,
 };
 
-/// Position information for parsing
+/// Position information for parsing and an extra field for additional information
 #[derive(Debug, Clone, Copy)]
-pub struct Position<'a> {
+pub struct Position<'a, T = ()>
+where
+    T: Clone,
+{
     pub line: usize,
     pub column: usize,
     pub index: usize,
     pub input: &'a str,
+    pub extra: T,
 }
 
 impl InputLength for Position<'_> {
@@ -176,6 +180,7 @@ impl Slice<RangeFrom<usize>> for Position<'_> {
             column: self.column + column,
             index: self.index + range.start,
             input: right,
+            extra: self.extra.clone(),
         }
     }
 }
@@ -189,25 +194,42 @@ impl<'a> Position<'a> {
                 column: self.column,
                 index: self.index,
                 input: left,
+                extra: self.extra.clone(),
             },
             Self {
                 line: self.line + line,
                 column: self.column + column,
                 index: self.index + len,
                 input: right,
+                extra: self.extra.clone(),
             },
         )
     }
+}
 
+impl<'a> Position<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {
             line: 1,
             column: 1,
             index: 0,
             input,
+            extra: (),
         }
     }
 }
 
-pub type PosResult<'a, O, E = nom::error::Error<Position<'a>>> =
-    Result<(Position<'a>, O), nom::Err<E>>;
+impl<'a, E: Clone> Position<'a, E> {
+    pub fn new_with_extra(input: &'a str, extra: E) -> Self {
+        Self {
+            line: 1,
+            column: 1,
+            index: 0,
+            input,
+            extra,
+        }
+    }
+}
+
+pub type PosResult<'a, O, T = (), E = nom::error::Error<Position<'a, T>>> =
+    Result<(Position<'a, T>, O), nom::Err<E>>;

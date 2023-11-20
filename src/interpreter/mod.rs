@@ -27,8 +27,8 @@ impl Interpreter<'_> {
         let analysis = Analysis::analyze(code);
         self.analysis.replace(Some(analysis));
 
-        let mut code = Position::new(code);
-        while let Ok((code_after, statement)) = Statement::parse(code, self) {
+        let mut code = Position::new_with_extra(code, self);
+        while let Ok((code_after, statement)) = Statement::parse(code) {
             code = code_after;
             statement.eval();
         }
