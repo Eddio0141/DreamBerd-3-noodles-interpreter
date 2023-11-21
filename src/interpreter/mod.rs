@@ -20,10 +20,10 @@ pub struct Interpreter<'a> {
     stdout: RefCell<&'a mut dyn Write>,
 }
 
-impl Interpreter<'_> {
+impl<'a> Interpreter<'a> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
+    pub fn eval(&'a self, code: &'a str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
         self.analysis.replace(Some(analysis));
 

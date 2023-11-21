@@ -17,7 +17,7 @@ use nom::{
 /// - The position points to the start of the input
 /// - As the input is parsed and sliced, the position will be updated
 #[derive(Debug, Clone, Copy)]
-pub struct Position<'a, T: Clone = (), I = &'a str> {
+pub struct Position<'a, T = (), I = &'a str> {
     pub line: usize,
     pub column: usize,
     pub index: usize,
@@ -26,13 +26,16 @@ pub struct Position<'a, T: Clone = (), I = &'a str> {
     _phantom: PhantomData<&'a I>,
 }
 
-impl<T: Clone, I: InputLength> InputLength for Position<'_, T, I> {
+impl<T, I> InputLength for Position<'_, T, I>
+where
+    I: Copy + InputLength,
+{
     fn input_len(&self) -> usize {
         self.input.input_len()
     }
 }
 
-impl<'a, T: Clone> InputIter for Position<'a, T, &'a str> {
+impl<'a, T> InputIter for Position<'a, T, &'a str> {
     type Item = char;
     type Iter = CharIndices<'a>;
     type IterElem = Chars<'a>;
@@ -72,7 +75,7 @@ impl<'a, T: Clone> InputIter for Position<'a, T, &'a str> {
     }
 }
 
-impl<'a, T: Clone> InputIter for Position<'a, T, &'a [u8]> {
+impl<'a, T> InputIter for Position<'a, T, &'a [u8]> {
     type Item = u8;
     type Iter = Enumerate<Self::IterElem>;
     type IterElem = Copied<Iter<'a, u8>>;
@@ -101,9 +104,9 @@ impl<'a, T: Clone> InputIter for Position<'a, T, &'a [u8]> {
     }
 }
 
-impl<'a, T: Clone, I> InputTake for Position<'_, T, I>
+impl<'a, T: Copy, I: Copy> InputTake for Position<'a, T, I>
 where
-    I: InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars<'a>,
+    I: InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars,
 {
     fn take(&self, count: usize) -> Self {
         let mut new = *self;
@@ -116,7 +119,7 @@ where
     }
 }
 
-fn calc_line_column<'a, I: AsChars<'a>>(input: I) -> (usize, usize) {
+fn calc_line_column<'a, I: AsChars>(input: &'a I) -> (usize, usize) {
     let mut line = 1;
     let mut column = 1;
     for c in input.as_chars() {
@@ -130,23 +133,23 @@ fn calc_line_column<'a, I: AsChars<'a>>(input: I) -> (usize, usize) {
     (line, column)
 }
 
-trait AsChars<'a> {
-    fn as_chars(&'a self) -> impl Iterator<Item = char>;
+trait AsChars {
+    fn as_chars(&self) -> impl Iterator<Item = char>;
 }
 
-impl<'a> AsChars<'a> for &str {
-    fn as_chars(&'a self) -> impl Iterator<Item = char> {
+impl AsChars for &str {
+    fn as_chars(&self) -> impl Iterator<Item = char> {
         self.chars()
     }
 }
 
-impl<'a> AsChars<'a> for &'a [u8] {
-    fn as_chars(&'a self) -> impl Iterator<Item = char> {
+impl AsChars for &[u8] {
+    fn as_chars(&self) -> impl Iterator<Item = char> {
         std::str::from_utf8(self).unwrap().chars()
     }
 }
 
-impl<T: Clone> InputTakeAtPosition for Position<'_, T> {
+impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
@@ -223,67 +226,67 @@ impl<T: Clone> InputTakeAtPosition for Position<'_, T> {
     }
 }
 
-impl<T: Clone, I> Slice<RangeFrom<usize>> for Position<'_, T, I>
+impl<T: Copy, I> Slice<RangeFrom<usize>> for Position<'_, T, I>
 where
     I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
 {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
-        let (left, right) = (
-            self.input.slice(..range.start),
-            self.input.slice(range.start..),
-        );
+        let right = self.input.slice(range.start..);
 
         Self {
             line: self.line,
             column: self.column,
             index: self.index,
             input: right,
-            extra: self.extra.clone(),
+            extra: self.extra,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T: Clone, I> Slice<RangeTo<usize>> for Position<'_, T, I>
+impl<'a, T: Copy, I> Slice<RangeTo<usize>> for Position<'_, T, I>
 where
-    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars<'a> + InputLength,
+    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
 {
     fn slice(&self, range: RangeTo<usize>) -> Self {
         let (left, right) = (self.input.slice(..range.end), self.input.slice(range.end..));
-        let (line, column) = calc_line_column(right);
+        let (line, column) = calc_line_column(&right);
 
         Self {
             line: self.line - line,
             column: self.column - column,
             index: self.index - right.input_len(),
             input: left,
-            extra: self.extra.clone(),
+            extra: self.extra,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T: Clone, I> Slice<Range<usize>> for Position<'_, T, I>
+impl<'a, T: Copy, I> Slice<Range<usize>> for Position<'_, T, I>
 where
-    I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars<'a> + InputLength,
+    I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
 {
     fn slice(&self, range: Range<usize>) -> Self {
         // position would be left + right
-        let (left, right) = (self.input.slice(range), self.input.slice(range.end..));
-        let (line, column) = calc_line_column(right);
+        let (left, right) = (
+            self.input.slice(range.clone()),
+            self.input.slice(range.end..),
+        );
+        let (line, column) = calc_line_column(&right);
 
         Self {
             line: self.line - line,
             column: self.column - column,
             index: self.index - right.input_len(),
             input: left,
-            extra: self.extra.clone(),
+            extra: self.extra,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T: Clone> From<Position<'_, T, &'a str>> for Position<'a, T, &'a [u8]> {
+impl<'a, T> From<Position<'_, T, &'a str>> for Position<'a, T, &'a [u8]> {
     fn from(input: Position<'_, T, &'a str>) -> Self {
         Self {
             line: input.line,
@@ -296,7 +299,7 @@ impl<'a, T: Clone> From<Position<'_, T, &'a str>> for Position<'a, T, &'a [u8]> 
     }
 }
 
-impl<'a, T: Clone> From<Position<'_, T, &'a [u8]>> for Position<'a, T, &'a str> {
+impl<'a, T> From<Position<'_, T, &'a [u8]>> for Position<'a, T, &'a str> {
     fn from(input: Position<'_, T, &'a [u8]>) -> Self {
         Self {
             line: input.line,
@@ -309,7 +312,7 @@ impl<'a, T: Clone> From<Position<'_, T, &'a [u8]>> for Position<'a, T, &'a str> 
     }
 }
 
-impl<T: Clone, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
+impl<T, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
     fn compare(&self, t: I2) -> CompareResult {
         self.input.compare(t)
     }
@@ -319,25 +322,25 @@ impl<T: Clone, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
     }
 }
 
-impl<T: Clone, I: Offset> Offset for Position<'_, T, I> {
+impl<T, I: Offset> Offset for Position<'_, T, I> {
     fn offset(&self, second: &Self) -> usize {
         self.input.offset(&second.input)
     }
 }
 
-impl<T: FromStr, E: Clone> ParseTo<T> for Position<'_, E> {
+impl<T: FromStr, E> ParseTo<T> for Position<'_, E> {
     fn parse_to(&self) -> Option<T> {
         self.input.parse_to()
     }
 }
 
-impl<E: Clone> AsBytes for Position<'_, E> {
+impl<E> AsBytes for Position<'_, E> {
     fn as_bytes(&self) -> &[u8] {
         self.input.as_bytes()
     }
 }
 
-impl<'a, E: Clone> Borrow<str> for Position<'_, E, &'a str> {
+impl<'a, E> Borrow<str> for Position<'_, E, &'a str> {
     fn borrow(&self) -> &str {
         self.input
     }
@@ -356,16 +359,16 @@ impl<'a> Position<'a> {
     }
 }
 
-impl<'a, E: Clone, I: AsChars<'a>> Position<'a, E, I> {
+impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
     fn left_right_split(&self, left: I, right: I, len: usize) -> (Self, Self) {
-        let (line, column) = calc_line_column(left);
+        let (line, column) = calc_line_column(&left);
         (
             Self {
                 line: self.line,
                 column: self.column,
                 index: self.index,
                 input: left,
-                extra: self.extra.clone(),
+                extra: self.extra,
                 _phantom: PhantomData,
             },
             Self {
@@ -373,13 +376,13 @@ impl<'a, E: Clone, I: AsChars<'a>> Position<'a, E, I> {
                 column: self.column + column,
                 index: self.index + len,
                 input: right,
-                extra: self.extra.clone(),
+                extra: self.extra,
                 _phantom: PhantomData,
             },
         )
     }
 
-    pub fn new_with_extra(input: I, extra: E) -> Self {
+    pub fn new_with_extra(input: I, extra: T) -> Self {
         Self {
             line: 1,
             column: 1,

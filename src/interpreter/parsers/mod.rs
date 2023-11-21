@@ -1,8 +1,8 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, ops::RangeFrom};
 
 use nom::{
-    branch::*, bytes::complete::*, combinator::*, error::*, multi::*, number::complete::*,
-    sequence::*, *,
+    branch::*, bytes::complete::*, character::complete::satisfy, combinator::*, error::*,
+    number::complete::*, sequence::*, *,
 };
 
 use self::types::*;
@@ -13,6 +13,15 @@ pub static WHITESPACE: [char; 6] = [' ', '\t', '\n', '\r', '(', ')'];
 
 pub fn is_ws(ch: char) -> bool {
     WHITESPACE.contains(&ch)
+}
+
+/// Tries to parse a single whitespace character
+pub fn ws_char<I, E>(input: I) -> IResult<I, char, E>
+where
+    I: Slice<RangeFrom<usize>> + InputIter<Item = char>,
+    E: ParseError<I>,
+{
+    satisfy(is_ws)(input)
 }
 
 /// At least one whitespace repeated
@@ -32,29 +41,46 @@ pub fn chunk(input: Position) -> PosResult<&str> {
         .parse(input)
 }
 
-pub fn identifier<I, E, P, PO>(terminating_parser: P) -> impl FnOnce(I) -> IResult<I, I, E>
+/// Gets the identifier
+/// # Arguments
+/// - `terminating_parser`: A parser that terminates the identifier. If this is hit or a whitespace is hit, then the identifier is terminated
+///
+/// # Returns
+/// - The identifier
+pub fn identifier<I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
 where
-    I: InputTakeAtPosition<Item = char> + InputIter + InputTake + Borrow<str> + Copy + InputLength,
+    I: InputTakeAtPosition<Item = char>
+        + InputIter<Item = char>
+        + InputTake
+        + Borrow<str>
+        + Copy
+        + InputLength
+        + Slice<RangeFrom<usize>>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
     move |input| {
-        let ws_char = || {
-            verify(take(1usize), |s: &str| {
-                !s.is_empty() && !is_ws(s.chars().next().unwrap())
-            })
-        };
-        let identifier = tuple((
-            ws_char(),
-            many0_count(not(alt((
-                value((), ws_char()),
-                value((), terminating_parser),
-            )))),
-        ));
-        let (_, (_, rest)) = peek(identifier)(input)?;
+        let (input, _) = not(ws_char)(input)?;
+
+        let mut rest_count = 0usize;
+        loop {
+            if input.input_len() == 0 {
+                break;
+            }
+
+            // is it terminating?
+            if matches!(terminating_parser.parse(input), Ok(_))
+                || matches!(peek(ws_char::<_, nom::error::Error<_>>)(input), Ok(_))
+            {
+                // don't consume
+                break;
+            }
+
+            rest_count += 1;
+        }
 
         // rest + 1 character
-        Ok(input.take_split(rest + 1))
+        Ok(input.take_split(rest_count + 1))
     }
 }
 
@@ -65,7 +91,7 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse<'a, T: Clone>(input: Position<'a, T>) -> PosResult<Self, T> {
+    pub fn parse<'a, T: Copy>(input: Position<'a, T>) -> PosResult<Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
         let seconds =
             terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
@@ -80,7 +106,7 @@ impl LifeTime {
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
-pub fn parse_isize<'a, T: Clone>(input: Position<T>) -> PosResult<'a, isize, T> {
+pub fn parse_isize<'a, T: Copy>(input: Position<'a, T>) -> PosResult<'a, isize, T> {
     let input: Position<'_, T, &'a [u8]> = Position::from(input);
 
     // who even uses 128 bit pointers?

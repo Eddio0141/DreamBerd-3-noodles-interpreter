@@ -11,7 +11,7 @@ pub enum Statement<'a> {
 }
 
 impl<'a> Statement<'a> {
-    pub fn parse(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
+    pub fn parse(input: Position<'a, &'a Interpreter<'a>>) -> EvalResult<'a, Self> {
         // test for function call
         if let Ok((_, next_chunk)) = peek(FunctionCall::parse)(input) {}
 

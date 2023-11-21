@@ -32,7 +32,7 @@ pub struct FunctionInfo<'a> {
 
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
-    pub fn analyze(input: &str) -> Self {
+    pub fn analyze(input: &'a str) -> Self {
         let comma = || character::complete::char(',');
         let arg = identifier(tuple((comma(), ws)));
         let args = separated_list0(comma(), arg);
@@ -64,7 +64,7 @@ impl<'a> Analysis<'a> {
 
         // TODO comment
         let input = Position::new(input);
-        let (input, hoisted_funcs) = fold_many0(
+        let (_, hoisted_funcs) = fold_many0(
             alt((ws.map(|_| None), var_decl_func.map(Some))),
             Vec::new,
             |mut vec, item| {

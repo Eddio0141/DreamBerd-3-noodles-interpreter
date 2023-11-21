@@ -3,19 +3,12 @@
 #[cfg(test)]
 mod tests;
 
-use std::ops::RangeFrom;
-
-use nom::{
-    branch::alt, bytes::complete::*, character, combinator::*, error::ParseError, multi::*,
-    number::complete::*, sequence::*, *,
-};
+use nom::{branch::alt, bytes::complete::*, character, combinator::*, multi::*, sequence::*, *};
 
 use crate::{
     interpreter::parsers::*,
     parsers::types::{PosResult, Position},
 };
-
-use super::FunctionInfo;
 
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
@@ -94,8 +87,8 @@ pub fn is_function_header(mut chunk: &str) -> bool {
     true
 }
 
-pub fn till_term(input: Position) -> PosResult<()> {
-    let str = |input: Position| -> PosResult<()> {
+pub fn till_term<'a>(input: Position<'a>) -> PosResult<()> {
+    let str = |input: Position<'a>| -> PosResult<'a, ()> {
         let quote = alt((
             character::complete::char::<_, nom::error::Error<_>>('"'),
             character::complete::char('\''),
@@ -115,14 +108,18 @@ pub fn till_term(input: Position) -> PosResult<()> {
         // since we checking right to left now
         left_quotes.reverse();
 
-        verify(take(left_quotes.len()), |s: &Position| {
-            s.input
-                .chars()
-                .zip(left_quotes)
-                .all(|(input_c, left_quote)| input_c == left_quote)
+        let (input, _) = verify(take(left_quotes.len()), |s: &Position| {
+            for (i, input_c) in s.input.chars().enumerate() {
+                if input_c != left_quotes[i] {
+                    return false;
+                }
+            }
+            true
         })
         .map(|_| ())
-        .parse(input)
+        .parse(input)?;
+
+        Ok((input, ()))
     };
 
     let (input, _) = many0(alt((str, is_not("!").map(|_| ()))))(input)?;
@@ -134,10 +131,10 @@ pub fn till_term(input: Position) -> PosResult<()> {
 /// # Returns
 /// (var_decl_pos, identifier, life_time, expression_parser_output)
 pub fn var_decl<'a, P, O>(
-    expression_parser: P,
-) -> impl FnOnce(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
+    mut expression_parser: P,
+) -> impl FnMut(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
 where
-    P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>> + Clone,
+    P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>>,
 {
     move |input_original: Position| {
         let var = || tag("var");
@@ -148,7 +145,7 @@ where
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
         //
         // var var func<-5> = arg1, arg2, ... => (expression or something)!
-        let (input, (_, _, _, _, identifier, life_time, _, _, _, expr, _)) = ((
+        let (input, (_, _, _, _, identifier, life_time, _, _, _)) = ((
             var(),
             ws1,
             var(),
@@ -158,12 +155,13 @@ where
             ws,
             eq,
             ws,
-            expression_parser,
-            statement_end,
         ))
             .parse(input_original)?;
 
-        todo!()
+        let (input, expr) = expression_parser.parse(input)?;
+        let (input, _) = statement_end(input)?;
+
+        Ok((input, (input_original, identifier, life_time, expr)))
     }
 }
 
