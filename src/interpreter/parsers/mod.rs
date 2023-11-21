@@ -82,6 +82,14 @@ where
             input = input.take_split(1).0;
         }
 
+        // don't allow empty identifiers
+        if take_count == 0 {
+            return Err(Err::Error(E::from_error_kind(
+                input_original,
+                ErrorKind::TakeWhile1,
+            )));
+        }
+
         Ok(input_original.take_split(take_count))
     }
 }

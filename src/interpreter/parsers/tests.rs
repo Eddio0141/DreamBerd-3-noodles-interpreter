@@ -121,6 +121,15 @@ fn identifier_no_ws_no_term() {
 }
 
 #[test]
+fn identifier_empty() {
+    let input = Position::new("");
+    let mut identifier = identifier(character::complete::char::<_, nom::error::Error<_>>('1'));
+
+    let result = identifier(input);
+    assert!(result.is_err());
+}
+
+#[test]
 fn satisfy_parse() {
     let input = Position::new("foo bar");
     let (input, c) = satisfy::<_, _, nom::error::Error<_>>(|c| c == 'f')(input).unwrap();

@@ -6,7 +6,7 @@ fn function_expression_minimum() {
 
     let (body, (args, statement)) = function_expression(Position::new(body)).unwrap();
 
-    assert!(args.is_empty());
+    assert!(args.is_empty(), "args is not empty: {:?}", args);
     assert_eq!(statement.input, "statement");
     assert_eq!(statement.column, 4);
     assert_eq!(statement.line, 1);
@@ -32,14 +32,14 @@ fn function_expression_arg_minimum() {
     assert_eq!(arg.index, 0);
 
     assert_eq!(statement.input, "statement");
-    assert_eq!(statement.column, 4);
+    assert_eq!(statement.column, 7);
     assert_eq!(statement.line, 1);
-    assert_eq!(statement.index, 3);
+    assert_eq!(statement.index, 6);
 
     assert_eq!(body.input, "!");
-    assert_eq!(body.column, 13);
+    assert_eq!(body.column, 16);
     assert_eq!(body.line, 1);
-    assert_eq!(body.index, 12);
+    assert_eq!(body.index, 15);
 }
 
 #[test]
@@ -60,12 +60,12 @@ fn function_expression_args_minimum() {
     assert_eq!(arg5.index, 17);
 
     assert_eq!(statement.input, "statement");
-    assert_eq!(statement.column, 4);
+    assert_eq!(statement.column, 25);
     assert_eq!(statement.line, 1);
-    assert_eq!(statement.index, 3);
+    assert_eq!(statement.index, 24);
 
     assert_eq!(body.input, "!");
-    assert_eq!(body.column, 13);
+    assert_eq!(body.column, 34);
     assert_eq!(body.line, 1);
-    assert_eq!(body.index, 12);
+    assert_eq!(body.index, 33);
 }

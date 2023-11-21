@@ -97,7 +97,7 @@ where
 pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Position)> {
     let arrow = tag("=>");
     let comma = || character::complete::char(',');
-    let arg = identifier(tuple((comma(), ws)));
+    let arg = identifier(comma());
     let args = separated_list0(comma(), arg);
 
     tuple((args, ws, arrow, till_term))
