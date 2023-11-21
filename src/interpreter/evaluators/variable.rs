@@ -1,10 +1,6 @@
 //! Contains variable related structures
 
 use crate::parsers::types::Position;
-use nom::{
-    branch::*, bytes::complete::*, character::complete::*, combinator::*, number::complete::double,
-    sequence::*, *,
-};
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
@@ -55,23 +51,6 @@ impl<'a> VariableDecl<'a> {
         // Ok((input, Statement::VariableDecl(decl)))
         todo!()
     }
-}
-
-fn life_time<'a>(input: &'a str) -> IResult<&'a str, LifeTime> {
-    let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
-    let seconds = terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
-    let lines = map_res(digit1, |s: &str| s.parse()).map(|l| LifeTime::Lines(l));
-    delimited(
-        character::complete::char('<'),
-        alt((infinity, seconds, lines)),
-        character::complete::char('>'),
-    )(input)
-}
-
-pub enum LifeTime {
-    Infinity,
-    Seconds(f64),
-    Lines(usize),
 }
 
 #[derive(Debug, Clone)]

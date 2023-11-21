@@ -1,6 +1,9 @@
 use std::borrow::Borrow;
 
-use nom::{branch::*, bytes::complete::*, combinator::*, error::*, multi::*, sequence::*, *};
+use nom::{
+    branch::*, bytes::complete::*, character::complete::digit1, combinator::*, error::*, multi::*,
+    number::complete::double, sequence::*, *,
+};
 
 use self::types::*;
 
@@ -52,5 +55,25 @@ where
 
         // rest + 1 character
         Ok(input.take_split(rest + 1))
+    }
+}
+
+pub enum LifeTime {
+    Infinity,
+    Seconds(f64),
+    Lines(usize),
+}
+
+impl LifeTime {
+    pub fn parse(input: Position) -> PosResult<Self> {
+        let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
+        let seconds =
+            terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
+        let lines = map_res(digit1, |s: Position| s.input.parse()).map(|l| LifeTime::Lines(l));
+        delimited(
+            character::complete::char('<'),
+            alt((infinity, seconds, lines)),
+            character::complete::char('>'),
+        )(input)
     }
 }
