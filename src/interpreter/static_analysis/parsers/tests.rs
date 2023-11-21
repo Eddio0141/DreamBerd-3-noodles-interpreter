@@ -1,28 +1,19 @@
 use super::*;
 
 #[test]
-fn function_header() {
-    let header = "function";
-    assert!(is_function_header(header));
-}
+fn function_expression_minimum() {
+    let body = " =>statement!";
 
-#[test]
-fn function_header_single_char() {
-    let function = "function".chars();
+    let (body, (args, statement)) = function_expression(Position::new(body)).unwrap();
 
-    for c in function {
-        assert!(is_function_header(&c.to_string()));
-    }
-}
+    assert!(args.is_none());
+    assert_eq!(statement.input, "statement");
+    assert_eq!(statement.column, 4);
+    assert_eq!(statement.line, 1);
+    assert_eq!(statement.index, 3);
 
-#[test]
-fn function_header_jumble() {
-    let header = "fnto";
-    assert!(is_function_header(header));
-}
-
-#[test]
-fn function_header_invalid() {
-    let header: &str = "ffn";
-    assert!(!is_function_header(header));
+    assert_eq!(body.input, "!");
+    assert_eq!(body.column, 13);
+    assert_eq!(body.line, 1);
+    assert_eq!(body.index, 12);
 }

@@ -1,6 +1,8 @@
 //! Responsible for doing static analysis operation on the code before AST creation
 
 mod parsers;
+#[cfg(test)]
+mod tests;
 
 use nom::{
     branch::*, bytes::complete::tag, character, combinator::opt, multi::*, sequence::tuple, Parser,
@@ -17,7 +19,7 @@ pub struct Analysis<'a> {
     pub hoisted_funcs: Vec<FunctionInfo<'a>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Information for a function
 /// # Note
 /// - This only applies for functions defined with `function` keyword and functions assigned to a variable
@@ -33,13 +35,7 @@ pub struct FunctionInfo<'a> {
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(input: &'a str) -> Self {
-        let comma = || character::complete::char(',');
-        let arg = identifier(tuple((comma(), ws)));
-        let args = separated_list0(comma(), arg);
-        let arrow = tag("=>");
-        let func_expression =
-            tuple((opt(args), ws1, arrow, till_term)).map(|(args, _, arrow, _)| (args, arrow));
-        let var_decl_func = var_decl(func_expression).map(
+        let var_decl_func = var_decl(function_expression).map(
             |(var_decl_pos, identifier, life_time, (args, expr_pos))| {
                 FunctionInfo {
                     identifier: identifier.input,
@@ -78,24 +74,4 @@ impl<'a> Analysis<'a> {
 
         Self { hoisted_funcs }
     }
-}
-
-fn is_valid_lifetime(mut life_time: &str) -> bool {
-    if life_time == "Infinity" {
-        return true;
-    }
-
-    // check if seconds
-    if life_time.ends_with('s') {
-        if life_time.starts_with('-') {
-            // negative seconds...
-            return false;
-        }
-
-        life_time = &life_time[..life_time.len() - 1];
-        return life_time.parse::<f64>().is_ok();
-    }
-
-    // lines, which can be negative so just pass as number
-    life_time.parse::<f64>().is_ok()
 }

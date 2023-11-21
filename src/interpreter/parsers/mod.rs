@@ -7,6 +7,8 @@ use nom::{
 
 use self::types::*;
 
+#[cfg(test)]
+mod tests;
 pub mod types;
 
 pub static WHITESPACE: [char; 6] = [' ', '\t', '\n', '\r', '(', ')'];

@@ -1,5 +1,6 @@
 use std::{
     borrow::Borrow,
+    fmt::Debug,
     iter::{Copied, Enumerate},
     marker::PhantomData,
     ops::{Range, RangeFrom, RangeTo},
@@ -26,10 +27,7 @@ pub struct Position<'a, T = (), I = &'a str> {
     _phantom: PhantomData<&'a I>,
 }
 
-impl<T, I> InputLength for Position<'_, T, I>
-where
-    I: Copy + InputLength,
-{
+impl<T, I: InputLength> InputLength for Position<'_, T, I> {
     fn input_len(&self) -> usize {
         self.input.input_len()
     }
@@ -106,7 +104,7 @@ impl<'a, T> InputIter for Position<'a, T, &'a [u8]> {
 
 impl<'a, T: Copy, I: Copy> InputTake for Position<'a, T, I>
 where
-    I: InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars,
+    I: InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
 {
     fn take(&self, count: usize) -> Self {
         let mut new = *self;
@@ -115,17 +113,25 @@ where
     }
 
     fn take_split(&self, count: usize) -> (Self, Self) {
-        self.left_right_split(self.input.slice(..count), self.input.slice(count..), count)
+        let input_len = self.input_len();
+        if count > input_len {
+            panic!("count({count}) is larger than length({input_len})");
+        }
+
+        let (left, right) = (self.input.slice(..count), self.input.slice(count..));
+        let (left, right) = self.left_right_split(left, right, count);
+        (right, left)
     }
 }
 
-fn calc_line_column<'a, I: AsChars>(input: &'a I) -> (usize, usize) {
-    let mut line = 1;
-    let mut column = 1;
+/// Calculates how many lines and columns the input produces
+pub(super) fn calc_line_column<'a, I: AsChars>(input: &'a I) -> (usize, usize) {
+    let mut line = 0;
+    let mut column = 0;
     for c in input.as_chars() {
         if c == '\n' {
             line += 1;
-            column = 1;
+            column = 0;
         } else {
             column += 1;
         }
@@ -133,7 +139,7 @@ fn calc_line_column<'a, I: AsChars>(input: &'a I) -> (usize, usize) {
     (line, column)
 }
 
-trait AsChars {
+pub trait AsChars {
     fn as_chars(&self) -> impl Iterator<Item = char>;
 }
 
@@ -228,15 +234,19 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
 
 impl<T: Copy, I> Slice<RangeFrom<usize>> for Position<'_, T, I>
 where
-    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
+    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
 {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
-        let right = self.input.slice(range.start..);
+        let (left, right) = (
+            self.input.slice(..range.start),
+            self.input.slice(range.start..),
+        );
+        let (line, column) = calc_line_column(&left);
 
         Self {
-            line: self.line,
-            column: self.column,
-            index: self.index,
+            line: self.line + line,
+            column: self.column + column,
+            index: self.index + left.input_len(),
             input: right,
             extra: self.extra,
             _phantom: PhantomData,
@@ -249,13 +259,12 @@ where
     I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
 {
     fn slice(&self, range: RangeTo<usize>) -> Self {
-        let (left, right) = (self.input.slice(..range.end), self.input.slice(range.end..));
-        let (line, column) = calc_line_column(&right);
+        let left = self.input.slice(..range.end);
 
         Self {
-            line: self.line - line,
-            column: self.column - column,
-            index: self.index - right.input_len(),
+            line: self.line,
+            column: self.column,
+            index: self.index,
             input: left,
             extra: self.extra,
             _phantom: PhantomData,
