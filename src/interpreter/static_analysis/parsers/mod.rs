@@ -3,8 +3,11 @@
 #[cfg(test)]
 mod tests;
 
+use std::ops::RangeFrom;
+
 use nom::{
-    branch::alt, bytes::complete::*, character, combinator::*, multi::*, sequence::*, Parser,
+    branch::alt, bytes::complete::*, character, combinator::*, error::ParseError, multi::*,
+    number::complete::*, sequence::*, *,
 };
 
 use crate::{
@@ -123,6 +126,44 @@ pub fn till_term(input: Position) -> PosResult<()> {
     let (input, _) = many0(alt((str, is_not("!").map(|_| ()))))(input)?;
 
     Ok((input, ()))
+}
+
+/// Parses a variable declaration
+/// # Returns
+/// (var_decl_pos, identifier, life_time, expression_parser_output)
+pub fn var_decl<'a, P, O, E>(
+    expression_parser: P,
+) -> impl Fn(Position) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
+where
+    P: Parser<Position<'a>, O, E>,
+    E: ParseError<Position<'a>>,
+{
+    move |input_original: Position| {
+        let var = || tag("var");
+        let eq = character::complete::char('=');
+        let statement_end = character::complete::char('!');
+        let identifier = identifier(LifeTime::parse);
+
+        // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
+        //
+        // var var func<-5> = arg1, arg2, ... => (expression or something)!
+        let (input, (_, _, _, _, identifier, life_time, _, _, _, _, _)) = ((
+            var(),
+            ws1,
+            var(),
+            ws1,
+            identifier,
+            opt(LifeTime::parse),
+            ws,
+            eq,
+            ws,
+            till_term,
+            statement_end,
+        ))
+            .parse(input_original)?;
+
+        todo!()
+    }
 }
 
 /// Eats chunks until terminator symbol

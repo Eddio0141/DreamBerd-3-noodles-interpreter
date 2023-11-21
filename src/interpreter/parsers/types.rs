@@ -9,6 +9,9 @@ use nom::{
 };
 
 /// Position information for parsing and an extra field for additional information
+/// # Note
+/// - The position points to the start of the input
+/// - As the input is parsed and sliced, the position will be updated
 #[derive(Debug, Clone, Copy)]
 pub struct Position<'a, T = ()>
 where

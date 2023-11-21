@@ -2,6 +2,9 @@
 
 mod parsers;
 
+use nom::{
+    branch::*, bytes::complete::tag, character, combinator::opt, multi::*, sequence::tuple, Parser,
+};
 use parsers::*;
 
 use crate::parsers::{types::Position, *};
@@ -30,178 +33,48 @@ pub struct FunctionInfo<'a> {
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(input: &str) -> Self {
-        let input = Position::new(input);
-        let (input, _) = ws(input).unwrap();
-
-        // so far found functions
-        let mut hoisted_funcs = Vec::new();
-        let mut push_func = |identifier, arg_count, hoisted_line, body_location, life_time| {
-            // TODO fix hoisted_line because this is invalid
-            if let Some(life_time) = life_time {
-                if !is_valid_lifetime(life_time) {
-                    return;
+        let comma = || character::complete::char(',');
+        let arg = identifier(tuple((comma(), ws)));
+        let args = separated_list0(comma(), arg);
+        let arrow = tag("=>");
+        let func_expression =
+            tuple((opt(args), ws1, arrow, till_term)).map(|(args, _, arrow, _)| (args, arrow));
+        let var_decl_func = var_decl(func_expression).map(
+            |(var_decl_pos, identifier, life_time, (args, expr_pos))| {
+                FunctionInfo {
+                    identifier: identifier.input,
+                    arg_count: match args {
+                        Some(args) => args.len(),
+                        None => 0,
+                    },
+                    hoisted_line: match life_time {
+                        Some(life_time) => match life_time {
+                            LifeTime::Infinity => var_decl_pos.line, // positive infinity
+                            LifeTime::Seconds(_) => var_decl_pos.line,
+                            LifeTime::Lines(lines) => {
+                                var_decl_pos.line.saturating_add_signed(lines)
+                            }
+                        },
+                        None => var_decl_pos.line,
+                    },
+                    body_location: expr_pos.index,
                 }
-            }
+            },
+        );
 
-            let func = FunctionInfo {
-                identifier,
-                arg_count,
-                hoisted_line,
-                body_location,
-            };
-
-            hoisted_funcs.push(func);
-        };
-
-        // go through code
         // TODO comment
-        loop {
-            let Some(chunk) = eat_chunk(&mut code) else {
-                break;
-            };
-
-            // check for function definition
-            // identifier will be separate from => as well as expression / block
-            //
-            // function ident arg1, arg2, ... => (expression ! | { block })
-            // function ident arg1,arg2=>(expression! | {block})
-            // function ident=>(expression! | {block})
-            if is_function_header(chunk) {
-                // is a function definition, currently at `ident` part
-                // now should be the identifier
-                let Some(chunk) = eat_chunk(&mut code) else {
-                    // no identifier, and this is the end of the code
-                    break;
-                };
-
-                let (identifier, chunk) = if chunk.starts_with("=>") {
-                    // its missing an identifier, so we treat the arrow as the identifier
-                    let next_chunk = eat_chunk(&mut code);
-                    (chunk, next_chunk)
-                } else {
-                    match chunk.find("=>") {
-                        Some(index) => (&chunk[..index], Some(&chunk[index..])), // identifier and what comes after
-                        None => {
-                            let next_chunk = eat_chunk(&mut code);
-                            (chunk, next_chunk)
-                        }
-                    }
-                };
-
-                // either the arguments or the arrow of the end of code
-                let mut chunk = match chunk {
-                    Some(chunk) => chunk,
-                    None => break,
-                };
-
-                // any args?
-                // args must be separated by comma like `arg1, arg2, ...` and terminated by `=>`
-                let arg_count = if !chunk.starts_with("=>") {
-                    // just need the count
-                    let mut count = 1usize;
-                    // indication on end of code
-                    let mut no_chunk = false;
-
-                    // they could be all in 1 chunk
-                    loop {
-                        if let Some(arrow_pos) = chunk.find("=>") {
-                            chunk = &chunk[arrow_pos - 2..];
-                            // end
-                            break;
-                        }
-
-                        // progress chunk if no comma in this chunk
-                        if !chunk.contains(',') {
-                            let next_chunk = eat_chunk(&mut code);
-                            match next_chunk {
-                                Some(next_chunk) => chunk = next_chunk,
-                                None => {
-                                    no_chunk = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        let Some(comma_pos) = chunk.find(',') else {
-                            // no more commas, so we are done
-                            break;
-                        };
-
-                        chunk = &chunk[comma_pos + 1..];
-                        chunk = eat_whitespace(chunk);
-
-                        if chunk.is_empty() {
-                            let next_chunk = eat_chunk(&mut code);
-                            match next_chunk {
-                                Some(next_chunk) => chunk = next_chunk,
-                                None => {
-                                    no_chunk = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        count += 1;
-                    }
-
-                    if no_chunk {
-                        // no more chunks, so we are done
-                        break;
-                    }
-
-                    count
-                } else {
-                    0
-                };
-
-                // now should be at =>
-                if !chunk.starts_with("=>") {
-                    // invalid syntax, either a string or a function call, eat until terminator
-                    eat_until_real_term();
-                    continue;
+        let input = Position::new(input);
+        let (input, hoisted_funcs) = fold_many0(
+            alt((ws.map(|_| None), var_decl_func.map(Some))),
+            Vec::new,
+            |mut vec, item| {
+                if let Some(item) = item {
+                    vec.push(item)
                 }
-
-                // now progress to expression / block
-                let chunk = {
-                    let chunk = &chunk[2..];
-                    let chunk = eat_whitespace(chunk);
-                    if chunk.is_empty() {
-                        let next_chunk = eat_chunk(&mut code);
-
-                        match next_chunk {
-                            Some(next_chunk) => next_chunk,
-                            None => break,
-                        }
-                    } else {
-                        chunk
-                    }
-                };
-
-                let index = code.len() - code.len();
-
-                // block
-                if chunk.starts_with('{') {
-                    // TODO block
-                } else {
-                    // expression
-                    eat_until_real_term();
-                }
-
-                push_func(identifier, arg_count, line_count, index, None);
-                continue;
-            }
-
-            // TODO `var var func = arg1, arg2 => (expression ! | { block })`
-            // TODO `var var func = arg1,arg2=>(expression ! | { block })`
-            // TODO `var var func = =>(expression! | {block})`
-            // TODO `var var func<life_time> = arg1, arg2 => (expression ! | { block })`
-            match chunk {
-                "var" => {}
-
-                // maybe variable being defined
-                _ => (),
-            }
-        }
+                vec
+            },
+        )(input)
+        .unwrap();
 
         Self { hoisted_funcs }
     }
