@@ -135,7 +135,7 @@ pub fn till_term(input: Position) -> PosResult<()> {
 /// (var_decl_pos, identifier, life_time, expression_parser_output)
 pub fn var_decl<'a, P, O>(
     expression_parser: P,
-) -> impl Fn(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
+) -> impl FnOnce(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
 where
     P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>> + Clone,
 {
@@ -158,7 +158,7 @@ where
             ws,
             eq,
             ws,
-            expression_parser.clone(),
+            expression_parser,
             statement_end,
         ))
             .parse(input_original)?;
