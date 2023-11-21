@@ -53,26 +53,6 @@ impl<'a> VariableDecl<'a> {
     }
 }
 
-enum LifeTime {
-    Infinity,
-    Seconds(f64),
-    Lines(usize),
-}
-
-impl LifeTime {
-    fn parse<'a>(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
-        let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
-        let seconds =
-            terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
-        let lines = map_res(digit1, |s: Position<&Interpreter>| s.input.parse()).map(|l| LifeTime::Lines(l));
-        let (input, out) = delimited(
-            character::complete::char('<'),
-            alt((infinity, seconds, lines)),
-            character::complete::char('>'),
-        )(input)?;
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct VarSet {
     name: String,
