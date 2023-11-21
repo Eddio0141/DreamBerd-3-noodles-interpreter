@@ -15,6 +15,8 @@ use crate::{
     parsers::types::{PosResult, Position},
 };
 
+use super::FunctionInfo;
+
 static STRING_QUOTE: [char; 2] = ['"', '\''];
 
 /// Counts the number of newline progress
@@ -90,6 +92,12 @@ pub fn is_function_header(mut chunk: &str) -> bool {
     }
 
     true
+}
+
+pub fn var_var(input: Position) -> PosResult<FunctionInfo> {
+    let var = || tag("var");
+
+    todo!()
 }
 
 pub fn till_term(input: Position) -> PosResult<()> {
