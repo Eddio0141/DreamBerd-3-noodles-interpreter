@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, ops::RangeFrom};
+use std::borrow::Borrow;
 
 use nom::{
     branch::*, bytes::complete::*, combinator::*, error::*, multi::*, number::complete::*,
@@ -65,7 +65,7 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse(input: Position) -> PosResult<Self> {
+    pub fn parse<'a, T: Clone>(input: Position<'a, T>) -> PosResult<Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
         let seconds =
             terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
@@ -80,26 +80,29 @@ impl LifeTime {
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
-pub fn parse_isize<'a, E: ParseError<Position<'a>>>(input: Position) -> PosResult<'a, isize> {
+pub fn parse_isize<'a, T: Clone>(input: Position<T>) -> PosResult<'a, isize, T> {
+    let input: Position<'_, T, &'a [u8]> = Position::from(input);
+
     // who even uses 128 bit pointers?
-    #[cfg(target_pointer_width = "128")]
-    {
-        be_u128.map(|x| x as isize).parse(input)
-    }
-    #[cfg(target_pointer_width = "64")]
-    {
+    let result = if cfg!(target_pointer_width = "64") {
         be_u64.map(|x| x as isize).parse(input)
-    }
-    #[cfg(target_pointer_width = "32")]
-    {
+    } else if cfg!(target_pointer_width = "32") {
         be_u32.map(|x| x as isize).parse(input)
-    }
-    #[cfg(target_pointer_width = "16")]
-    {
+    } else if cfg!(target_pointer_width = "128") {
+        be_u128.map(|x| x as isize).parse(input)
+    } else if cfg!(target_pointer_width = "16") {
         be_u16.map(|x| x as isize).parse(input)
-    }
-    #[cfg(target_pointer_width = "8")]
-    {
+    } else if cfg!(target_pointer_width = "8") {
         be_u8.map(|x| x as isize).parse(input)
-    }
+    } else {
+        unimplemented!("Unsupported pointer width")
+    };
+
+    let (input, result) = result.map_err(|err: Err<Error<_>>| {
+        err.map_input(|i| <Position<_, &'a str> as From<Position<_, &'a [u8]>>>::from(i))
+    })?;
+
+    let input: Position<'_, T, &'a str> = Position::from(input);
+
+    Ok((input, result))
 }
