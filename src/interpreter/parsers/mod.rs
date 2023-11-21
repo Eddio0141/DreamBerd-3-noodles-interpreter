@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, ops::RangeFrom};
+use std::{borrow::Borrow, fmt::Debug, ops::RangeFrom};
 
 use nom::{
     branch::*, bytes::complete::*, character::complete::satisfy, combinator::*, error::*,
@@ -57,14 +57,14 @@ where
         + Borrow<str>
         + Copy
         + InputLength
-        + Slice<RangeFrom<usize>>,
+        + Slice<RangeFrom<usize>>
+        + Debug,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
-    move |input| {
-        let (input, _) = not(ws_char)(input)?;
-
-        let mut rest_count = 0usize;
+    move |input_original| {
+        let mut input = input_original;
+        let mut take_count = 0usize;
         loop {
             if input.input_len() == 0 {
                 break;
@@ -78,11 +78,11 @@ where
                 break;
             }
 
-            rest_count += 1;
+            take_count += 1;
+            input = input.take_split(1).0;
         }
 
-        // rest + 1 character
-        Ok(input.take_split(rest_count + 1))
+        Ok(input_original.take_split(take_count))
     }
 }
 

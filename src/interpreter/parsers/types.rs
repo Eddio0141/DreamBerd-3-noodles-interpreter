@@ -119,8 +119,7 @@ where
         }
 
         let (left, right) = (self.input.slice(..count), self.input.slice(count..));
-        let (left, right) = self.left_right_split(left, right, count);
-        (right, left)
+        self.left_right_split(left, right, count)
     }
 }
 
@@ -369,22 +368,25 @@ impl<'a> Position<'a> {
 }
 
 impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
+    /// Splits the input into two positions
+    /// # Returns
+    /// Instead of returning (left, right), it returns (right, left)
     fn left_right_split(&self, left: I, right: I, len: usize) -> (Self, Self) {
         let (line, column) = calc_line_column(&left);
         (
-            Self {
-                line: self.line,
-                column: self.column,
-                index: self.index,
-                input: left,
-                extra: self.extra,
-                _phantom: PhantomData,
-            },
             Self {
                 line: self.line + line,
                 column: self.column + column,
                 index: self.index + len,
                 input: right,
+                extra: self.extra,
+                _phantom: PhantomData,
+            },
+            Self {
+                line: self.line,
+                column: self.column,
+                index: self.index,
+                input: left,
                 extra: self.extra,
                 _phantom: PhantomData,
             },

@@ -10,13 +10,13 @@ use crate::{
     parsers::types::{PosResult, Position},
 };
 
-pub fn till_term<'a>(input: Position<'a>) -> PosResult<()> {
-    let str = |input: Position<'a>| -> PosResult<'a, ()> {
+pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
+    let str = |input: Position<'a>| -> PosResult<'a, Position> {
         let quote = alt((
             character::complete::char::<_, nom::error::Error<_>>('"'),
             character::complete::char('\''),
         ));
-        let (input, mut left_quotes) = many0(quote)(input).unwrap();
+        let (input, mut left_quotes) = many1(quote)(input)?;
         let (input, _) = many0(verify(
             tuple((
                 take::<_, Position, nom::error::Error<_>>(1usize),
@@ -31,7 +31,7 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<()> {
         // since we checking right to left now
         left_quotes.reverse();
 
-        let (input, _) = verify(take(left_quotes.len()), |s: &Position| {
+        let result = verify(take(left_quotes.len()), |s: &Position| {
             for (i, input_c) in s.input.chars().enumerate() {
                 if input_c != left_quotes[i] {
                     return false;
@@ -39,15 +39,13 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<()> {
             }
             true
         })
-        .map(|_| ())
-        .parse(input)?;
-
-        Ok((input, ()))
+        .parse(input);
+        result
     };
 
-    let (input, _) = many0(alt((str, is_not("!").map(|_| ()))))(input)?;
+    let (input, a) = many0(alt((str, is_not("!"))))(input)?;
 
-    Ok((input, ()))
+    Ok((input, a[0]))
 }
 
 /// Parses a variable declaration
@@ -88,13 +86,21 @@ where
     }
 }
 
-pub fn function_expression(input: Position) -> PosResult<(Option<Vec<Position>>, Position)> {
+/// Parses a function expression
+/// # Example
+/// ` => statement!`
+/// `arg1,arg2 , arg3 =>statement!`
+///
+/// # Returns
+/// - Arguments of the function with their identifiers
+/// - Position of where the statement starts
+pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Position)> {
     let arrow = tag("=>");
     let comma = || character::complete::char(',');
     let arg = identifier(tuple((comma(), ws)));
     let args = separated_list0(comma(), arg);
 
-    tuple((opt(args), ws1, arrow, till_term))
-        .map(|(args, _, arrow, _)| (args, arrow))
+    tuple((args, ws, arrow, till_term))
+        .map(|(args, _, _, expr)| (args, expr))
         .parse(input)
 }

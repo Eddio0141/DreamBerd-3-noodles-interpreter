@@ -4,9 +4,7 @@ mod parsers;
 #[cfg(test)]
 mod tests;
 
-use nom::{
-    branch::*, bytes::complete::tag, character, combinator::opt, multi::*, sequence::tuple, Parser,
-};
+use nom::{branch::*, multi::*, Parser};
 use parsers::*;
 
 use crate::parsers::{types::Position, *};
@@ -39,10 +37,7 @@ impl<'a> Analysis<'a> {
             |(var_decl_pos, identifier, life_time, (args, expr_pos))| {
                 FunctionInfo {
                     identifier: identifier.input,
-                    arg_count: match args {
-                        Some(args) => args.len(),
-                        None => 0,
-                    },
+                    arg_count: args.len(),
                     hoisted_line: match life_time {
                         Some(life_time) => match life_time {
                             LifeTime::Infinity => var_decl_pos.line, // positive infinity
