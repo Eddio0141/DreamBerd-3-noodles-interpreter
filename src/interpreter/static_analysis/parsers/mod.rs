@@ -94,12 +94,6 @@ pub fn is_function_header(mut chunk: &str) -> bool {
     true
 }
 
-pub fn var_var(input: Position) -> PosResult<FunctionInfo> {
-    let var = || tag("var");
-
-    todo!()
-}
-
 pub fn till_term(input: Position) -> PosResult<()> {
     let str = |input: Position| -> PosResult<()> {
         let quote = alt((
@@ -139,12 +133,11 @@ pub fn till_term(input: Position) -> PosResult<()> {
 /// Parses a variable declaration
 /// # Returns
 /// (var_decl_pos, identifier, life_time, expression_parser_output)
-pub fn var_decl<'a, P, O, E>(
+pub fn var_decl<'a, P, O>(
     expression_parser: P,
-) -> impl Fn(Position) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
+) -> impl Fn(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
 where
-    P: Parser<Position<'a>, O, E>,
-    E: ParseError<Position<'a>>,
+    P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>> + Clone,
 {
     move |input_original: Position| {
         let var = || tag("var");
@@ -155,7 +148,7 @@ where
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
         //
         // var var func<-5> = arg1, arg2, ... => (expression or something)!
-        let (input, (_, _, _, _, identifier, life_time, _, _, _, _, _)) = ((
+        let (input, (_, _, _, _, identifier, life_time, _, _, _, expr, _)) = ((
             var(),
             ws1,
             var(),
@@ -165,7 +158,7 @@ where
             ws,
             eq,
             ws,
-            till_term,
+            expression_parser.clone(),
             statement_end,
         ))
             .parse(input_original)?;

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     iter::{Copied, Enumerate},
     marker::PhantomData,
     ops::{Range, RangeFrom, RangeTo},
@@ -333,6 +334,12 @@ impl<T: FromStr, E: Clone> ParseTo<T> for Position<'_, E> {
 impl<E: Clone> AsBytes for Position<'_, E> {
     fn as_bytes(&self) -> &[u8] {
         self.input.as_bytes()
+    }
+}
+
+impl<'a, E: Clone> Borrow<str> for Position<'_, E, &'a str> {
+    fn borrow(&self) -> &str {
+        self.input
     }
 }
 

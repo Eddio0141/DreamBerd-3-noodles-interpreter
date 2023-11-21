@@ -36,9 +36,10 @@ pub fn identifier<'a, I, E, P, PO>(terminating_parser: P) -> impl Fn(I) -> IResu
 where
     I: InputTakeAtPosition<Item = char> + InputIter + InputTake + Borrow<str> + Copy + InputLength,
     E: ParseError<I>,
-    P: Parser<I, PO, E> + Copy,
+    P: Parser<I, PO, E> + Clone,
 {
     move |input| {
+        let terminating_parser = terminating_parser.clone();
         let ws_char = || {
             verify(take(1usize), |s: &str| {
                 !s.is_empty() && !is_ws(s.chars().next().unwrap())
