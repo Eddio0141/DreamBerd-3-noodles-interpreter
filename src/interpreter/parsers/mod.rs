@@ -1,11 +1,16 @@
 use std::{borrow::Borrow, fmt::Debug, ops::RangeFrom};
 
-use nom::{
-    branch::*, bytes::complete::*, character::complete::satisfy, combinator::*, error::*,
-    number::complete::*, sequence::*, *,
-};
-
 use self::types::*;
+use nom::{
+    branch::*,
+    bytes::complete::*,
+    character::complete::{digit1, satisfy},
+    combinator::*,
+    error::*,
+    number::complete::*,
+    sequence::*,
+    *,
+};
 
 #[cfg(test)]
 mod tests;
@@ -93,7 +98,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LifeTime {
     Infinity,
     Seconds(f64),
@@ -101,10 +106,15 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse<'a, T: Copy>(input: Position<'a, T>) -> PosResult<Self, T> {
+    pub fn parse<'a, T: Copy + Debug>(input: Position<'a, T>) -> PosResult<Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
-        let seconds =
-            terminated(double, character::complete::char('s')).map(|s| LifeTime::Seconds(s));
+        let seconds = map_opt(terminated(double, character::complete::char('s')), |s| {
+            if s.is_sign_negative() {
+                None
+            } else {
+                Some(LifeTime::Seconds(s))
+            }
+        });
         let lines = parse_isize.map(|l| LifeTime::Lines(l));
         delimited(
             character::complete::char('<'),
@@ -116,29 +126,16 @@ impl LifeTime {
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
-pub fn parse_isize<'a, T: Copy>(input: Position<'a, T>) -> PosResult<'a, isize, T> {
-    let input: Position<'_, T, &'a [u8]> = Position::from(input);
-
-    // who even uses 128 bit pointers?
-    let result = if cfg!(target_pointer_width = "64") {
-        be_u64.map(|x| x as isize).parse(input)
-    } else if cfg!(target_pointer_width = "32") {
-        be_u32.map(|x| x as isize).parse(input)
-    } else if cfg!(target_pointer_width = "128") {
-        be_u128.map(|x| x as isize).parse(input)
-    } else if cfg!(target_pointer_width = "16") {
-        be_u16.map(|x| x as isize).parse(input)
-    } else if cfg!(target_pointer_width = "8") {
-        be_u8.map(|x| x as isize).parse(input)
-    } else {
-        unimplemented!("Unsupported pointer width")
-    };
-
-    let (input, result) = result.map_err(|err: Err<Error<_>>| {
-        err.map_input(|i| <Position<_, &'a str> as From<Position<_, &'a [u8]>>>::from(i))
-    })?;
-
-    let input: Position<'_, T, &'a str> = Position::from(input);
-
-    Ok((input, result))
+pub fn parse_isize<'a, T: Copy + Debug>(input: Position<'a, T>) -> PosResult<'a, isize, T> {
+    let negative = character::complete::char::<Position<_>, _>('-');
+    tuple((opt(negative).map(|v| v.is_some()), digit1))
+        .map(|(neg, digits)| {
+            let digits = isize::from_str_radix(digits.input, 10).unwrap();
+            if neg {
+                digits.saturating_neg()
+            } else {
+                digits
+            }
+        })
+        .parse(input)
 }
