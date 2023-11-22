@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use nom::multi::many1;
+use nom::multi::many0;
 use nom::sequence::{tuple, Tuple};
 use nom::Parser;
 
@@ -43,9 +43,88 @@ impl Expression {
         // a chunk of (ws -> op -> ws) that has operation parsed and contains total ws
         let op_chunk = tuple((ws, Operator::parse, ws)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
 
-        let (input, (first_atom, priorities)) =
-            ((Atom::parse, many1(tuple((op_chunk, Atom::parse))))).parse(input)?;
+        let (input, (first_atom, priorities)) = ((
+            Expression::atom_to_expression,
+            many0(tuple((op_chunk, Expression::atom_to_expression))),
+        ))
+            .parse(input)?;
 
+        // work on expression
+        let (left, mut pending_unary) = first_atom;
+        let mut left = Cow::Owned(left);
+
+        // if true, it will take from left_pending, if false it will take pending_unary
+        let mut pending_order_is_left = pending_unary.iter().map(|_| false).collect::<Vec<_>>();
+        let mut left_pending = Vec::new();
+
+        for (i, ((op, ws), (right, right_pending_unary))) in priorities.iter().enumerate() {
+            let next_op = priorities.get(i + 1);
+
+            // is there next unary
+            if !right_pending_unary.is_empty() {
+                for right_pending_unary in right_pending_unary {
+                    pending_unary.push(right_pending_unary.clone());
+                }
+                left_pending.push((left, op));
+                left = Cow::Borrowed(right);
+                pending_order_is_left.extend(vec![false; pending_unary.len()]);
+                pending_order_is_left.push(true);
+                continue;
+            }
+
+            // is the next op higher in priority?
+            if let Some(((next_op, next_ws), _)) = next_op {
+                // check ws first, then operation type
+                let next_ws = *next_ws;
+                let ws = *ws;
+                if (next_ws < ws) || (next_ws == ws && next_op > op) {
+                    // beause we have to build from the right now, we need to store the left
+                    // expr(left, op, right)
+                    left_pending.push((left, op));
+                    left = Cow::Borrowed(right);
+                    pending_order_is_left.push(true);
+                    continue;
+                }
+            }
+
+            // now we need to do the pending ops
+            // we need to drain left_pending
+            left = Cow::Owned(Expression::Operation {
+                left: Box::new(left.into_owned()),
+                operator: *op,
+                right: Box::new(right.clone()),
+            });
+            for take_left in pending_order_is_left.drain(..) {
+                if take_left {
+                    let (left_inner, op_inner) = left_pending.pop().unwrap();
+                    left = Cow::Owned(Expression::Operation {
+                        left: Box::new(left_inner.into_owned()),
+                        operator: *op_inner,
+                        right: Box::new(left.into_owned()),
+                    });
+                } else {
+                    let op_inner = pending_unary.remove(0);
+                    for operator in op_inner {
+                        left = Cow::Owned(Expression::UnaryOperation {
+                            operator,
+                            right: Box::new(left.into_owned()),
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok((input, left.into_owned()))
+    }
+
+    /// Parses atom with its unary operators
+    /// - Returns the built expression and if any unprocessed unary operators
+    ///     - Each item in the vector is a vector of unary operators
+    ///     - Outer vector is meaning there's a ws between the unary operator groups
+    /// - Order of the unary operators is from left to right
+    fn atom_to_expression<'a>(
+        input: Position<'a, &'a Interpreter<'a>>,
+    ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
         todo!()
     }
 }
