@@ -2,6 +2,7 @@
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
+use crate::parsers::types::Position;
 use crate::Interpreter;
 
 use super::function::FunctionCall;
@@ -23,7 +24,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn parse<'a>(code: &'a str) -> EvalResult<'a, Self> {
+    pub fn parse<'a>(code: Position<&Interpreter>) -> EvalResult<'a, Self> {
         todo!()
     }
 }
@@ -63,7 +64,7 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
+    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         match self {
             Expression::Atom(atom) => atom.eval(interpreter),
             Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
@@ -108,7 +109,7 @@ pub enum Atom {
 }
 
 impl Atom {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
+    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         match self {
             // Atom::UncertainExpr(expr) => Ok(expr.eval(interpreter)),
             // Atom::UncertainString(expr) => Ok(expr.eval(interpreter)),
@@ -124,7 +125,7 @@ pub enum UnaryOperator {
 }
 
 impl UnaryOperator {
-    pub fn eval(&self, right: &Expression, interpreter: &Interpreter) -> Result<Value, Error> {
+    pub fn eval<'a>(&'a self, right: &'a Expression, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
         let value = match self {
             UnaryOperator::Not => !right.eval(interpreter)?,
             UnaryOperator::Minus => (-right.eval(interpreter)?)?,

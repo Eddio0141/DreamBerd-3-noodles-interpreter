@@ -15,8 +15,7 @@ mod static_analysis;
 
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
-    state: InterpreterState,
-    analysis: RefCell<Option<Analysis<'a>>>,
+    state: InterpreterState<'a>,
     stdout: RefCell<&'a mut dyn Write>,
 }
 
@@ -25,7 +24,7 @@ impl<'a> Interpreter<'a> {
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&'a self, code: &'a str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
-        self.analysis.replace(Some(analysis));
+        self.state.add_analysis_info(analysis);
 
         let mut code = Position::new_with_extra(code, self);
         while let Ok((code_after, statement)) = Statement::parse(code) {
@@ -63,7 +62,6 @@ impl<'a> InterpreterBuilder<'a> {
         let interpreter = Interpreter {
             stdout: RefCell::new(self.stdout),
             state: InterpreterState::default(),
-            analysis: RefCell::new(None),
         };
         stdlib::load(&interpreter);
         interpreter

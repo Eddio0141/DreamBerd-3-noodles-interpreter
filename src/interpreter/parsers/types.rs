@@ -320,6 +320,12 @@ impl<'a, T> From<Position<'_, T, &'a [u8]>> for Position<'a, T, &'a str> {
     }
 }
 
+impl<'a, T> From<Position<'a, T, &'a str>> for &'a str {
+    fn from(value: Position<T, &'a str>) -> Self {
+        value.input
+    }
+}
+
 impl<T, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
     fn compare(&self, t: I2) -> CompareResult {
         self.input.compare(t)

@@ -1,7 +1,7 @@
 //! Module containing the standard library functions
 
 use crate::{
-    interpreter::runtime::{value::Value, Error},
+    interpreter::runtime::{state::FunctionVariant, value::Value, Error},
     Interpreter,
 };
 
@@ -23,9 +23,13 @@ pub fn load(interpreter: &Interpreter) {
 
     for func in funcs {
         let (name, arg_count, func) = func;
-        interpreter
-            .state
-            .add_func(name, Function::new_native(arg_count, func));
+        interpreter.state.add_func(
+            name,
+            Function {
+                arg_count,
+                variant: FunctionVariant::Native(func),
+            },
+        );
     }
 
     // vars
