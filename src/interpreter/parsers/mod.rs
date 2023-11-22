@@ -57,8 +57,7 @@ where
         + Borrow<str>
         + Copy
         + InputLength
-        + Slice<RangeFrom<usize>>
-        + Debug,
+        + Slice<RangeFrom<usize>>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
@@ -94,6 +93,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub enum LifeTime {
     Infinity,
     Seconds(f64),

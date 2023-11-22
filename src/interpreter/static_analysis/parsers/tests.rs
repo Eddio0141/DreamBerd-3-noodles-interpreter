@@ -87,3 +87,21 @@ fn till_term_statement() {
     assert_eq!(statement.index, 11);
     assert!(input.input.is_empty());
 }
+
+#[test]
+fn till_term_with_strings() {
+    let code = "statement!foo\"statement2\"bar!";
+    let (input, statement) = till_term(Position::new(code)).unwrap();
+    assert_eq!(statement.input, "statement");
+    assert_eq!(statement.column, 1);
+    assert_eq!(statement.line, 1);
+    assert_eq!(statement.index, 0);
+    assert_eq!(input.input, "foo\"statement2\"bar!");
+
+    let (input, statement) = till_term(input).unwrap();
+    assert_eq!(statement.input, "foo\"statement2\"bar");
+    assert_eq!(statement.column, 11);
+    assert_eq!(statement.line, 1);
+    assert_eq!(statement.index, 10);
+    assert!(input.input.is_empty());
+}

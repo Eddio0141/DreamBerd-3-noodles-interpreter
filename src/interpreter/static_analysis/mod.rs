@@ -4,10 +4,13 @@ mod parsers;
 #[cfg(test)]
 mod tests;
 
-use nom::{branch::*, combinator::value, multi::*, Parser};
+use nom::{branch::*, combinator::value, Parser};
 use parsers::*;
 
-use crate::parsers::{types::Position, *};
+use crate::parsers::{
+    types::{PosResult, Position},
+    *,
+};
 
 /// Contains useful data about the code
 #[derive(Debug, Clone)]
@@ -33,43 +36,50 @@ pub struct FunctionInfo<'a> {
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(input: &'a str) -> Self {
-        let var_decl_func = var_decl(function_expression).map(
-            |(var_decl_pos, identifier, life_time, (args, expr_pos))| {
-                FunctionInfo {
-                    identifier: identifier.input,
-                    arg_count: args.len(),
-                    hoisted_line: match life_time {
-                        Some(life_time) => match life_time {
-                            LifeTime::Infinity => var_decl_pos.line, // positive infinity
-                            LifeTime::Seconds(_) => var_decl_pos.line,
-                            LifeTime::Lines(lines) => {
-                                var_decl_pos.line.saturating_add_signed(lines)
-                            }
+        let var_decl_func = |input: Position<'a>| -> PosResult<'a, FunctionInfo> {
+            var_decl(function_expression)
+                .map(|(var_decl_pos, identifier, life_time, (args, expr_pos))| {
+                    FunctionInfo {
+                        identifier: identifier.input,
+                        arg_count: args.len(),
+                        hoisted_line: match life_time {
+                            Some(life_time) => match life_time {
+                                LifeTime::Infinity => var_decl_pos.line, // positive infinity
+                                LifeTime::Seconds(_) => var_decl_pos.line,
+                                LifeTime::Lines(lines) => {
+                                    var_decl_pos.line.saturating_add_signed(lines)
+                                }
+                            },
+                            None => var_decl_pos.line,
                         },
-                        None => var_decl_pos.line,
-                    },
-                    body_location: expr_pos.index,
-                }
-            },
-        );
+                        body_location: expr_pos.index,
+                    }
+                })
+                .parse(input)
+        };
 
         // TODO comment
-        let input = Position::new(input);
-        let (_, hoisted_funcs) = fold_many0(
-            alt((
-                value(None, ws),
+        let mut input = Position::new(input);
+        let mut hoisted_funcs = Vec::new();
+
+        loop {
+            if input.input.is_empty() {
+                break;
+            }
+
+            let (input_new, var_decl) = alt((
+                value(None, ws_char),
                 var_decl_func.map(Some),
                 value(None, till_term),
-            )),
-            Vec::new,
-            |mut vec, item| {
-                if let Some(item) = item {
-                    vec.push(item)
-                }
-                vec
-            },
-        )(input)
-        .unwrap();
+            ))(input)
+            .unwrap();
+
+            input = input_new;
+
+            if let Some(var_decl) = var_decl {
+                hoisted_funcs.push(var_decl);
+            }
+        }
 
         Self { hoisted_funcs }
     }
