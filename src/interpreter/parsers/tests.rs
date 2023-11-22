@@ -4,7 +4,7 @@ use nom::{
     InputTake, Slice,
 };
 
-use crate::parsers::types::Position;
+use crate::parsers::{types::Position, LifeTime};
 
 use super::{identifier, types::calc_line_column, ws_char};
 
@@ -166,4 +166,52 @@ fn ws_char_parse() {
     assert_eq!(input.line, 1);
     assert_eq!(input.column, 2);
     assert_eq!(input.index, 1);
+}
+
+#[test]
+fn life_time_neg_line() {
+    let input = Position::new("<-5>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Lines(-5));
+}
+
+#[test]
+fn life_time_pos_line() {
+    let input = Position::new("<5>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Lines(5));
+}
+
+#[test]
+fn life_time_zero_line() {
+    let input = Position::new("<0>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Lines(0));
+}
+
+#[test]
+fn life_time_seconds() {
+    let input = Position::new("<10.5s>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Seconds(10.5));
+}
+
+#[test]
+fn life_time_neg_seconds_fail() {
+    let input = Position::new("<-10.5s>");
+    assert!(LifeTime::parse(input).is_err());
+}
+
+#[test]
+fn life_time_zero_seconds() {
+    let input = Position::new("<0s>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Seconds(0.));
+}
+
+#[test]
+fn life_time_infinity() {
+    let input = Position::new("<Infinity>");
+    let (_, life_time) = LifeTime::parse(input).unwrap();
+    assert_eq!(life_time, LifeTime::Infinity);
 }
