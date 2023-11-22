@@ -7,6 +7,7 @@ use nom::{
     character::complete::{digit1, satisfy},
     combinator::*,
     error::*,
+    multi::{many0_count, many1},
     number::complete::*,
     sequence::*,
     *,
@@ -32,13 +33,26 @@ where
 }
 
 /// At least one whitespace repeated
-pub fn ws1(input: Position) -> PosResult<()> {
+pub fn ws1<I>(input: I) -> IResult<I, ()>
+where
+    I: InputIter<Item = char> + InputLength + InputTake + Clone + InputTakeAtPosition<Item = char>,
+{
     take_while1(is_ws).map(|_| ()).parse(input)
 }
 
 /// Any amount of whitespace repeated
-pub fn ws(input: Position) -> PosResult<()> {
-    take_while(is_ws).map(|_| ()).parse(input)
+/// # Returns
+/// - The amount of whitespace
+pub fn ws<I>(input: I) -> IResult<I, usize>
+where
+    I: InputIter<Item = char>
+        + InputLength
+        + InputTake
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Slice<RangeFrom<usize>>,
+{
+    many0_count(ws_char)(input)
 }
 
 /// Takes a chunk of code until the next whitespace
@@ -138,4 +152,18 @@ pub fn parse_isize<'a, T: Copy + Debug>(input: Position<'a, T>) -> PosResult<'a,
             }
         })
         .parse(input)
+}
+
+/// End of statement including the whitespace before it
+pub fn end_of_statement<I>(input: I) -> IResult<I, ()>
+where
+    I: InputIter<Item = char>
+        + Clone
+        + InputLength
+        + Slice<RangeFrom<usize>>
+        + InputTake
+        + InputTakeAtPosition<Item = char>,
+{
+    let end = many1(character::complete::char('!'));
+    tuple((ws, end)).map(|_| ()).parse(input)
 }

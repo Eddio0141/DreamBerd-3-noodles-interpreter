@@ -35,5 +35,6 @@ pub use interpreter::error::*;
 pub use interpreter::*;
 
 pub mod interpreter;
+mod prelude;
 #[cfg(test)]
 mod tests;

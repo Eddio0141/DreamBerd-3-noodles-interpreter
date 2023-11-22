@@ -1,10 +1,12 @@
 use std::{
+    borrow::Cow,
     cell::{Ref, RefCell},
     collections::HashMap,
 };
 
 use crate::{
     interpreter::static_analysis::{Analysis, FunctionInfo},
+    prelude::Wrapper,
     Interpreter,
 };
 
@@ -12,13 +14,13 @@ use super::{error::Error, value::Value};
 
 #[derive(Debug)]
 /// Interpreter state
-pub struct InterpreterState<'a> {
-    vars: RefCell<Vec<VariableState<'a>>>,
+pub struct InterpreterState {
+    vars: RefCell<Vec<VariableState>>,
     // functions are either global or declared as a variable
-    funcs: RefCell<Vec<FunctionState<'a>>>,
+    funcs: RefCell<Vec<FunctionState>>,
 }
 
-impl Default for InterpreterState<'_> {
+impl Default for InterpreterState {
     fn default() -> Self {
         Self {
             vars: RefCell::new(vec![Default::default()]),
@@ -27,9 +29,9 @@ impl Default for InterpreterState<'_> {
     }
 }
 
-impl<'a> InterpreterState<'a> {
+impl InterpreterState {
     /// Gets function info
-    pub fn get_func_info(&self, name: &'a str) -> Option<Ref<Function>> {
+    pub fn get_func_info(&self, name: &str) -> Option<Ref<Function>> {
         let funcs = self.funcs.borrow();
         Ref::filter_map(funcs, |funcs| {
             funcs.iter().find_map(|funcs| funcs.0.get(name))
@@ -38,7 +40,7 @@ impl<'a> InterpreterState<'a> {
     }
 
     /// Adds the analysis information to the state
-    pub fn add_analysis_info(&self, analysis: Analysis<'a>) {
+    pub fn add_analysis_info(&self, analysis: Analysis) {
         for func in analysis.hoisted_funcs {
             let FunctionInfo {
                 identifier,
@@ -70,7 +72,7 @@ impl<'a> InterpreterState<'a> {
         last_scope.retain(|name, func| {
             if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
                 if *defined_line > line {
-                    new_scope.insert(*name, *func);
+                    new_scope.insert(name.to_string(), *func);
                     return false;
                 }
             }
@@ -100,8 +102,8 @@ impl<'a> InterpreterState<'a> {
     pub fn invoke_func(
         &self,
         interpreter: &Interpreter<'_>,
-        name: &'a str,
-        args: Vec<&Value>,
+        name: &str,
+        args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.get_func_info(name) {
             return func.eval(interpreter, args);
@@ -110,7 +112,7 @@ impl<'a> InterpreterState<'a> {
         Err(Error::FunctionNotFound(name.to_string()))
     }
 
-    pub fn add_var(&self, name: &'a str, value: Value) {
+    pub fn add_var(&self, name: &str, value: Value) {
         self.vars
             .borrow_mut()
             .last_mut()
@@ -126,7 +128,7 @@ impl<'a> InterpreterState<'a> {
             .find_map(|vars| vars.get_var(name).cloned())
     }
 
-    pub fn set_var(&self, name: &'a str, value: Value) {
+    pub fn set_var(&self, name: &str, value: Value) {
         let mut vars = self.vars.borrow_mut();
         let vars_iter = vars.iter_mut().rev();
 
@@ -140,22 +142,22 @@ impl<'a> InterpreterState<'a> {
         vars.last_mut().unwrap().declare_var(name, value);
     }
 
-    pub fn add_func(&self, name: &'a str, func: Function) {
+    pub fn add_func(&self, name: &str, func: Function) {
         self.funcs
             .borrow_mut()
             .last_mut()
             .unwrap()
             .0
-            .insert(name, func);
+            .insert(name.to_string(), func);
     }
 }
 
 #[derive(Debug, Default)]
-pub struct VariableState<'a>(pub HashMap<&'a str, Value>);
+pub struct VariableState(pub HashMap<String, Value>);
 
-impl<'a> VariableState<'a> {
-    pub fn declare_var(&mut self, name: &'a str, value: Value) {
-        self.0.insert(name, value);
+impl VariableState {
+    pub fn declare_var(&mut self, name: &str, value: Value) {
+        self.0.insert(name.to_string(), value);
     }
 
     pub fn get_var(&self, name: &str) -> Option<&Value> {
@@ -173,7 +175,7 @@ impl<'a> VariableState<'a> {
 }
 
 #[derive(Debug, Default)]
-pub struct FunctionState<'a>(pub HashMap<&'a str, Function>);
+pub struct FunctionState(pub HashMap<String, Function>);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Function {
@@ -182,7 +184,11 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn eval(&self, interpreter: &Interpreter, args: Vec<&Value>) -> Result<Value, Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        args: Vec<Wrapper<Cow<Value>>>,
+    ) -> Result<Value, Error> {
         // match &self.variant {
         //     FunctionVariant::FunctionDefined {body_location, defined_line} => func.eval(
         //         interpreter,

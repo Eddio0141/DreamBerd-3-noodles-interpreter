@@ -1,19 +1,26 @@
-use nom::combinator::peek;
+use nom::Parser;
 
 use crate::{
-    interpreter::evaluators::function::FunctionCall, parsers::types::Position, Interpreter,
+    interpreter::{evaluators::function::FunctionCall, runtime},
+    parsers::types::Position,
+    Interpreter,
 };
 
-use super::{parsers::EvalResult, variable::VariableDecl};
+use super::{parsers::AstParseResult, variable::VariableDecl};
 
-pub enum Statement<'a> {
-    VariableDecl(VariableDecl<'a>),
+pub enum Statement {
+    FunctionCall(FunctionCall),
+    VariableDecl(VariableDecl),
 }
 
-impl<'a> Statement<'a> {
-    pub fn parse(input: Position<'a, &'a Interpreter<'a>>) -> EvalResult<'a, Self> {
+impl Statement {
+    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        let mut function_call = FunctionCall::parse.map(|o| Statement::FunctionCall(o));
+
         // test for function call
-        if let Ok((_, next_chunk)) = peek(FunctionCall::parse)(input) {}
+        if let Ok(result) = function_call.parse(input) {
+            return Ok(result);
+        }
 
         todo!()
 
@@ -27,7 +34,10 @@ impl<'a> Statement<'a> {
         // ))(input)
     }
 
-    pub fn eval(&self) {
-        todo!()
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), runtime::error::Error> {
+        match self {
+            Statement::FunctionCall(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
+        }
     }
 }

@@ -6,24 +6,24 @@ use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
 
 use super::expression::Expression;
-use super::parsers::EvalResult;
+use super::parsers::AstParseResult;
 
 #[derive(Debug, Clone)]
 /// Declared variable
-pub struct VariableDecl<'a> {
-    name: &'a str,
+pub struct VariableDecl {
+    name: String,
     expression: Expression,
 }
 
-impl<'a> VariableDecl<'a> {
-    pub fn eval(&'a self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
+impl VariableDecl {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.add_var(&self.name, value);
+        interpreter.state.add_var(&self.name, value.0.into_owned());
 
         Ok(())
     }
 
-    pub fn parse(input: Position<&Interpreter>) -> EvalResult<'a, Self> {
+    pub fn parse<'a>(input: Position<&Interpreter>) -> AstParseResult<'a, Self> {
         // let funcs = code.static_analysis.current_funcs();
 
         // if let Some((_, func)) = funcs.get_key_value("var") {
@@ -62,11 +62,11 @@ pub struct VarSet {
 impl VarSet {
     pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
-        interpreter.state.set_var(&self.name, value);
+        interpreter.state.set_var(&self.name, value.0.into_owned());
         Ok(())
     }
 
-    pub fn parse<'a>(code: &'a str) -> EvalResult<'a, Self> {
+    pub fn parse(code: &str) -> AstParseResult<Self> {
         // let funcs = input.static_analysis.current_funcs();
 
         // let identifier = identifier_optional_term('=');

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cell::RefCell,
     collections::HashMap,
     fmt::Display,
@@ -6,7 +7,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::interpreter::runtime;
+use crate::{interpreter::runtime, prelude::Wrapper};
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
@@ -112,7 +113,7 @@ impl Value {
     }
 }
 
-impl PartialEq for Value {
+impl<'a> PartialEq for Wrapper<Cow<'a, Value>> {
     fn eq(&self, other: &Self) -> bool {
         // handle same type situation
         if self.same_type(other) {
@@ -140,22 +141,17 @@ impl PartialEq for Value {
             return left.loose_eq_primitive_eq_type(other);
         }
 
-        if matches!(left, Value::Symbol(_)) {
-            return matches!(other, Value::Symbol(_));
+        if matches!(left.as_ref(), Value::Symbol(_)) {
+            return matches!(other.as_ref(), Value::Symbol(_));
         }
 
         // is one of them bool?
-        if matches!(left, Value::Boolean(_)) {
-            let other = bool::from(other);
-            return left == &Value::Boolean(other);
+        if matches!(left.as_ref(), Value::Boolean(_)) || matches!(other.as_ref(), Value::Boolean(_))
+        {
+            return left == other;
         }
 
-        if matches!(other, Value::Boolean(_)) {
-            let left: bool = bool::from(left);
-            return other == &Value::Boolean(left);
-        }
-
-        match (left, other) {
+        match (left.as_ref(), other.as_ref()) {
             (Value::Number(left), Value::String(other)) => match other.parse::<f64>() {
                 Ok(other) => *left == other,
                 Err(_) => false,
@@ -177,7 +173,7 @@ impl PartialEq for Value {
     }
 }
 
-impl PartialOrd for Value {
+impl<'a> PartialOrd for Wrapper<Cow<'a, Value>> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO object to primitive, [@@toPrimitive]() with "number", valueOf(), toString()
         let left = if self.is_primitive() {
@@ -192,18 +188,18 @@ impl PartialOrd for Value {
             return None;
         };
 
-        if let Value::String(left) = left {
-            if let Value::String(right) = other {
+        if let Value::String(left) = left.as_ref() {
+            if let Value::String(right) = other.as_ref() {
                 // both is string, compare lexicographically
                 return Some(left.cmp(right));
             }
         }
 
         let left_bigint;
-        let left = if let Value::BigInt(left) = left {
+        let left = if let Value::BigInt(left) = left.as_ref() {
             left
         } else {
-            let left = f64::try_from(left).unwrap_or(f64::NAN);
+            let left = f64::try_from(left.as_ref()).unwrap_or(f64::NAN);
             if left.is_nan() {
                 return None;
             }
@@ -212,10 +208,10 @@ impl PartialOrd for Value {
         };
 
         let other_bigint;
-        let other = if let Value::BigInt(other) = other {
+        let other = if let Value::BigInt(other) = other.as_ref() {
             other
         } else {
-            let other = f64::try_from(other).unwrap_or(f64::NAN);
+            let other = f64::try_from(other.as_ref()).unwrap_or(f64::NAN);
             if other.is_nan() {
                 return None;
             }
@@ -258,17 +254,17 @@ impl<'a> From<&'a Value> for &'a String {
     }
 }
 
-impl Not for Value {
+impl<'a> Not for Wrapper<Cow<'a, Value>> {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        Value::Boolean(!(bool::from(&self)))
+        Wrapper(Cow::Owned(Value::Boolean(!(bool::from(self)))))
     }
 }
 
-impl From<&Value> for bool {
-    fn from(value: &Value) -> Self {
-        match value {
+impl<'a> From<Wrapper<Cow<'a, Value>>> for bool {
+    fn from(value: Wrapper<Cow<'a, Value>>) -> Self {
+        match value.0.as_ref() {
             Value::Number(num) => *num != 0.0,
             Value::Boolean(value) => *value,
             Value::Undefined => false,
@@ -282,15 +278,21 @@ impl From<&Value> for bool {
 
 impl From<Value> for bool {
     fn from(value: Value) -> Self {
-        bool::from(&value)
+        bool::from(Wrapper(Cow::Owned(value)))
     }
 }
 
-impl TryFrom<&Value> for f64 {
+impl From<&Value> for bool {
+    fn from(value: &Value) -> Self {
+        bool::from(Wrapper(Cow::Borrowed(value)))
+    }
+}
+
+impl<'a> TryFrom<Wrapper<Cow<'a, Value>>> for f64 {
     type Error = runtime::Error;
 
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        let num = match value {
+    fn try_from(value: Wrapper<Cow<'a, Value>>) -> Result<Self, Self::Error> {
+        let num = match value.0.as_ref() {
             Value::Number(num) => *num,
             Value::Boolean(value) => {
                 if *value {
@@ -329,7 +331,15 @@ impl TryFrom<Value> for f64 {
     type Error = runtime::Error;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
-        f64::try_from(&value)
+        f64::try_from(Wrapper(Cow::Owned(value)))
+    }
+}
+
+impl TryFrom<&Value> for f64 {
+    type Error = runtime::Error;
+
+    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+        f64::try_from(Wrapper(Cow::Borrowed(value)))
     }
 }
 
@@ -373,72 +383,74 @@ impl TryFrom<&Value> for BigInt {
     }
 }
 
-impl Add for Value {
+impl<'a> Add for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn add(self, rhs: Self) -> Self::Output {
         let left = f64::try_from(self)?;
         let right = f64::try_from(rhs)?;
 
-        Ok(Value::Number(left + right))
+        Ok(Wrapper(Cow::Owned(Value::Number(left + right))))
     }
 }
 
-impl Sub for Value {
+impl<'a> Sub for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         let left = f64::try_from(self)?;
         let right = f64::try_from(rhs)?;
 
-        Ok(Value::Number(left - right))
+        Ok(Wrapper(Cow::Owned(Value::Number(left - right))))
     }
 }
 
-impl Mul for Value {
+impl<'a> Mul for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         let left = f64::try_from(self)?;
         let right = f64::try_from(rhs)?;
 
-        Ok(Value::Number(left * right))
+        Ok(Wrapper(Cow::Owned(Value::Number(left * right))))
     }
 }
 
-impl Div for Value {
+impl<'a> Div for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn div(self, rhs: Self) -> Self::Output {
         let left = f64::try_from(self)?;
         let right = f64::try_from(rhs)?;
 
-        Ok(if right == 0.0 {
+        let res = if right == 0.0 {
             Value::Undefined
         } else {
             Value::Number(left / right)
-        })
+        };
+
+        Ok(Wrapper(Cow::Owned(res)))
     }
 }
 
-impl Rem for Value {
+impl<'a> Rem for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn rem(self, rhs: Self) -> Self::Output {
         let left = f64::try_from(self)?;
         let right = f64::try_from(rhs)?;
 
-        Ok(Value::Number(left % right))
+        Ok(Wrapper(Cow::Owned(Value::Number(left % right))))
     }
 }
 
-impl Neg for Value {
+impl<'a> Neg for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
     fn neg(self) -> Self::Output {
         let value = f64::try_from(self)?;
 
-        Ok(Value::Number(-value))
+        Ok(Wrapper(Cow::Owned(Value::Number(-value))))
     }
 }
 

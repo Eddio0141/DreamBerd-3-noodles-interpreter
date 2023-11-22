@@ -1,12 +1,20 @@
 //! Contains expression related structures
 
+use std::borrow::Cow;
+
+use nom::multi::many1;
+use nom::sequence::{tuple, Tuple};
+use nom::Parser;
+
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
+use crate::parsers::ws;
+use crate::prelude::Wrapper;
 use crate::Interpreter;
 
 use super::function::FunctionCall;
-use super::parsers::EvalResult;
+use super::parsers::AstParseResult;
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -24,7 +32,20 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn parse<'a>(code: Position<&Interpreter>) -> EvalResult<'a, Self> {
+    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        // ws on the left and right of op needs to be added, and each op needs to have that info
+        // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
+        // 1+ 2 * 3
+        // we then start creating the tree from left to the right
+        // if the next op is lesser in ws, evaluate next op first
+        // if the next op is equals in ws, do the usual ordering with operation order
+
+        // a chunk of (ws -> op -> ws) that has operation parsed and contains total ws
+        let op_chunk = tuple((ws, Operator::parse, ws)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
+
+        let (input, (first_atom, priorities)) =
+            ((Atom::parse, many1(tuple((op_chunk, Atom::parse))))).parse(input)?;
+
         todo!()
     }
 }
@@ -64,7 +85,7 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
         match self {
             Expression::Atom(atom) => atom.eval(interpreter),
             Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
@@ -87,15 +108,15 @@ impl Expression {
                     Operator::LessThanOrEqual => Value::Boolean(left <= right),
                     Operator::And => Value::Boolean(left.into() && right.into()),
                     Operator::Or => Value::Boolean(left.into() || right.into()),
-                    Operator::Add => (left + right)?,
-                    Operator::Subtract => (left - right)?,
-                    Operator::Multiply => (left * right)?,
+                    Operator::Add => (left + right)?.0.into_owned(),
+                    Operator::Subtract => (left - right)?.0.into_owned(),
+                    Operator::Multiply => (left * right)?.0.into_owned(),
                     Operator::Exponential => left.pow(&right)?,
-                    Operator::Divide => (left / right)?,
-                    Operator::Modulo => (left % right)?,
+                    Operator::Divide => (left / right)?.0.into_owned(),
+                    Operator::Modulo => (left % right)?.0.into_owned(),
                 };
 
-                Ok(value)
+                Ok(Wrapper(Cow::Owned(value)))
             }
         }
     }
@@ -103,18 +124,22 @@ impl Expression {
 
 #[derive(Debug, Clone)]
 pub enum Atom {
-    // UncertainExpr(UncertainExpr),
-    // UncertainString(UncertainString),
+    Value(Value),
     FunctionCall(FunctionCall),
 }
 
 impl Atom {
-    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
-        match self {
-            // Atom::UncertainExpr(expr) => Ok(expr.eval(interpreter)),
-            // Atom::UncertainString(expr) => Ok(expr.eval(interpreter)),
-            Atom::FunctionCall(expr) => expr.eval(interpreter),
-        }
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
+        let value = match self {
+            Atom::Value(value) => Cow::Borrowed(value),
+            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter)?),
+        };
+
+        Ok(Wrapper(value))
+    }
+
+    fn parse<'a>(code: Position<&Interpreter>) -> AstParseResult<'a, Self> {
+        todo!()
     }
 }
 
@@ -125,7 +150,11 @@ pub enum UnaryOperator {
 }
 
 impl UnaryOperator {
-    pub fn eval<'a>(&'a self, right: &'a Expression, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+    pub fn eval<'a>(
+        &'a self,
+        right: &'a Expression,
+        interpreter: &Interpreter,
+    ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
             UnaryOperator::Not => !right.eval(interpreter)?,
             UnaryOperator::Minus => (-right.eval(interpreter)?)?,
@@ -158,6 +187,12 @@ pub enum Operator {
     Modulo,
 }
 
+impl Operator {
+    fn parse<'a>(input: Position<&Interpreter>) -> AstParseResult<'a, Self> {
+        todo!()
+    }
+}
+
 impl From<Operator> for usize {
     fn from(value: Operator) -> Self {
         match value {
@@ -183,7 +218,7 @@ impl From<Operator> for usize {
 
 impl PartialEq for Operator {
     fn eq(&self, other: &Self) -> bool {
-        usize::from(*self) == usize::from(*self)
+        usize::from(*self) == usize::from(*other)
     }
 }
 

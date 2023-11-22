@@ -1,18 +1,19 @@
 //! Contains function related structures
 
-use nom::character::{self, complete};
-use nom::combinator::fail;
-use nom::multi::separated_list0;
+use nom::combinator::{fail, not};
+use nom::error::ErrorKind;
+use nom::multi::separated_list1;
 use nom::sequence::Tuple;
+use nom::{character, Err};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
-use crate::parsers::identifier;
 use crate::parsers::types::Position;
+use crate::parsers::{end_of_statement, identifier};
 use crate::Interpreter;
 
 use super::expression::Expression;
-use super::parsers::EvalResult;
+use super::parsers::AstParseResult;
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -22,44 +23,77 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
         let mut args = Vec::new();
         for arg in &self.args {
             args.push(arg.eval(interpreter)?);
         }
-        let args = args.iter().collect::<Vec<_>>();
 
         interpreter.state.invoke_func(interpreter, &self.name, args)
     }
 
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> EvalResult<'a, Self> {
+    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
         // function call syntax
         // - `func_name!`
         // with args
         // - `func_name arg1, arg2!`
+
         let mut identifier = identifier(fail::<_, Position<&Interpreter>, _>);
         // let comma = character::complete::char(',');
+
         let (input, identifier) = identifier(input)?;
+        let identifier = identifier.into();
 
         // does the function exist
-        if let Some(func) = input.extra.state.get_func_info(identifier.into()) {
+        let Some(func) = input.extra.state.get_func_info(identifier) else {
+            return Err(nom::Err::Failure(nom::error::Error::new(
+                input,
+                ErrorKind::Fail,
+            )));
+        };
 
+        // no args?
+        if func.arg_count == 0 {
+            let result = if let Ok((input, _)) = end_of_statement(input) {
+                // no args
+                Ok((
+                    input,
+                    Self {
+                        name: identifier.to_string(),
+                        args: Vec::new(),
+                    },
+                ))
+            } else {
+                Err(Err::Failure(nom::error::Error::new(input, ErrorKind::Fail)))
+            };
+
+            return result;
         }
 
-        todo!()
+        // has args
+        let args = separated_list1(character::complete::char(','), Expression::parse);
+        let (input, (_, args)) = ((not(end_of_statement), args)).parse(input)?;
+
+        Ok((
+            input,
+            Self {
+                name: identifier.to_string(),
+                args,
+            },
+        ))
     }
 }
 
 #[derive(Debug, Clone)]
 /// A function definition
-pub struct FunctionDef<'a> {
-    pub name: &'a str,
+pub struct FunctionDef {
+    pub name: String,
     pub arg_count: usize,
     pub body: FunctionVariant,
 }
 
-impl<'a> FunctionDef<'a> {
-    pub fn parse(code: &'a str) -> EvalResult<'a, Self> {
+impl FunctionDef {
+    pub fn parse<'a>(code: &str) -> AstParseResult<'a, Self> {
         todo!()
     }
 }

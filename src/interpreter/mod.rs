@@ -15,7 +15,7 @@ mod static_analysis;
 
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
-    state: InterpreterState<'a>,
+    state: InterpreterState,
     stdout: RefCell<&'a mut dyn Write>,
 }
 
@@ -29,7 +29,7 @@ impl<'a> Interpreter<'a> {
         let mut code = Position::new_with_extra(code, self);
         while let Ok((code_after, statement)) = Statement::parse(code) {
             code = code_after;
-            statement.eval();
+            statement.eval(self);
         }
 
         Ok(())
