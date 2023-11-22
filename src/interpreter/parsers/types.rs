@@ -360,6 +360,12 @@ impl<'a, E> Borrow<str> for Position<'_, E, &'a str> {
     }
 }
 
+impl<'a, E> FindSubstring<&'a str> for Position<'a, E, &'a str> {
+    fn find_substring(&self, substr: &'a str) -> Option<usize> {
+        self.input.find(substr)
+    }
+}
+
 impl<'a> Position<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {

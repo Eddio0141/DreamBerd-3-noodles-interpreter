@@ -1,4 +1,4 @@
-use std::{cell::RefCell, io::Write};
+use std::{cell::RefCell, fmt::Debug, io::Write};
 
 use self::{
     evaluators::statement::Statement,
@@ -19,6 +19,14 @@ pub struct Interpreter<'a> {
     stdout: RefCell<&'a mut dyn Write>,
 }
 
+impl Debug for Interpreter<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Interpreter")
+            .field("state", &self.state)
+            .finish()
+    }
+}
+
 impl<'a> Interpreter<'a> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
@@ -29,7 +37,12 @@ impl<'a> Interpreter<'a> {
         let mut code = Position::new_with_extra(code, self);
         while let Ok((code_after, statement)) = Statement::parse(code) {
             code = code_after;
-            statement.eval(self);
+            statement.eval(self)?;
+
+            // empty?
+            if code.input.is_empty() {
+                break;
+            }
         }
 
         Ok(())

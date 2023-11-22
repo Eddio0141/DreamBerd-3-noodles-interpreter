@@ -3,15 +3,16 @@
 use std::borrow::Cow;
 
 use nom::branch::alt;
+use nom::bytes::complete::{tag, take_until};
 use nom::combinator::value;
-use nom::multi::many0;
+use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
 use nom::{character, Parser};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::ws;
+use crate::parsers::{chunk, ws};
 use crate::prelude::Wrapper;
 use crate::Interpreter;
 
@@ -128,7 +129,7 @@ impl Expression {
         input: Position<'a, &'a Interpreter<'a>>,
     ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
         let (input, (unaries, expr)) = ((
-            many0(tuple((many0(UnaryOperator::parse), ws)).map(|(unaries, _)| unaries)),
+            many0(tuple((many1(UnaryOperator::parse), ws)).map(|(unaries, _)| unaries)),
             Atom::parse,
         ))
             .parse(input)?;
@@ -233,8 +234,30 @@ impl Atom {
         Ok(Wrapper(value))
     }
 
-    fn parse<'a>(code: Position<&Interpreter>) -> AstParseResult<'a, Self> {
-        todo!()
+    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        if let Ok((input, value)) = FunctionCall::parse(input) {
+            return Ok((input, Atom::FunctionCall(value)));
+        }
+
+        // variable?
+        let (input, (chunk, _)) = ((chunk, ws)).parse(input)?;
+        let chunk = chunk.input;
+        if let Some(var) = input.extra.state.get_var(chunk) {
+            return Ok((input, Atom::Value(var)));
+        }
+
+        // either an actual value or implicit string
+        if let Ok(chunk) = chunk.parse::<Value>() {
+            return Ok((input, Atom::Value(chunk)));
+        }
+
+        // implicit string
+        // take until `!`
+        let (input, rest) = take_until("!")(input)?;
+
+        let whole = chunk.to_string() + rest.input;
+
+        Ok((input, Atom::Value(Value::String(whole))))
     }
 }
 
@@ -290,8 +313,25 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse<'a>(input: Position<&Interpreter>) -> AstParseResult<'a, Self> {
-        todo!()
+    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        alt((
+            value(Operator::Equal, tag("==")),
+            value(Operator::StrictEqual, tag("===")),
+            value(Operator::NotEqual, tag(";=")),
+            value(Operator::StrictNotEqual, tag(";==")),
+            value(Operator::GreaterThan, character::complete::char('>')),
+            value(Operator::GreaterThanOrEqual, tag(">=")),
+            value(Operator::LessThan, character::complete::char('<')),
+            value(Operator::LessThanOrEqual, tag("<=")),
+            value(Operator::And, tag("&&")),
+            value(Operator::Or, tag("||")),
+            value(Operator::Add, character::complete::char('+')),
+            value(Operator::Subtract, character::complete::char('-')),
+            value(Operator::Multiply, character::complete::char('*')),
+            value(Operator::Exponential, character::complete::char('^')),
+            value(Operator::Divide, character::complete::char('/')),
+            value(Operator::Modulo, character::complete::char('%')),
+        ))(input)
     }
 }
 

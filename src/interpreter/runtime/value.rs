@@ -5,6 +5,7 @@ use std::{
     fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
     rc::Rc,
+    str::FromStr,
 };
 
 use crate::{interpreter::runtime, prelude::Wrapper};
@@ -240,6 +241,19 @@ impl Display for Value {
                 }
             ),
             Value::Symbol(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+impl FromStr for Value {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "true" => Ok(Value::Boolean(true)),
+            "false" => Ok(Value::Boolean(false)),
+            "undefined" => Ok(Value::Undefined),
+            _ => Err(()),
         }
     }
 }

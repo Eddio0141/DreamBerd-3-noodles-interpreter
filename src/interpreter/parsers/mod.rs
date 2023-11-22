@@ -56,10 +56,12 @@ where
 }
 
 /// Takes a chunk of code until the next whitespace
-pub fn chunk(input: Position) -> PosResult<&str> {
-    take_while(|ch| !is_ws(ch))
-        .map(|slice: Position<'_>| slice.input)
-        .parse(input)
+pub fn chunk<'a, I, E>(input: I) -> IResult<I, I, E>
+where
+    I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
+    E: ParseError<I>,
+{
+    take_while(|ch| !is_ws(ch))(input)
 }
 
 /// Gets the identifier

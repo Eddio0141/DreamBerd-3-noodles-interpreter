@@ -22,7 +22,7 @@ impl Statement {
             return Ok((input, statement));
         }
 
-        todo!("{:#}", input.input);
+        todo!("{:#}", input.input.len());
 
         // alt((
         //     VariableDecl::parse,

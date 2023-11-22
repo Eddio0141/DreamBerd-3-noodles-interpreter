@@ -189,15 +189,13 @@ impl Function {
         interpreter: &Interpreter,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
-        // match &self.variant {
-        //     FunctionVariant::FunctionDefined {body_location, defined_line} => func.eval(
-        //         interpreter,
-        //         self.args.iter().map(|s| s as &str).collect::<Vec<_>>(),
-        //         args,
-        //     ),
-        //     FunctionVariant::Native(func) => func(interpreter, args),
-        // }
-        todo!()
+        match self.variant {
+            FunctionVariant::FunctionDefined {
+                defined_line,
+                body_location,
+            } => todo!(),
+            FunctionVariant::Native(native) => native(interpreter, args),
+        }
     }
 }
 
@@ -209,5 +207,5 @@ pub enum FunctionVariant {
         /// Where the expression / scope is located as an index
         body_location: usize,
     },
-    Native(fn(&Interpreter, Vec<&Value>) -> Result<Value, Error>),
+    Native(fn(&Interpreter, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>),
 }

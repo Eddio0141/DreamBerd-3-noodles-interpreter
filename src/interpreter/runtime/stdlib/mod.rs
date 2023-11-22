@@ -1,7 +1,10 @@
 //! Module containing the standard library functions
 
+use std::borrow::Cow;
+
 use crate::{
     interpreter::runtime::{state::FunctionVariant, value::Value, Error},
+    prelude::Wrapper,
     Interpreter,
 };
 
@@ -12,7 +15,7 @@ mod info;
 mod stdio;
 
 pub fn load(interpreter: &Interpreter) {
-    type Func = fn(&Interpreter<'_>, Vec<&Value>) -> Result<Value, Error>;
+    type Func = fn(&Interpreter<'_>, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>;
 
     // funcs
     let funcs: Vec<(_, _, Func)> = vec![

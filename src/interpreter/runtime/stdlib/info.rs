@@ -1,12 +1,20 @@
+use std::borrow::Cow;
+
 use crate::{
     interpreter::runtime::{value::Value, Error},
+    prelude::Wrapper,
     Interpreter,
 };
 
-pub fn get_typeof(_interpreter: &Interpreter, args: Vec<&Value>) -> Result<Value, Error> {
-    let value = args.get(0).unwrap_or(&&Value::Undefined);
+pub fn get_typeof(
+    _interpreter: &Interpreter,
+    args: Vec<Wrapper<Cow<Value>>>,
+) -> Result<Value, Error> {
+    let value = args
+        .get(0)
+        .unwrap_or(&Wrapper(Cow::Owned(Value::Undefined)));
 
-    let result = match value {
+    let result = match value.as_ref() {
         Value::Number(_) => "number",
         Value::Boolean(_) => "boolean",
         Value::BigInt(_) => "bigint",
