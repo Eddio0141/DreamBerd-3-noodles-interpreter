@@ -12,10 +12,10 @@ fn function_expression_minimum() {
     assert_eq!(statement.line, 1);
     assert_eq!(statement.index, 3);
 
-    assert_eq!(body.input, "!");
-    assert_eq!(body.column, 13);
+    assert!(body.input.is_empty());
+    assert_eq!(body.column, 14);
     assert_eq!(body.line, 1);
-    assert_eq!(body.index, 12);
+    assert_eq!(body.index, 13);
 }
 
 #[test]
@@ -36,10 +36,10 @@ fn function_expression_arg_minimum() {
     assert_eq!(statement.line, 1);
     assert_eq!(statement.index, 6);
 
-    assert_eq!(body.input, "!");
-    assert_eq!(body.column, 16);
+    assert!(body.input.is_empty());
+    assert_eq!(body.column, 17);
     assert_eq!(body.line, 1);
-    assert_eq!(body.index, 15);
+    assert_eq!(body.index, 16);
 }
 
 #[test]
@@ -64,8 +64,26 @@ fn function_expression_args_minimum() {
     assert_eq!(statement.line, 1);
     assert_eq!(statement.index, 24);
 
-    assert_eq!(body.input, "!");
-    assert_eq!(body.column, 34);
+    assert!(body.input.is_empty());
+    assert_eq!(body.column, 35);
     assert_eq!(body.line, 1);
-    assert_eq!(body.index, 33);
+    assert_eq!(body.index, 34);
+}
+
+#[test]
+fn till_term_statement() {
+    let code = "statement!!statement2!";
+    let (input, statement) = till_term(Position::new(code)).unwrap();
+    assert_eq!(statement.input, "statement");
+    assert_eq!(statement.column, 1);
+    assert_eq!(statement.line, 1);
+    assert_eq!(statement.index, 0);
+    assert_eq!(input.input, "statement2!");
+
+    let (input, statement) = till_term(input).unwrap();
+    assert_eq!(statement.input, "statement2");
+    assert_eq!(statement.column, 12);
+    assert_eq!(statement.line, 1);
+    assert_eq!(statement.index, 11);
+    assert!(input.input.is_empty());
 }

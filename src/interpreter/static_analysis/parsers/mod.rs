@@ -43,9 +43,17 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
         result
     };
 
-    let (input, a) = many0(alt((str, is_not("!"))))(input)?;
+    let (mut input, statement_chunks) = (many0(alt((str, is_not("!"))))).parse(input)?;
+    for ch in input.input.chars() {
+        if ch != '!' {
+            break;
+        }
 
-    Ok((input, a[0]))
+        let (input_new, _) = take::<_, _, nom::error::Error<_>>(1usize)(input).unwrap();
+        input = input_new;
+    }
+
+    Ok((input, statement_chunks[0]))
 }
 
 /// Parses a variable declaration
@@ -88,8 +96,8 @@ where
 
 /// Parses a function expression
 /// # Example
-/// ` => statement!`
-/// `arg1,arg2 , arg3 =>statement!`
+/// - ` => statement!`
+/// - `arg1,arg2 , arg3 =>statement!`
 ///
 /// # Returns
 /// - Arguments of the function with their identifiers

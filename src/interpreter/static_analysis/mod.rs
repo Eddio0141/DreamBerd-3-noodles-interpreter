@@ -4,7 +4,7 @@ mod parsers;
 #[cfg(test)]
 mod tests;
 
-use nom::{branch::*, multi::*, Parser};
+use nom::{branch::*, combinator::value, multi::*, Parser};
 use parsers::*;
 
 use crate::parsers::{types::Position, *};
@@ -56,7 +56,11 @@ impl<'a> Analysis<'a> {
         // TODO comment
         let input = Position::new(input);
         let (_, hoisted_funcs) = fold_many0(
-            alt((ws.map(|_| None), var_decl_func.map(Some))),
+            alt((
+                value(None, ws),
+                var_decl_func.map(Some),
+                value(None, till_term),
+            )),
             Vec::new,
             |mut vec, item| {
                 if let Some(item) = item {
