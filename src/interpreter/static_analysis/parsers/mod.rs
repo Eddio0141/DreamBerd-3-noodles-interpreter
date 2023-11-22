@@ -107,5 +107,7 @@ pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Positio
         tuple((separated_list0(comma(), arg), ws, arrow())).map(|(args, _, _)| args),
     ));
 
-    (args, till_term).parse(input)
+    tuple((args, ws, till_term))
+        .map(|(args, _, expr)| (args, expr))
+        .parse(input)
 }
