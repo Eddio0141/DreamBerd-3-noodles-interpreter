@@ -39,7 +39,6 @@ impl FunctionCall {
         // - `func_name arg1, arg2!`
 
         let mut identifier = identifier(fail::<_, Position<&Interpreter>, _>);
-        // let comma = character::complete::char(',');
 
         let (input, identifier) = identifier(input)?;
         let identifier = identifier.into();

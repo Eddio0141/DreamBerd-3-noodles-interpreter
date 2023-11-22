@@ -2,9 +2,11 @@
 
 use std::borrow::Cow;
 
+use nom::branch::alt;
+use nom::combinator::value;
 use nom::multi::many0;
 use nom::sequence::{tuple, Tuple};
-use nom::Parser;
+use nom::{character, Parser};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
@@ -125,36 +127,50 @@ impl Expression {
     fn atom_to_expression<'a>(
         input: Position<'a, &'a Interpreter<'a>>,
     ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
-        todo!()
-    }
-}
+        let (input, (unaries, expr)) = ((
+            many0(tuple((many0(UnaryOperator::parse), ws)).map(|(unaries, _)| unaries)),
+            Atom::parse,
+        ))
+            .parse(input)?;
 
-/// Handles checking if the unary operator should be applied, and switching the apply flag
-fn check_if_apply_unary(
-    last_op: &mut Option<UnaryOperator>,
-    current_op: &UnaryOperator,
-    apply: &mut bool,
-) -> bool {
-    let mut ret = false;
+        // 1. unaries must be reversed
+        // 2. split by whitespace (its already done in the parser)
+        // 3. on a group of same unary, only keep even number ones
+        let unaries = unaries
+            .into_iter()
+            .rev()
+            .filter_map(|unaries| {
+                let mut unaries = unaries.iter();
+                let mut last_unary = unaries.next().unwrap();
+                let mut use_unary = true;
+                let mut ret = Vec::new();
 
-    match last_op {
-        Some(last_op) => {
-            if last_op == current_op {
-                *apply = !*apply;
-            } else {
-                if *apply {
-                    ret = true;
+                for unary in unaries {
+                    if unary == last_unary {
+                        use_unary = !use_unary;
+                    } else {
+                        last_unary = unary;
+                        if use_unary {
+                            ret.push(*unary);
+                        }
+                        use_unary = true;
+                    }
                 }
-                // because operator is not the same (new op), which means it will apply
-                *apply = true;
-            }
-        }
-        None => {
-            *apply = true;
-        }
-    }
 
-    ret
+                if use_unary {
+                    ret.push(*last_unary);
+                }
+
+                if ret.is_empty() {
+                    None
+                } else {
+                    Some(ret)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        Ok((input, (Expression::Atom(expr), unaries)))
+    }
 }
 
 impl From<Atom> for Expression {
@@ -240,6 +256,13 @@ impl UnaryOperator {
         };
 
         Ok(value)
+    }
+
+    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        alt((
+            value(UnaryOperator::Not, character::complete::char(';')),
+            value(UnaryOperator::Minus, character::complete::char('-')),
+        ))(input)
     }
 }
 
