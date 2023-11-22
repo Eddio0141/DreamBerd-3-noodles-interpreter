@@ -47,7 +47,13 @@ impl<'a> Analysis<'a> {
                                 LifeTime::Infinity => var_decl_pos.line, // positive infinity
                                 LifeTime::Seconds(_) => var_decl_pos.line,
                                 LifeTime::Lines(lines) => {
-                                    var_decl_pos.line.saturating_add_signed(lines)
+                                    let line = var_decl_pos.line;
+                                    // only go backwards if lines is negative
+                                    if lines.is_negative() {
+                                        line.saturating_add_signed(lines)
+                                    } else {
+                                        line
+                                    }
                                 }
                             },
                             None => var_decl_pos.line,
