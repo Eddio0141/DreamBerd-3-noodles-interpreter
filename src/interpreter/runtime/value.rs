@@ -253,7 +253,23 @@ impl FromStr for Value {
             "true" => Ok(Value::Boolean(true)),
             "false" => Ok(Value::Boolean(false)),
             "undefined" => Ok(Value::Undefined),
-            _ => Err(()),
+            "null" => Ok(Value::Object(None)),
+            _ => {
+                // try number
+                if let Ok(num) = s.parse::<f64>() {
+                    return Ok(Value::Number(num));
+                }
+
+                // try bigint
+                if s.ends_with('n') {
+                    let s = &s[..s.len() - 1];
+                    if let Ok(num) = s.parse::<BigInt>() {
+                        return Ok(Value::BigInt(num));
+                    }
+                }
+
+                Err(())
+            }
         }
     }
 }

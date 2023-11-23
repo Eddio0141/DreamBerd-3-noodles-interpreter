@@ -315,14 +315,14 @@ pub enum Operator {
 impl Operator {
     fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
         alt((
-            value(Operator::Equal, tag("==")),
             value(Operator::StrictEqual, tag("===")),
-            value(Operator::NotEqual, tag(";=")),
+            value(Operator::Equal, tag("==")),
             value(Operator::StrictNotEqual, tag(";==")),
-            value(Operator::GreaterThan, character::complete::char('>')),
+            value(Operator::NotEqual, tag(";=")),
             value(Operator::GreaterThanOrEqual, tag(">=")),
-            value(Operator::LessThan, character::complete::char('<')),
+            value(Operator::GreaterThan, character::complete::char('>')),
             value(Operator::LessThanOrEqual, tag("<=")),
+            value(Operator::LessThan, character::complete::char('<')),
             value(Operator::And, tag("&&")),
             value(Operator::Or, tag("||")),
             value(Operator::Add, character::complete::char('+')),

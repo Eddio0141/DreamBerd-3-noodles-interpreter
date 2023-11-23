@@ -38,11 +38,6 @@ impl<'a> Interpreter<'a> {
         while let Ok((code_after, statement)) = Statement::parse(code) {
             code = code_after;
             statement.eval(self)?;
-
-            // empty?
-            if code.input.is_empty() {
-                break;
-            }
         }
 
         Ok(())
