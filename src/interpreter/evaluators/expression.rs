@@ -240,7 +240,7 @@ impl Atom {
         }
 
         // variable?
-        let (input, (chunk, _)) = ((chunk, ws)).parse(input)?;
+        let (input, chunk) = chunk(input)?;
         let chunk = chunk.input;
         if let Some(var) = input.extra.state.get_var(chunk) {
             return Ok((input, Atom::Value(var)));
