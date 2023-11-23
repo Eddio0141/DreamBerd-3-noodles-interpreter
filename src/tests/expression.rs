@@ -118,7 +118,6 @@ fn loose_comparison() {
     // TODO float comparison
     // TODO bigint comparison
     // TODO symbol comparison
-    // TODO null and undefined comparison
     // TODO object to primitive comparison, same type
     // TODO bool to string comparison
     // TODO number to string comparison
@@ -131,7 +130,9 @@ fn loose_comparison() {
 assert(15 == 15)!
 assert(true == true)!
 assert(false == false)!
+assert(null == null)!
 assert(undefined == undefined)!
+assert(null ;= undefined)!
 assert(true == 1)!
 assert(false == 0)!
 "#;
