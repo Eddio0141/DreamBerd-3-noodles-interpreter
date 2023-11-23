@@ -194,14 +194,29 @@ impl Expression {
                 let right = right.eval(interpreter)?;
 
                 let value = match operator {
-                    Operator::Equal => Value::Boolean(left == right),
+                    Operator::Equal => Value::Boolean(left.loose_eq(&right)?),
                     Operator::StrictEqual => Value::Boolean(left.strict_eq(&right)),
-                    Operator::NotEqual => Value::Boolean(left != right),
+                    Operator::NotEqual => Value::Boolean(!left.loose_eq(&right)?),
                     Operator::StrictNotEqual => Value::Boolean(!left.strict_eq(&right)),
-                    Operator::GreaterThan => Value::Boolean(left > right),
-                    Operator::GreaterThanOrEqual => Value::Boolean(left >= right),
-                    Operator::LessThan => Value::Boolean(left < right),
-                    Operator::LessThanOrEqual => Value::Boolean(left <= right),
+                    Operator::GreaterThan => Value::Boolean(matches!(
+                        left.partial_cmp(&right),
+                        Some(std::cmp::Ordering::Greater)
+                    )),
+                    Operator::GreaterThanOrEqual => Value::Boolean(
+                        left.loose_eq(&right)?
+                            || matches!(
+                                left.partial_cmp(&right),
+                                Some(std::cmp::Ordering::Greater)
+                            ),
+                    ),
+                    Operator::LessThan => Value::Boolean(matches!(
+                        left.partial_cmp(&right),
+                        Some(std::cmp::Ordering::Less)
+                    )),
+                    Operator::LessThanOrEqual => Value::Boolean(
+                        left.loose_eq(&right)?
+                            || matches!(left.partial_cmp(&right), Some(std::cmp::Ordering::Less)),
+                    ),
                     Operator::And => Value::Boolean(left.into() && right.into()),
                     Operator::Or => Value::Boolean(left.into() || right.into()),
                     Operator::Add => (left + right)?.0.into_owned(),
