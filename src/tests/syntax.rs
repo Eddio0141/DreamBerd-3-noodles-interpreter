@@ -18,10 +18,10 @@ fn string_no_quotes_no_space() {
     interpreter_test_output("print hello_world!", "hello_world\n");
 }
 
-// #[test]
-// fn string_no_quotes_spaces() {
-//     interpreter_test_output("print hello world!", "hello world\n");
-// }
+#[test]
+fn string_no_quotes_spaces() {
+    interpreter_test_output("print hello world!", "hello world\n");
+}
 
 // #[test]
 // fn string_many_quotes() {
