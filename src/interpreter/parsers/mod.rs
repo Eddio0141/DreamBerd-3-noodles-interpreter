@@ -43,7 +43,7 @@ where
 /// Any amount of whitespace repeated
 /// # Returns
 /// - The amount of whitespace
-pub fn ws<I>(input: I) -> IResult<I, usize>
+pub fn ws_count<I>(input: I) -> IResult<I, usize>
 where
     I: InputIter<Item = char>
         + InputLength
@@ -53,6 +53,16 @@ where
         + Slice<RangeFrom<usize>>,
 {
     many0_count(ws_char)(input)
+}
+
+/// Any amount of whitespace repeated
+/// # Returns
+/// - Slice of the whitespace
+pub fn ws<I>(input: I) -> IResult<I, I>
+where
+    I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
+{
+    take_while(is_ws)(input)
 }
 
 /// Takes a chunk of code until the next whitespace
@@ -167,5 +177,5 @@ where
         + InputTakeAtPosition<Item = char>,
 {
     let end = many1(character::complete::char('!'));
-    tuple((ws, end)).map(|_| ()).parse(input)
+    tuple((ws_count, end)).map(|_| ()).parse(input)
 }

@@ -8,7 +8,7 @@ use nom::{character, Err};
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{end_of_statement, identifier, ws};
+use crate::parsers::{end_of_statement, identifier, ws_count};
 use crate::Interpreter;
 
 use super::expression::Expression;
@@ -69,10 +69,10 @@ impl FunctionCall {
         }
 
         // has args
-        let (input, _) = ((not(end_of_statement), ws)).parse(input)?;
+        let (input, _) = ((not(end_of_statement), ws_count)).parse(input)?;
 
         let (mut input, mut args) = {
-            let (input, (first_arg, _)) = ((Expression::parse, ws)).parse(input)?;
+            let (input, (first_arg, _)) = ((Expression::parse, ws_count)).parse(input)?;
             (input, vec![first_arg])
         };
 
@@ -80,7 +80,7 @@ impl FunctionCall {
         for _ in 0..func.arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
             let (input_new, (_, _, expr, _)) =
-                tuple((character::complete::char(','), ws, Expression::parse, ws))(input)?;
+                tuple((character::complete::char(','), ws_count, Expression::parse, ws_count))(input)?;
             input = input_new;
             args.push(expr);
         }

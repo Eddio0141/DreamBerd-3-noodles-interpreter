@@ -12,7 +12,7 @@ use nom::{character, Parser};
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, ws};
+use crate::parsers::{chunk, ws_count};
 use crate::prelude::Wrapper;
 use crate::Interpreter;
 
@@ -44,7 +44,7 @@ impl Expression {
         // if the next op is equals in ws, do the usual ordering with operation order
 
         // a chunk of (ws -> op -> ws) that has operation parsed and contains total ws
-        let op_chunk = tuple((ws, Operator::parse, ws)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
+        let op_chunk = tuple((ws_count, Operator::parse, ws_count)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
 
         let (input, (first_atom, priorities)) = ((
             Expression::atom_to_expression,
@@ -129,7 +129,7 @@ impl Expression {
         input: Position<'a, &'a Interpreter<'a>>,
     ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
         let (input, (unaries, expr)) = ((
-            many0(tuple((many1(UnaryOperator::parse), ws)).map(|(unaries, _)| unaries)),
+            many0(tuple((many1(UnaryOperator::parse), ws_count)).map(|(unaries, _)| unaries)),
             Atom::parse,
         ))
             .parse(input)?;

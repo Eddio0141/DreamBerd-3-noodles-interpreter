@@ -1,8 +1,14 @@
-use nom::{sequence::tuple, Parser};
+use nom::{
+    branch::alt,
+    combinator::{eof, value},
+    multi::many_till,
+    sequence::tuple,
+    Parser,
+};
 
 use crate::{
     interpreter::{evaluators::function::FunctionCall, runtime},
-    parsers::{end_of_statement, types::Position, ws},
+    parsers::{chunk, end_of_statement, types::Position, ws, ws_count},
     Interpreter,
 };
 
@@ -11,13 +17,14 @@ use super::{parsers::AstParseResult, variable::VariableDecl};
 pub enum Statement {
     FunctionCall(FunctionCall),
     VariableDecl(VariableDecl),
+    Expression,
 }
 
 impl Statement {
     pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
         let function_call = FunctionCall::parse.map(|o| Statement::FunctionCall(o));
 
-        let (input, _) = ws(input).unwrap();
+        let (input, _) = ws_count(input).unwrap();
 
         if input.input.is_empty() {
             return Err(nom::Err::Failure(nom::error::Error::new(
@@ -31,7 +38,12 @@ impl Statement {
             return Ok((input, statement));
         }
 
-        todo!("{:#}", input.input);
+        todo!("{}", input.input);
+
+        // last resort, pass it as an implicit string
+        many_till(alt((ws, chunk)), alt((value((), eof), end_of_statement)))
+            .map(|_| Self::Expression)
+            .parse(input)
 
         // alt((
         //     VariableDecl::parse,
@@ -47,6 +59,7 @@ impl Statement {
         match self {
             Statement::FunctionCall(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::Expression => Ok(()),
         }
     }
 }
