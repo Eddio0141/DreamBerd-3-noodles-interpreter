@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, fmt::Debug, ops::RangeFrom};
+use std::{fmt::Debug, ops::RangeFrom};
 
 use self::types::*;
 use nom::{
@@ -82,13 +82,7 @@ where
 /// - The identifier
 pub fn identifier<I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
 where
-    I: InputTakeAtPosition<Item = char>
-        + InputIter<Item = char>
-        + InputTake
-        + Borrow<str>
-        + Copy
-        + InputLength
-        + Slice<RangeFrom<usize>>,
+    I: InputIter<Item = char> + InputTake + Copy + InputLength + Slice<RangeFrom<usize>>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
