@@ -77,9 +77,9 @@ where
             ws1,
             identifier,
             opt(LifeTime::parse),
-            ws,
+            ws_count,
             eq,
-            ws,
+            ws_count,
         ))
             .parse(input_original)?;
 
@@ -103,12 +103,12 @@ pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Positio
     let arg = identifier(comma());
     // either an arrow start (meaning no args) or a list of args
     let args = alt((
-        value(Vec::new(), tuple((ws, arrow()))),
-        tuple((separated_list0(tuple((ws, comma(), ws)), arg), ws, arrow()))
+        value(Vec::new(), tuple((ws_count, arrow()))),
+        tuple((separated_list0(tuple((ws_count, comma(), ws_count)), arg), ws_count, arrow()))
             .map(|(args, _, _)| args),
     ));
 
-    tuple((args, ws, till_term))
+    tuple((args, ws_count, till_term))
         .map(|(args, _, expr)| (args, expr))
         .parse(input)
 }

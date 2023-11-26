@@ -10,5 +10,6 @@ fn interpreter_test_output(code: &str, expected_output: &str) {
     let mut buffer = Vec::new();
     let interpreter = InterpreterBuilder::with_stdout(&mut buffer).build();
     interpreter.eval(code).unwrap();
-    assert_eq!(buffer, expected_output.as_bytes());
+    let buffer = String::from_utf8(buffer).unwrap();
+    assert_eq!(buffer, expected_output);
 }

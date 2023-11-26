@@ -12,7 +12,7 @@ use nom::{character, Parser};
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, ws};
+use crate::parsers::{chunk, ws_count};
 use crate::prelude::Wrapper;
 use crate::Interpreter;
 
@@ -44,7 +44,7 @@ impl Expression {
         // if the next op is equals in ws, do the usual ordering with operation order
 
         // a chunk of (ws -> op -> ws) that has operation parsed and contains total ws
-        let op_chunk = tuple((ws, Operator::parse, ws)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
+        let op_chunk = tuple((ws_count, Operator::parse, ws_count)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
 
         let (input, (first_atom, priorities)) = ((
             Expression::atom_to_expression,
@@ -129,7 +129,7 @@ impl Expression {
         input: Position<'a, &'a Interpreter<'a>>,
     ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
         let (input, (unaries, expr)) = ((
-            many0(tuple((many1(UnaryOperator::parse), ws)).map(|(unaries, _)| unaries)),
+            many0(tuple((many1(UnaryOperator::parse), ws_count)).map(|(unaries, _)| unaries)),
             Atom::parse,
         ))
             .parse(input)?;
@@ -194,14 +194,29 @@ impl Expression {
                 let right = right.eval(interpreter)?;
 
                 let value = match operator {
-                    Operator::Equal => Value::Boolean(left == right),
+                    Operator::Equal => Value::Boolean(left.loose_eq(&right)?),
                     Operator::StrictEqual => Value::Boolean(left.strict_eq(&right)),
-                    Operator::NotEqual => Value::Boolean(left != right),
+                    Operator::NotEqual => Value::Boolean(!left.loose_eq(&right)?),
                     Operator::StrictNotEqual => Value::Boolean(!left.strict_eq(&right)),
-                    Operator::GreaterThan => Value::Boolean(left > right),
-                    Operator::GreaterThanOrEqual => Value::Boolean(left >= right),
-                    Operator::LessThan => Value::Boolean(left < right),
-                    Operator::LessThanOrEqual => Value::Boolean(left <= right),
+                    Operator::GreaterThan => Value::Boolean(matches!(
+                        left.partial_cmp(&right),
+                        Some(std::cmp::Ordering::Greater)
+                    )),
+                    Operator::GreaterThanOrEqual => Value::Boolean(
+                        left.loose_eq(&right)?
+                            || matches!(
+                                left.partial_cmp(&right),
+                                Some(std::cmp::Ordering::Greater)
+                            ),
+                    ),
+                    Operator::LessThan => Value::Boolean(matches!(
+                        left.partial_cmp(&right),
+                        Some(std::cmp::Ordering::Less)
+                    )),
+                    Operator::LessThanOrEqual => Value::Boolean(
+                        left.loose_eq(&right)?
+                            || matches!(left.partial_cmp(&right), Some(std::cmp::Ordering::Less)),
+                    ),
                     Operator::And => Value::Boolean(left.into() && right.into()),
                     Operator::Or => Value::Boolean(left.into() || right.into()),
                     Operator::Add => (left + right)?.0.into_owned(),
@@ -240,7 +255,7 @@ impl Atom {
         }
 
         // variable?
-        let (input, (chunk, _)) = ((chunk, ws)).parse(input)?;
+        let (input, chunk) = chunk(input)?;
         let chunk = chunk.input;
         if let Some(var) = input.extra.state.get_var(chunk) {
             return Ok((input, Atom::Value(var)));
@@ -315,14 +330,14 @@ pub enum Operator {
 impl Operator {
     fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
         alt((
-            value(Operator::Equal, tag("==")),
             value(Operator::StrictEqual, tag("===")),
-            value(Operator::NotEqual, tag(";=")),
+            value(Operator::Equal, tag("==")),
             value(Operator::StrictNotEqual, tag(";==")),
-            value(Operator::GreaterThan, character::complete::char('>')),
+            value(Operator::NotEqual, tag(";=")),
             value(Operator::GreaterThanOrEqual, tag(">=")),
-            value(Operator::LessThan, character::complete::char('<')),
+            value(Operator::GreaterThan, character::complete::char('>')),
             value(Operator::LessThanOrEqual, tag("<=")),
+            value(Operator::LessThan, character::complete::char('<')),
             value(Operator::And, tag("&&")),
             value(Operator::Or, tag("||")),
             value(Operator::Add, character::complete::char('+')),

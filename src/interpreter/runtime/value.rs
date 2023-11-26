@@ -114,68 +114,8 @@ impl Value {
     }
 }
 
-impl<'a> PartialEq for Wrapper<Cow<'a, Value>> {
-    fn eq(&self, other: &Self) -> bool {
-        // handle same type situation
-        if self.same_type(other) {
-            return self.loose_eq_primitive_eq_type(other);
-        }
-
-        // convert object to primitive
-        let left = if self.is_primitive() {
-            self
-        } else {
-            // TODO not finished implementing obj to primitive
-            return false;
-        };
-
-        let other = if other.is_primitive() {
-            other
-        } else {
-            // TODO not finished implementing obj to primitive
-            return false;
-        };
-
-        // now see if its the same primitive type and compare
-        if left.same_type(other) {
-            // same type, just compare
-            return left.loose_eq_primitive_eq_type(other);
-        }
-
-        if matches!(left.as_ref(), Value::Symbol(_)) {
-            return matches!(other.as_ref(), Value::Symbol(_));
-        }
-
-        // is one of them bool?
-        if matches!(left.as_ref(), Value::Boolean(_)) || matches!(other.as_ref(), Value::Boolean(_))
-        {
-            return left == other;
-        }
-
-        match (left.as_ref(), other.as_ref()) {
-            (Value::Number(left), Value::String(other)) => match other.parse::<f64>() {
-                Ok(other) => *left == other,
-                Err(_) => false,
-            },
-            (Value::Number(left), Value::BigInt(other)) => {
-                if left.is_infinite() || left.is_nan() {
-                    false
-                } else {
-                    BigInt::from_f64(*left).unwrap() == *other
-                }
-            }
-            // TODO same behaviour as bigint constructor
-            (Value::String(left), Value::BigInt(other)) => match left.parse::<BigInt>() {
-                Ok(left) => left == *other,
-                Err(_) => false,
-            },
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl<'a> PartialOrd for Wrapper<Cow<'a, Value>> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl<'a> Wrapper<Cow<'a, Value>> {
+    pub fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO object to primitive, [@@toPrimitive]() with "number", valueOf(), toString()
         let left = if self.is_primitive() {
             self
@@ -222,6 +162,79 @@ impl<'a> PartialOrd for Wrapper<Cow<'a, Value>> {
 
         Some(left.cmp(other))
     }
+
+    pub fn loose_eq(&self, other: &Self) -> Result<bool, runtime::Error> {
+        // handle same type situation
+        if self.same_type(other) {
+            return Ok(self.loose_eq_primitive_eq_type(other));
+        }
+
+        // convert object to primitive
+        let left = if self.is_primitive() {
+            self
+        } else {
+            // TODO not finished implementing obj to primitive
+            return Ok(false);
+        };
+
+        let other = if other.is_primitive() {
+            other
+        } else {
+            // TODO not finished implementing obj to primitive
+            return Ok(false);
+        };
+
+        // now see if its the same primitive type and compare
+        if left.same_type(other) {
+            // same type, just compare
+            return Ok(left.loose_eq_primitive_eq_type(other));
+        }
+
+        if matches!(left.as_ref(), Value::Symbol(_)) {
+            return Ok(matches!(other.as_ref(), Value::Symbol(_)));
+        }
+
+        // is one of them bool?
+        if matches!(left.as_ref(), Value::Boolean(_))
+            && !matches!(other.as_ref(), Value::Boolean(_))
+        {
+            let left = Wrapper(Cow::<Value>::Owned(Value::Number(f64::try_from(
+                left.as_ref(),
+            )?)));
+            return left.loose_eq(other);
+        }
+
+        if matches!(other.as_ref(), Value::Boolean(_))
+            && !matches!(left.as_ref(), Value::Boolean(_))
+        {
+            let other = Wrapper(Cow::<Value>::Owned(Value::Number(f64::try_from(
+                other.as_ref(),
+            )?)));
+            return left.loose_eq(&other);
+        }
+
+        let result = match (left.as_ref(), other.as_ref()) {
+            (Value::Number(left), Value::String(other)) => match other.parse::<f64>() {
+                Ok(other) => *left == other,
+                Err(_) => false,
+            },
+            (Value::Number(left), Value::BigInt(other)) => {
+                if left.is_infinite() || left.is_nan() {
+                    false
+                } else {
+                    BigInt::from_f64(*left).unwrap() == *other
+                }
+            }
+            // TODO same behaviour as bigint constructor
+            (Value::String(left), Value::BigInt(other)) => match left.parse::<BigInt>() {
+                Ok(left) => left == *other,
+                Err(_) => false,
+            },
+            _ => unreachable!(),
+        };
+
+        Ok(result)
+    }
 }
 
 impl Display for Value {
@@ -253,7 +266,23 @@ impl FromStr for Value {
             "true" => Ok(Value::Boolean(true)),
             "false" => Ok(Value::Boolean(false)),
             "undefined" => Ok(Value::Undefined),
-            _ => Err(()),
+            "null" => Ok(Value::Object(None)),
+            _ => {
+                // try number
+                if let Ok(num) = s.parse::<f64>() {
+                    return Ok(Value::Number(num));
+                }
+
+                // try bigint
+                if s.ends_with('n') {
+                    let s = &s[..s.len() - 1];
+                    if let Ok(num) = s.parse::<BigInt>() {
+                        return Ok(Value::BigInt(num));
+                    }
+                }
+
+                Err(())
+            }
         }
     }
 }
