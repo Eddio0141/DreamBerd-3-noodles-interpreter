@@ -53,17 +53,17 @@ fn calc_line_column_test() {
 
 #[test]
 fn take_split() {
-    let input = Position::new("foobar");
-    let (l, r) = input.take_split(3);
+    let input = Position::new("fooobar");
+    let (l, r) = input.take_split(4);
 
-    assert_eq!(r.input, "foo");
+    assert_eq!(r.input, "fooo");
     assert_eq!(r.line, 1);
     assert_eq!(r.column, 1);
     assert_eq!(r.index, 0);
 
     assert_eq!(l.input, "bar");
     assert_eq!(l.line, 1);
-    assert_eq!(l.column, 4);
+    assert_eq!(l.column, 5);
 }
 
 #[test]
