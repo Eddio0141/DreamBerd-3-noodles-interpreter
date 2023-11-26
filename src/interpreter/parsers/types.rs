@@ -155,7 +155,7 @@ impl AsChars for &[u8] {
     }
 }
 
-impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
+impl<T: Copy + Debug> InputTakeAtPosition for Position<'_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
@@ -164,7 +164,10 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     {
         match self.input.find(predicate) {
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
+            Some(i) => {
+                let (left, right) = self.left_right_split(&self.input[..i], &self.input[i..], i);
+                Ok((right, left))
+            }
             None => Err(Err::Incomplete(Needed::new(1))),
         }
     }
@@ -180,7 +183,10 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
         match self.input.find(predicate) {
             Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
+            Some(i) => {
+                let (left, right) = self.left_right_split(&self.input[..i], &self.input[i..], i);
+                Ok((right, left))
+            }
             None => Err(Err::Incomplete(Needed::new(1))),
         }
     }
@@ -192,16 +198,18 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     where
         P: Fn(Self::Item) -> bool,
     {
-        match self.input.find(predicate) {
+        let (left, right) = match self.input.find(predicate) {
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
+            Some(i) => self.left_right_split(&self.input[..i], &self.input[i..], i),
             // the end of slice is a char boundary
-            None => Ok(self.left_right_split(
-                &self.input[self.input.len()..],
+            None => self.left_right_split(
                 &self.input[..self.input.len()],
+                &self.input[self.input.len()..],
                 0,
-            )),
-        }
+            ),
+        };
+
+        Ok((right, left))
     }
 
     fn split_at_position1_complete<P, E: ParseError<Self>>(
@@ -212,23 +220,25 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     where
         P: Fn(Self::Item) -> bool,
     {
-        match self.input.find(predicate) {
-            Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
+        let (left, right) = match self.input.find(predicate) {
+            Some(0) => return Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
+            Some(i) => self.left_right_split(&self.input[..i], &self.input[i..], i),
             None => {
                 if self.input.is_empty() {
-                    Err(Err::Error(E::from_error_kind(*self, e)))
+                    return Err(Err::Error(E::from_error_kind(*self, e)));
                 } else {
                     // the end of slice is a char boundary
-                    Ok(self.left_right_split(
-                        &self.input[self.input.len()..],
+                    self.left_right_split(
                         &self.input[..self.input.len()],
+                        &self.input[self.input.len()..],
                         0,
-                    ))
+                    )
                 }
             }
-        }
+        };
+
+        Ok((right, left))
     }
 }
 

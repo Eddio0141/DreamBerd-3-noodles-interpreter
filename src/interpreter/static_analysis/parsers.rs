@@ -104,8 +104,12 @@ pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Positio
     // either an arrow start (meaning no args) or a list of args
     let args = alt((
         value(Vec::new(), tuple((ws_count, arrow()))),
-        tuple((separated_list0(tuple((ws_count, comma(), ws_count)), arg), ws_count, arrow()))
-            .map(|(args, _, _)| args),
+        tuple((
+            separated_list0(tuple((ws_count, comma(), ws_count)), arg),
+            ws_count,
+            arrow(),
+        ))
+        .map(|(args, _, _)| args),
     ));
 
     tuple((args, ws_count, till_term))

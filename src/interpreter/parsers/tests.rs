@@ -1,12 +1,31 @@
 use nom::{
     bytes::complete::tag,
     character::{self, complete::satisfy},
-    InputTake, Slice,
+    InputTake, InputTakeAtPosition, Slice,
 };
 
 use crate::parsers::{types::Position, LifeTime};
 
 use super::{identifier, types::calc_line_column, ws_char};
+
+#[test]
+fn split_at_position() {
+    let input = Position::new("foo bar");
+
+    // split like i.. and ..i
+    let (l, r) = input
+        .split_at_position::<_, nom::error::Error<_>>(|c| c == ' ')
+        .unwrap();
+    assert_eq!(l.input, " bar");
+    assert_eq!(l.line, 1);
+    assert_eq!(l.column, 4);
+    assert_eq!(l.index, 3);
+
+    assert_eq!(r.input, "foo");
+    assert_eq!(r.line, 1);
+    assert_eq!(r.column, 1);
+    assert_eq!(r.index, 0);
+}
 
 #[test]
 fn tag_parse() {
