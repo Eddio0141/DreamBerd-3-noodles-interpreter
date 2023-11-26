@@ -3,8 +3,8 @@
 use std::borrow::Cow;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until};
-use nom::combinator::value;
+use nom::bytes::complete::{tag, take, take_till, take_until};
+use nom::combinator::{peek, value};
 use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
 use nom::{character, Parser};
@@ -44,7 +44,8 @@ impl Expression {
         // if the next op is equals in ws, do the usual ordering with operation order
 
         // a chunk of (ws -> op -> ws) that has operation parsed and contains total ws
-        let op_chunk = tuple((ws_count, Operator::parse, ws_count)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
+        let op_chunk =
+            tuple((ws_count, Operator::parse, ws_count)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
 
         let (input, (first_atom, priorities)) = ((
             Expression::atom_to_expression,
@@ -255,24 +256,26 @@ impl Atom {
         }
 
         // variable?
-        let (input, chunk) = chunk(input)?;
-        let chunk = chunk.input;
-        if let Some(var) = input.extra.state.get_var(chunk) {
+        let (_, chunk) = peek(chunk)(input)?;
+        if let Some(var) = input.extra.state.get_var(chunk.input) {
+            // take
+            let (input, _) = take(chunk.input.len())(input)?;
             return Ok((input, Atom::Value(var)));
         }
 
         // either an actual value or implicit string
-        if let Ok(chunk) = chunk.parse::<Value>() {
-            return Ok((input, Atom::Value(chunk)));
+        let (_, chunk) = take_till::<_, _, nom::error::Error<_>>(|c| c == '!')(chunk).unwrap();
+
+        if let Ok(value) = chunk.input.parse::<Value>() {
+            let (input, _) = take(chunk.input.len())(input)?;
+            return Ok((input, Atom::Value(value)));
         }
 
         // implicit string
         // take until `!`
         let (input, rest) = take_until("!")(input)?;
 
-        let whole = chunk.to_string() + rest.input;
-
-        Ok((input, Atom::Value(Value::String(whole))))
+        Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
     }
 }
 

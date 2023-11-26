@@ -119,7 +119,8 @@ where
         }
 
         let (left, right) = (self.input.slice(..count), self.input.slice(count..));
-        self.left_right_split(left, right, count)
+        let (left, right) = self.left_right_split(left, right, count);
+        (right, left)
     }
 }
 
@@ -163,7 +164,7 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     {
         match self.input.find(predicate) {
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[..i], &self.input[i..], i)),
+            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
             None => Err(Err::Incomplete(Needed::new(1))),
         }
     }
@@ -179,7 +180,7 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
         match self.input.find(predicate) {
             Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[..i], &self.input[i..], i)),
+            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
             None => Err(Err::Incomplete(Needed::new(1))),
         }
     }
@@ -193,7 +194,7 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
     {
         match self.input.find(predicate) {
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[..i], &self.input[i..], i)),
+            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
             // the end of slice is a char boundary
             None => Ok(self.left_right_split(
                 &self.input[self.input.len()..],
@@ -214,7 +215,7 @@ impl<T: Copy> InputTakeAtPosition for Position<'_, T> {
         match self.input.find(predicate) {
             Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
-            Some(i) => Ok(self.left_right_split(&self.input[..i], &self.input[i..], i)),
+            Some(i) => Ok(self.left_right_split(&self.input[i..], &self.input[..i], i)),
             None => {
                 if self.input.is_empty() {
                     Err(Err::Error(E::from_error_kind(*self, e)))
@@ -381,24 +382,22 @@ impl<'a> Position<'a> {
 
 impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
     /// Splits the input into two positions
-    /// # Returns
-    /// Instead of returning (left, right), it returns (right, left)
     fn left_right_split(&self, left: I, right: I, len: usize) -> (Self, Self) {
         let (line, column) = calc_line_column(&left);
         (
-            Self {
-                line: self.line + line,
-                column: self.column + column,
-                index: self.index + len,
-                input: right,
-                extra: self.extra,
-                _phantom: PhantomData,
-            },
             Self {
                 line: self.line,
                 column: self.column,
                 index: self.index,
                 input: left,
+                extra: self.extra,
+                _phantom: PhantomData,
+            },
+            Self {
+                line: self.line + line,
+                column: self.column + column,
+                index: self.index + len,
+                input: right,
                 extra: self.extra,
                 _phantom: PhantomData,
             },
