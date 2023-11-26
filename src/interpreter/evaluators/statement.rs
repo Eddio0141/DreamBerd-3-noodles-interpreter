@@ -39,7 +39,8 @@ impl Statement {
         }
 
         todo!("{}", input.input);
-
+        
+        // TODO rewrite test to ensure type isn't implicit string
         // last resort, pass it as an implicit string
         many_till(alt((ws, chunk)), alt((value((), eof), end_of_statement)))
             .map(|_| Self::Expression)
