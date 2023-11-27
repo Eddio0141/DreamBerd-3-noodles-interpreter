@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     combinator::{eof, value},
     multi::many_till,
-    sequence::tuple,
+    sequence::terminated,
     Parser,
 };
 
@@ -22,8 +22,6 @@ pub enum Statement {
 
 impl Statement {
     pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
-        let function_call = FunctionCall::parse.map(|o| Statement::FunctionCall(o));
-
         let (input, _) = ws_count(input).unwrap();
 
         if input.input.is_empty() {
@@ -33,13 +31,19 @@ impl Statement {
             )));
         }
 
-        // test for function call
-        if let Ok((input, (statement, _))) = tuple((function_call, end_of_statement)).parse(input) {
+        if let Ok((input, statement)) = terminated(
+            alt((
+                FunctionCall::parse.map(Statement::FunctionCall),
+                VariableDecl::parse.map(Statement::VariableDecl),
+            )),
+            end_of_statement,
+        )(input)
+        {
             return Ok((input, statement));
         }
 
         todo!("{}", input.input);
-        
+
         // TODO rewrite test to ensure type isn't implicit string
         // last resort, pass it as an implicit string
         many_till(alt((ws, chunk)), alt((value((), eof), end_of_statement)))
