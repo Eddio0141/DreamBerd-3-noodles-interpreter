@@ -64,45 +64,24 @@ pub struct VarSet {
 }
 
 impl VarSet {
-    pub fn eval<'a>(&'a self, interpreter: &Interpreter<'a>) -> Result<(), Error> {
+    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let value = self.expression.eval(interpreter)?;
         interpreter.state.set_var(&self.name, value.0.into_owned());
         Ok(())
     }
 
-    pub fn parse(code: &str) -> AstParseResult<Self> {
-        // let funcs = input.static_analysis.current_funcs();
+    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        // ident ws* "=" ws* expr ws* !
+        let eq = character::complete::char('=');
+        let identifier = identifier(LifeTime::parse);
+        let (input, (identifier, _, _, _, expression)) =
+            (identifier, ws, eq, ws, Expression::parse).parse(input)?;
 
-        // let identifier = identifier_optional_term('=');
+        let decl = Self {
+            expression,
+            name: identifier.input.to_string(),
+        };
 
-        // let (input, identifier_peek) = peek(identifier)(input)?;
-
-        // if let Some((_, func)) = funcs.get_key_value(identifier_peek) {
-        //     if func.arg_count != 0 {
-        //         // not a variable declaration
-        //         return FunctionCall::parse(input)
-        //             .map(|(input, func)| (input, Statement::FunctionCall(func)));
-        //     }
-        // }
-
-        // // ident ~ ws* ~ "=" ~ ws* ~ expr ~ ws* ~ !
-        // let (input, (_, _, _, _, expression, _, _)) = (
-        //     identifier,
-        //     ws,
-        //     equals::<_, nom::error::Error<ParserInput>>,
-        //     ws,
-        //     Expression::parse,
-        //     ws,
-        //     term,
-        // )
-        //     .parse(input)?;
-
-        // let var_set = Self {
-        //     name: identifier_peek.to_string(),
-        //     expression: expression.into(),
-        // };
-
-        // Ok((input, Statement::VarSet(var_set)))
-        todo!()
+        Ok((input, decl))
     }
 }

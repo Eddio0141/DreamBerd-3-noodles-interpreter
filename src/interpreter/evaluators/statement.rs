@@ -7,8 +7,11 @@ use nom::{
 };
 
 use crate::{
-    interpreter::{evaluators::function::FunctionCall, runtime},
-    parsers::{chunk, end_of_statement, types::Position, ws},
+    interpreter::{
+        evaluators::{function::FunctionCall, variable::VarSet},
+        runtime,
+    },
+    parsers::{types::Position, *},
     Interpreter,
 };
 
@@ -17,6 +20,7 @@ use super::{parsers::AstParseResult, variable::VariableDecl};
 pub enum Statement {
     FunctionCall(FunctionCall),
     VariableDecl(VariableDecl),
+    VarSet(VarSet),
     Expression,
 }
 
@@ -35,6 +39,7 @@ impl Statement {
             alt((
                 FunctionCall::parse.map(Statement::FunctionCall),
                 VariableDecl::parse.map(Statement::VariableDecl),
+                VarSet::parse.map(Statement::VarSet),
             )),
             tuple((end_of_statement, ws)),
         )(input)
@@ -64,6 +69,7 @@ impl Statement {
         match self {
             Statement::FunctionCall(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::VarSet(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::Expression => Ok(()),
         }
     }
