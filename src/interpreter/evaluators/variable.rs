@@ -1,6 +1,12 @@
 //! Contains variable related structures
 
+use nom::bytes::complete::tag;
+use nom::character;
+use nom::combinator::opt;
+use nom::sequence::Tuple;
+
 use crate::parsers::types::Position;
+use crate::parsers::{identifier, ws, LifeTime};
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
@@ -23,33 +29,31 @@ impl VariableDecl {
         Ok(())
     }
 
-    pub fn parse<'a>(input: Position<&Interpreter>) -> AstParseResult<'a, Self> {
-        // let funcs = code.static_analysis.current_funcs();
+    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+        let var = || tag("var");
+        let eq = character::complete::char('=');
+        let identifier = identifier(LifeTime::parse);
+        // var ws+ var ws+ identifier life_time? ws* "=" ws* expr
+        let (input, (_, _, _, _, identifier, _, _, _, _, expression)) = (
+            var(),
+            ws,
+            var(),
+            ws,
+            identifier,
+            opt(LifeTime::parse),
+            ws,
+            eq,
+            ws,
+            Expression::parse,
+        )
+            .parse(input)?;
 
-        // if let Some((_, func)) = funcs.get_key_value("var") {
-        //     if func.arg_count != 0 {
-        //         // not a variable declaration
-        //         return FunctionCall::parse(code)
-        //             .map(|(left, func)| (left, Statement::FunctionCall(func)));
-        //     }
-        // }
+        let decl = Self {
+            expression,
+            name: identifier.input.to_string(),
+        };
 
-        // // n
-        // let var = || tag("var");
-        // let identifier = identifier(life_time);
-        // var ws+ var ws+ identifier
-        // let (input, (_, _, _, _, identifier, life_time)) =
-        //     (var(), ws, var(), ws, identifier, opt(life_time)).parse(input)?;
-
-        // let decl = Self {
-        //     expression: expression.into(),
-        //     name: identifier.to_string(),
-        // };
-
-        // // input.code = code;
-
-        // Ok((input, Statement::VariableDecl(decl)))
-        todo!()
+        Ok((input, decl))
     }
 }
 
