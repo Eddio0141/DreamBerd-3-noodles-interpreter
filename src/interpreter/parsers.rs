@@ -171,5 +171,5 @@ where
         + InputTakeAtPosition<Item = char>,
 {
     let end = many1(character::complete::char('!'));
-    tuple((ws_count, end)).map(|_| ()).parse(input)
+    value((), tuple((ws, end)))(input)
 }

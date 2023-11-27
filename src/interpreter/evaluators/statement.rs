@@ -8,7 +8,7 @@ use nom::{
 
 use crate::{
     interpreter::{evaluators::function::FunctionCall, runtime},
-    parsers::{chunk, end_of_statement, types::Position, ws, ws_count},
+    parsers::{chunk, end_of_statement, types::Position, ws},
     Interpreter,
 };
 
@@ -22,7 +22,7 @@ pub enum Statement {
 
 impl Statement {
     pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
-        let (input, _) = ws_count(input).unwrap();
+        let (input, _) = ws(input).unwrap();
 
         if input.input.is_empty() {
             return Err(nom::Err::Failure(nom::error::Error::new(
