@@ -88,7 +88,7 @@ where
 {
     move |input_original| {
         let mut input = input_original;
-        let mut take_count = 0usize;
+        let mut take_count = 0;
         loop {
             if input.input_len() == 0 {
                 break;
@@ -102,8 +102,10 @@ where
                 break;
             }
 
-            take_count += 1;
-            input = input.take_split(1).0;
+            let take_length = input.iter_elements().next().unwrap().len();
+
+            take_count += take_length;
+            input = input.take_split(take_length).0;
         }
 
         // don't allow empty identifiers
