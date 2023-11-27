@@ -15,12 +15,11 @@ use crate::{
 pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
     let str = |input: Position<'a>| -> PosResult<'a, Position> {
         let quote = alt((
-            character::complete::char::<_, nom::error::Error<_>>('"'),
+            character::complete::char('"'),
             character::complete::char('\''),
         ));
         let (input, mut left_quotes) = many1(quote)(input)?;
-        let (input, _) =
-            take_till::<_, _, nom::error::Error<_>>(|c| c == left_quotes[0])(input).unwrap();
+        let (input, _) = take_till::<_, _, ()>(|c| c == left_quotes[0])(input).unwrap();
         // since we checking right to left now
         left_quotes.reverse();
 
@@ -44,7 +43,7 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
             break;
         }
 
-        let (input_new, _) = take::<_, _, nom::error::Error<_>>(1usize)(input).unwrap();
+        let (input_new, _) = take::<_, _, ()>(1usize)(input).unwrap();
         input = input_new;
     }
 

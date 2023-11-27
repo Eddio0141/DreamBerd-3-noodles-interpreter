@@ -263,7 +263,7 @@ impl Atom {
         }
 
         // either an actual value or implicit string
-        let (_, chunk) = take_till::<_, _, nom::error::Error<_>>(|c| c == '!')(chunk).unwrap();
+        let (_, chunk) = take_till::<_, _, ()>(|c| c == '!')(chunk).unwrap();
 
         if let Ok(value) = chunk.input.parse::<Value>() {
             let (input, _) = take(Self::take_count(chunk))(input)?;

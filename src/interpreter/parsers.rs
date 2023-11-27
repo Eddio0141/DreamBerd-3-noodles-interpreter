@@ -96,7 +96,7 @@ where
 
             // is it terminating?
             if matches!(terminating_parser.parse(input), Ok(_))
-                || matches!(peek(ws_char::<_, nom::error::Error<_>>)(input), Ok(_))
+                || matches!(peek(ws_char::<_, ()>)(input), Ok(_))
             {
                 // don't consume
                 break;
