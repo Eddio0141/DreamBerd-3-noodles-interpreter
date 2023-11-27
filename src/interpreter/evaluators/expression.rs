@@ -258,8 +258,7 @@ impl Atom {
         // variable?
         let (_, chunk) = peek(chunk)(input)?;
         if let Some(var) = input.extra.state.get_var(chunk.input) {
-            // take
-            let (input, _) = take(chunk.input.len())(input)?;
+            let (input, _) = take(Self::take_count(chunk))(input)?;
             return Ok((input, Atom::Value(var)));
         }
 
@@ -267,7 +266,7 @@ impl Atom {
         let (_, chunk) = take_till::<_, _, nom::error::Error<_>>(|c| c == '!')(chunk).unwrap();
 
         if let Ok(value) = chunk.input.parse::<Value>() {
-            let (input, _) = take(chunk.input.len())(input)?;
+            let (input, _) = take(Self::take_count(chunk))(input)?;
             return Ok((input, Atom::Value(value)));
         }
 
@@ -276,6 +275,10 @@ impl Atom {
         let (input, rest) = take_until("!")(input)?;
 
         Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
+    }
+
+    fn take_count(input: Position<&Interpreter>) -> usize {
+        input.input.chars().count()
     }
 }
 

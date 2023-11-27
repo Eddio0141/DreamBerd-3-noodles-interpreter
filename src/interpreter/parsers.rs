@@ -102,7 +102,8 @@ where
                 break;
             }
 
-            let take_length = input.iter_elements().next().unwrap().len();
+            let (_, take_length) = take::<_, _, ()>(1usize)(input).unwrap();
+            let take_length = take_length.input_len();
 
             take_count += take_length;
             input = input.take_split(take_length).0;

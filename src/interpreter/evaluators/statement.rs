@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     combinator::{eof, value},
     multi::many_till,
-    sequence::terminated,
+    sequence::{terminated, tuple},
     Parser,
 };
 
@@ -36,7 +36,7 @@ impl Statement {
                 FunctionCall::parse.map(Statement::FunctionCall),
                 VariableDecl::parse.map(Statement::VariableDecl),
             )),
-            end_of_statement,
+            tuple((end_of_statement, ws)),
         )(input)
         {
             return Ok((input, statement));
