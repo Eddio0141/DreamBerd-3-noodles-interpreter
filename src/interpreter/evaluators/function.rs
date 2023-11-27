@@ -44,7 +44,7 @@ impl FunctionCall {
 
         // does the function exist
         let Some(func) = input.extra.state.get_func_info(identifier) else {
-            return Err(nom::Err::Failure(nom::error::Error::new(
+            return Err(nom::Err::Error(nom::error::Error::new(
                 input,
                 ErrorKind::Fail,
             )));
@@ -79,8 +79,12 @@ impl FunctionCall {
         // grab arguments
         for _ in 0..func.arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
-            let (input_new, (_, _, expr, _)) =
-                tuple((character::complete::char(','), ws_count, Expression::parse, ws_count))(input)?;
+            let (input_new, (_, _, expr, _)) = tuple((
+                character::complete::char(','),
+                ws_count,
+                Expression::parse,
+                ws_count,
+            ))(input)?;
             input = input_new;
             args.push(expr);
         }
