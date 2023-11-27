@@ -25,7 +25,7 @@ impl Statement {
         let (input, _) = ws(input).unwrap();
 
         if input.input.is_empty() {
-            return Err(nom::Err::Failure(nom::error::Error::new(
+            return Err(nom::Err::Error(nom::error::Error::new(
                 input,
                 nom::error::ErrorKind::Eof,
             )));

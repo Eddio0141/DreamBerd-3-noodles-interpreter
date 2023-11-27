@@ -62,7 +62,7 @@ impl FunctionCall {
                     },
                 ))
             } else {
-                Err(Err::Failure(nom::error::Error::new(input, ErrorKind::Fail)))
+                Err(Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))
             };
 
             return result;
