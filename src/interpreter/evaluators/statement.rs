@@ -15,10 +15,11 @@ use crate::{
     Interpreter,
 };
 
-use super::{parsers::AstParseResult, variable::VariableDecl};
+use super::{function::FunctionDef, parsers::AstParseResult, variable::VariableDecl};
 
 pub enum Statement {
     FunctionCall(FunctionCall),
+    FunctionDef(FunctionDef),
     VariableDecl(VariableDecl),
     VarSet(VarSet),
     Expression,
@@ -38,6 +39,7 @@ impl Statement {
         if let Ok((input, statement)) = terminated(
             alt((
                 FunctionCall::parse.map(Statement::FunctionCall),
+                FunctionDef::parse.map(Statement::FunctionDef),
                 VariableDecl::parse.map(Statement::VariableDecl),
                 VarSet::parse.map(Statement::VarSet),
             )),
@@ -68,6 +70,7 @@ impl Statement {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), runtime::error::Error> {
         match self {
             Statement::FunctionCall(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::VarSet(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::Expression => Ok(()),
