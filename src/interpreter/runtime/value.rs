@@ -5,12 +5,21 @@ use std::{
     fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
     rc::Rc,
-    str::FromStr,
 };
 
-use crate::{interpreter::runtime, prelude::Wrapper};
+use crate::{
+    interpreter::{evaluators::parsers::AstParseResult, runtime},
+    parsers::{types::Position, *},
+    prelude::Wrapper,
+    Interpreter,
+};
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
+
+use nom::{
+    branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*,
+    number::complete::*, sequence::*, Parser,
+};
 
 #[derive(Debug, Clone)]
 /// A value that corresponds to a ECMAScript value
@@ -111,6 +120,73 @@ impl Value {
                 value.id == other.id
             }
         }
+    }
+
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
+        let value_true = value(Value::Boolean(true), tag::<_, _, ()>("true"));
+        let value_false = value(Value::Boolean(false), tag("false"));
+        let value_undefined = value(Value::Undefined, tag("undefined"));
+        let value_null = value(Value::Object(None), tag("null"));
+        let value_bigint = tuple((
+            map_res(take_till(|c| c == 'n'), |s: Position<_>| {
+                s.input.parse::<BigInt>()
+            }),
+            char('n'),
+        ))
+        .map(|(num, _)| Value::BigInt(num));
+        let value_f64 = double.map(|num| Value::Number(num));
+
+        if let Ok((input, (value, _))) = ((
+            alt((
+                value_true,
+                value_false,
+                value_undefined,
+                value_null,
+                value_bigint,
+                value_f64,
+            )),
+            peek(ws_char),
+        ))
+            .parse(input)
+        {
+            return Ok((input, value));
+        }
+
+        let start_quote = take_while1(|c| c == '\'' || c == '"');
+        let escape_quote = tag("'");
+        let escape_double_quote = tag("\"");
+        let escape_char =
+            tuple((char('\\'), alt((escape_quote, escape_double_quote)))).map(|(_, c)| c);
+        let string_take_check = verify(take(1usize), |s: &str| s != "'" && s != "\"");
+        let string_inner = alt((escape_char, string_take_check));
+        let string_inner = many0_count(string_inner);
+        let (s_new, (start_quotes, string_inner)) = ((start_quote, string_inner)).parse(input)?;
+        let start_quotes_len = start_quotes.input.len();
+        let string_inner = &input.input[start_quotes_len..start_quotes_len + string_inner];
+        // check ending quotes match
+        let (_, chunk) = peek(chunk)(s_new)?;
+        if start_quotes
+            .input
+            .chars()
+            .rev()
+            .zip(chunk.input.chars())
+            .all(|(a, b)| a == b)
+        {
+            let (input, _) = ((
+                take(start_quotes_len),
+                peek(alt((end_of_statement, ws_char.map(|_| ())))),
+            ))
+                .parse(s_new)
+                .unwrap();
+            return Ok((input, Value::String(string_inner.to_string())));
+        }
+
+        Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Fail,
+        )))
     }
 }
 
@@ -254,35 +330,6 @@ impl Display for Value {
                 }
             ),
             Value::Symbol(value) => write!(f, "{value}"),
-        }
-    }
-}
-
-impl FromStr for Value {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "true" => Ok(Value::Boolean(true)),
-            "false" => Ok(Value::Boolean(false)),
-            "undefined" => Ok(Value::Undefined),
-            "null" => Ok(Value::Object(None)),
-            _ => {
-                // try number
-                if let Ok(num) = s.parse::<f64>() {
-                    return Ok(Value::Number(num));
-                }
-
-                // try bigint
-                if s.ends_with('n') {
-                    let s = &s[..s.len() - 1];
-                    if let Ok(num) = s.parse::<BigInt>() {
-                        return Ok(Value::BigInt(num));
-                    }
-                }
-
-                Err(())
-            }
         }
     }
 }

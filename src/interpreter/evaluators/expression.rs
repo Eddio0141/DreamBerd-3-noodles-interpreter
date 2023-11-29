@@ -3,8 +3,8 @@
 use std::borrow::Cow;
 
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take, take_till, take_until};
-use nom::combinator::{peek, value};
+use nom::bytes::complete::{tag, take_until};
+use nom::combinator::{map_opt, value};
 use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
 use nom::{character::complete::*, Parser};
@@ -270,17 +270,15 @@ impl Atom {
         }
 
         // variable?
-        let (_, chunk) = peek(chunk)(input)?;
-        if let Some(var) = input.extra.state.get_var(chunk.input) {
-            let (input, _) = take(Self::take_count(chunk))(input)?;
+        if let Ok((input, var)) = map_opt(chunk::<_, ()>, |chunk: Position<_>| {
+            input.extra.state.get_var(chunk.input)
+        })(input)
+        {
             return Ok((input, Atom::Value(var)));
         }
 
         // either an actual value or implicit string
-        let (_, chunk) = take_till::<_, _, ()>(|c| c == '!')(chunk).unwrap();
-
-        if let Ok(value) = chunk.input.parse::<Value>() {
-            let (input, _) = take(Self::take_count(chunk))(input)?;
+        if let Ok((input, value)) = Value::parse(input) {
             return Ok((input, Atom::Value(value)));
         }
 
@@ -289,10 +287,6 @@ impl Atom {
         let (input, rest) = take_until("!")(input)?;
 
         Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
-    }
-
-    fn take_count(input: Position<Interpreter>) -> usize {
-        input.input.chars().count()
     }
 }
 
