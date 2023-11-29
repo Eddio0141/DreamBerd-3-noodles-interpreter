@@ -94,7 +94,7 @@ impl FunctionCall {
         for _ in 0..func.arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
             let (input_new, (_, _, expr, _)) =
-                tuple((character::complete::char(','), ws, Expression::parse, ws))(input)?;
+                tuple((char(','), ws, Expression::parse, ws))(input)?;
             input = input_new;
             args.push(expr);
         }
@@ -151,7 +151,7 @@ impl FunctionDef {
         // past header
         // func_args = { identifier ~ (comma ~ identifier)* }
         // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
-        let comma = || character::complete::char(',');
+        let comma = || char(',');
         let arg_identifier = || identifier(comma());
         let args = tuple((
             arg_identifier(),

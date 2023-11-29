@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take, take_till, take_until};
 use nom::combinator::{peek, value};
 use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
-use nom::{character, Parser};
+use nom::{character::complete::*, Parser};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
@@ -310,8 +310,8 @@ impl UnaryOperator {
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
         alt((
-            value(UnaryOperator::Not, character::complete::char(';')),
-            value(UnaryOperator::Minus, character::complete::char('-')),
+            value(UnaryOperator::Not, char(';')),
+            value(UnaryOperator::Minus, char('-')),
         ))(input)
     }
 }
@@ -349,17 +349,17 @@ impl Operator {
             value(Operator::StrictNotEqual, tag(";==")),
             value(Operator::NotEqual, tag(";=")),
             value(Operator::GreaterThanOrEqual, tag(">=")),
-            value(Operator::GreaterThan, character::complete::char('>')),
+            value(Operator::GreaterThan, char('>')),
             value(Operator::LessThanOrEqual, tag("<=")),
-            value(Operator::LessThan, character::complete::char('<')),
+            value(Operator::LessThan, char('<')),
             value(Operator::And, tag("&&")),
             value(Operator::Or, tag("||")),
-            value(Operator::Add, character::complete::char('+')),
-            value(Operator::Subtract, character::complete::char('-')),
-            value(Operator::Multiply, character::complete::char('*')),
-            value(Operator::Exponential, character::complete::char('^')),
-            value(Operator::Divide, character::complete::char('/')),
-            value(Operator::Modulo, character::complete::char('%')),
+            value(Operator::Add, char('+')),
+            value(Operator::Subtract, char('-')),
+            value(Operator::Multiply, char('*')),
+            value(Operator::Exponential, char('^')),
+            value(Operator::Divide, char('/')),
+            value(Operator::Modulo, char('%')),
         ))(input)
     }
 }

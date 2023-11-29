@@ -1,7 +1,7 @@
 //! Contains variable related structures
 
 use nom::bytes::complete::tag;
-use nom::character;
+use nom::character::complete::*;
 use nom::combinator::opt;
 use nom::sequence::Tuple;
 
@@ -33,7 +33,7 @@ impl VariableDecl {
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
         let var = || tag("var");
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr
         let (input, (_, _, _, _, identifier, _, _, _, _, expression, _)) = (
@@ -77,7 +77,7 @@ impl VarSet {
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
         // ident ws* "=" ws* expr ws* !
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
         let (input, (identifier, _, _, _, expression, _)) =
             (identifier, ws, eq, ws, Expression::parse, end_of_statement).parse(input)?;

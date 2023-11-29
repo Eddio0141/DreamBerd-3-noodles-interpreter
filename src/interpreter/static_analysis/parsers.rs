@@ -5,7 +5,10 @@ mod tests;
 
 use std::fmt::Debug;
 
-use nom::{branch::alt, bytes::complete::*, character, combinator::*, multi::*, sequence::*, *};
+use nom::{
+    branch::alt, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
+    *,
+};
 
 use crate::{
     interpreter::parsers::*,
@@ -14,10 +17,7 @@ use crate::{
 
 pub fn till_term<'a, 'b>(input: Position<'a, 'b>) -> PosResult<'a, 'b, Position<'a, 'b>> {
     let str = |input: Position<'a, 'b>| -> PosResult<'a, 'b, Position> {
-        let quote = alt((
-            character::complete::char('"'),
-            character::complete::char('\''),
-        ));
+        let quote = alt((char('"'), char('\'')));
         let (input, mut left_quotes) = many1(quote)(input)?;
         let (input, _) = take_till::<_, _, ()>(|c| c == left_quotes[0])(input).unwrap();
         // since we checking right to left now
@@ -65,7 +65,7 @@ where
 {
     move |input_original: Position| {
         let var = || tag("var");
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
 
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
@@ -102,7 +102,7 @@ pub fn function_expression<'a, 'b>(
     input: Position<'a, 'b>,
 ) -> PosResult<'a, 'b, (Vec<Position<'a, 'b>>, Position<'a, 'b>)> {
     let arrow = || tag("=>");
-    let comma = || character::complete::char(',');
+    let comma = || char(',');
     let arg = identifier(comma());
     // either an arrow start (meaning no args) or a list of args
     let args = alt((

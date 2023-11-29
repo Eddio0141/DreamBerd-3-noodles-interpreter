@@ -2,15 +2,8 @@ use std::{fmt::Debug, ops::RangeFrom};
 
 use self::types::*;
 use nom::{
-    branch::*,
-    bytes::complete::*,
-    character::complete::{digit1, satisfy},
-    combinator::*,
-    error::*,
-    multi::{many0_count, many1},
-    number::complete::*,
-    sequence::*,
-    *,
+    branch::*, bytes::complete::*, character::complete::*, combinator::*, error::*, multi::*,
+    number::complete::*, sequence::*, *,
 };
 
 #[cfg(test)]
@@ -134,7 +127,7 @@ pub enum LifeTime {
 impl LifeTime {
     pub fn parse<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a, 'b, Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
-        let seconds = map_opt(terminated(double, character::complete::char('s')), |s| {
+        let seconds = map_opt(terminated(double, char('s')), |s| {
             if s.is_sign_negative() {
                 None
             } else {
@@ -142,18 +135,14 @@ impl LifeTime {
             }
         });
         let lines = parse_isize.map(|l| LifeTime::Lines(l));
-        delimited(
-            character::complete::char('<'),
-            alt((infinity, seconds, lines)),
-            character::complete::char('>'),
-        )(input)
+        delimited(char('<'), alt((infinity, seconds, lines)), char('>'))(input)
     }
 }
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
 pub fn parse_isize<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a, 'b, isize, T> {
-    let negative = character::complete::char::<Position<_>, _>('-');
+    let negative = char::<Position<_>, _>('-');
     tuple((opt(negative).map(|v| v.is_some()), digit1))
         .map(|(neg, digits)| {
             let digits = isize::from_str_radix(digits.input, 10).unwrap();
@@ -176,6 +165,6 @@ where
         + InputTake
         + InputTakeAtPosition<Item = char>,
 {
-    let end = many1(character::complete::char('!'));
+    let end = many1(char('!'));
     value((), tuple((ws, end)))(input)
 }
