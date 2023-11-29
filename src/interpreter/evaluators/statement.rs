@@ -1,10 +1,4 @@
-use nom::{
-    branch::alt,
-    combinator::{eof, value},
-    multi::many_till,
-    sequence::tuple,
-    Parser,
-};
+use nom::{branch::*, combinator::*, multi::*, sequence::*, Parser};
 
 use crate::{
     interpreter::{
@@ -15,7 +9,7 @@ use crate::{
     Interpreter,
 };
 
-use super::{function::FunctionDef, parsers::AstParseResult, variable::VariableDecl};
+use super::{function::FunctionDef, parsers::AstParseResult, scope::*, variable::VariableDecl};
 
 pub enum Statement {
     FunctionCall(FunctionCall),
@@ -23,6 +17,8 @@ pub enum Statement {
     VariableDecl(VariableDecl),
     VarSet(VarSet),
     Expression,
+    ScopeStart(ScopeStart),
+    ScopeEnd(ScopeEnd),
 }
 
 impl Statement {
@@ -39,13 +35,21 @@ impl Statement {
         }
 
         // this needs to be done here since functions can be recursive
-        let function_call = tuple((FunctionCall::parse, end_of_statement));
+        let function_call = tuple((FunctionCall::parse, end_of_statement))
+            .map(|(func, _)| Statement::FunctionCall(func));
+        let function_def = FunctionDef::parse.map(Statement::FunctionDef);
+        let variable_decl = VariableDecl::parse.map(Statement::VariableDecl);
+        let var_set = VarSet::parse.map(Statement::VarSet);
+        let scope_start = ScopeStart::parse.map(Statement::ScopeStart);
+        let scope_end = ScopeEnd::parse.map(Statement::ScopeEnd);
 
         if let Ok((input, statement)) = alt((
-            function_call.map(|(func, _)| Statement::FunctionCall(func)),
-            FunctionDef::parse.map(Statement::FunctionDef),
-            VariableDecl::parse.map(Statement::VariableDecl),
-            VarSet::parse.map(Statement::VarSet),
+            function_call,
+            function_def,
+            variable_decl,
+            var_set,
+            scope_start,
+            scope_end,
         ))(input)
         {
             return Ok((input, statement));
@@ -76,6 +80,8 @@ impl Statement {
             Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::VarSet(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::Expression => Ok(()),
+            Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| ()),
         }
     }
 }
