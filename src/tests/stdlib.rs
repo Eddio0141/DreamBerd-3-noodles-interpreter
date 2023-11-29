@@ -24,8 +24,7 @@ fn get_typeof() {
     interpreter_test_output("print typeof 1!", "number\n");
     interpreter_test_output("print typeof true!", "boolean\n");
     interpreter_test_output("print typeof false!", "boolean\n");
-    // TODO
-    // interpreter_test_output("print typeof 1n!", "bigint\n");
+    interpreter_test_output("print typeof 1n!", "bigint\n");
     interpreter_test_output("print typeof \"\"!", "string\n");
     interpreter_test_output("print typeof undefined!", "undefined\n");
     // TODO
