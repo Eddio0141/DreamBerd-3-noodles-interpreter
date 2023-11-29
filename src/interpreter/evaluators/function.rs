@@ -1,15 +1,18 @@
 //! Contains function related structures
 
 use nom::{
-    bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind, multi::*,
-    sequence::*, *,
+    branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
+    multi::*, sequence::*, *,
 };
 
 use crate::{
-    interpreter::runtime::{
-        error::Error,
-        state::{Function, FunctionVariant},
-        value::Value,
+    interpreter::{
+        evaluators::statement::Statement,
+        runtime::{
+            error::Error,
+            state::{Function, FunctionVariant},
+            value::Value,
+        },
     },
     parsers::types::Position,
 };
@@ -35,7 +38,9 @@ impl FunctionCall {
         interpreter.state.invoke_func(interpreter, &self.name, args)
     }
 
-    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // function call syntax
         // - `func_name!`
         // with args
@@ -89,6 +94,8 @@ impl FunctionCall {
             args.push(expr);
         }
 
+        let (input, _) = end_of_statement(input)?;
+
         Ok((
             input,
             Self {
@@ -111,7 +118,9 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);
@@ -120,9 +129,6 @@ impl FunctionDef {
         };
 
         let (input, rest) = chunk(input)?;
-        if FUNCTION_HEADER.len() < rest.input.len() - 1 {
-            return Err(Err::Error(nom::error::Error::new(input, ErrorKind::Fail)));
-        }
 
         let mut function_header = FUNCTION_HEADER.iter().skip(header_start_index + 1);
         for ch in rest.input.chars() {
@@ -146,19 +152,31 @@ impl FunctionDef {
             arg_identifier(),
             many0_count(tuple((ws, comma(), ws, arg_identifier()))),
         ));
-        let args = tuple((ws, args, ws)).map(|(_, (_, count), _)| count + 1);
-        let identifier = identifier(fail::<_, Position, nom::error::Error<_>>);
-        let arrow = tag("=>");
+        let arrow = || tag("=>");
+        let args = tuple((ws, args, ws, arrow())).map(|(_, (_, count), _, _)| count + 1);
+        let identifier = identifier(arrow());
+        let scope_start = char('{');
+        let scope_end = char('}');
+        let scope = tuple((scope_start, ws, many0(Statement::parse), scope_end));
+        let scope = scope.map(|_| ());
+        let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
-        let (input, (_, identifier, args, _, _)) =
-            ((ws, identifier, opt(args), arrow, ws)).parse(input)?;
+        let (input, (_, identifier, _, arg_count, _, _)) = ((
+            ws,
+            identifier,
+            ws,
+            alt((value(0, arrow()), args)),
+            ws,
+            alt((expression, scope)),
+        ))
+            .parse(input)?;
 
         let body = input.index;
         let body_line = input.line;
 
         let instance = Self {
             name: identifier.input.to_string(),
-            arg_count: args.unwrap_or_default(),
+            arg_count,
             body,
             body_line,
         };

@@ -162,8 +162,8 @@ fn identifier_start_at_term() {
     let input = Position::new("1");
     let mut identifier = identifier(character::complete::char::<_, ()>('1'));
 
-    let result = identifier(input);
-    assert!(result.is_err());
+    let (_, identifier) = identifier(input).unwrap();
+    assert_eq!(identifier.input, "1");
 }
 
 #[test]

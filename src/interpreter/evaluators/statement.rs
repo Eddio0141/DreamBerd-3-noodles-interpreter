@@ -2,7 +2,6 @@ use nom::{
     branch::alt,
     combinator::{eof, value},
     multi::many_till,
-    sequence::{terminated, tuple},
     Parser,
 };
 
@@ -26,7 +25,9 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         let (input, _) = ws(input).unwrap();
 
         if input.input.is_empty() {
@@ -36,15 +37,12 @@ impl Statement {
             )));
         }
 
-        if let Ok((input, statement)) = terminated(
-            alt((
-                FunctionCall::parse.map(Statement::FunctionCall),
-                FunctionDef::parse.map(Statement::FunctionDef),
-                VariableDecl::parse.map(Statement::VariableDecl),
-                VarSet::parse.map(Statement::VarSet),
-            )),
-            tuple((end_of_statement, ws)),
-        )(input)
+        if let Ok((input, statement)) = alt((
+            FunctionCall::parse.map(Statement::FunctionCall),
+            FunctionDef::parse.map(Statement::FunctionDef),
+            VariableDecl::parse.map(Statement::VariableDecl),
+            VarSet::parse.map(Statement::VarSet),
+        ))(input)
         {
             return Ok((input, statement));
         }

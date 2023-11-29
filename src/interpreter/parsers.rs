@@ -82,31 +82,34 @@ where
 /// - The identifier
 pub fn identifier<I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
 where
-    I: InputIter<Item = char> + InputTake + Clone + InputLength + Slice<RangeFrom<usize>>,
+    I: InputIter<Item = char> + InputTake + Copy + InputLength + Slice<RangeFrom<usize>>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
     move |input_original| {
         let mut input = input_original.clone();
         let mut take_count = 0;
+        let mut first_ch = true;
         loop {
             if input.input_len() == 0 {
                 break;
             }
 
-            // is it terminating?
-            if matches!(terminating_parser.parse(input.clone()), Ok(_))
-                || matches!(peek(ws_char::<_, ()>)(input.clone()), Ok(_))
+            // is it terminating
+            // note: terminating parser can be the name of the identifier as well
+            if matches!(peek(ws_char::<_, ()>)(input), Ok(_))
+                || (!first_ch && matches!(terminating_parser.parse(input), Ok(_)))
             {
                 // don't consume
                 break;
             }
 
-            let (_, take_length) = take::<_, _, ()>(1usize)(input.clone()).unwrap();
+            let (_, take_length) = take::<_, _, ()>(1usize)(input).unwrap();
             let take_length = take_length.input_len();
 
             take_count += take_length;
             input = input.take_split(take_length).0;
+            first_ch = false;
         }
 
         // don't allow empty identifiers
