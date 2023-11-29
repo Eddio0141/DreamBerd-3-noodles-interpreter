@@ -41,7 +41,6 @@ impl FunctionCall {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        dbg!(input);
         // function call syntax
         // - `func_name!`
         // with args
@@ -54,14 +53,11 @@ impl FunctionCall {
 
         // does the function exist
         let Some(func) = input.extra.state.get_func_info(identifier) else {
-            dbg!("no func");
             return Err(nom::Err::Error(nom::error::Error::new(
                 input,
                 ErrorKind::Fail,
             )));
         };
-
-        dbg!(func.arg_count);
 
         // no args?
         if func.arg_count == 0 {
@@ -84,7 +80,6 @@ impl FunctionCall {
         // has args
         let (input, _) = ((not(end_of_statement), ws)).parse(input)?;
 
-        dbg!(input);
         let (mut input, mut args) = {
             let (input, (first_arg, _)) = ((Expression::parse, ws)).parse(input)?;
             (input, vec![first_arg])
@@ -98,8 +93,6 @@ impl FunctionCall {
             input = input_new;
             args.push(expr);
         }
-
-        dbg!(input, &args);
 
         Ok((
             input,
