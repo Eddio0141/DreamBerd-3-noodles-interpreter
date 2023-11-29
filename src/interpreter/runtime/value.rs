@@ -125,7 +125,7 @@ impl Value {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        let value_true = value(Value::Boolean(true), tag::<_, _, ()>("true"));
+        let value_true = value(Value::Boolean(true), tag("true"));
         let value_false = value(Value::Boolean(false), tag("false"));
         let value_undefined = value(Value::Undefined, tag("undefined"));
         let value_null = value(Value::Object(None), tag("null"));
@@ -167,7 +167,24 @@ impl Value {
         let start_quotes_len = start_quotes.input.len();
         let string_inner = &input.input[start_quotes_len..start_quotes_len + string_inner];
         // check ending quotes match
-        let (_, chunk) = peek(chunk)(s_new)?;
+        // before that, is it an empty string?
+        let (start_quotes, chunk) = if string_inner.is_empty() {
+            // ok halv the first quotes
+            if start_quotes_len % 2 != 0 {
+                // mismatched quotes
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Fail,
+                )));
+            }
+
+            let (chunk, start_quotes) =
+                take::<_, _, ()>(start_quotes_len / 2)(start_quotes).unwrap();
+            (start_quotes, chunk)
+        } else {
+            let (_, chunk) = peek(chunk)(s_new)?;
+            (start_quotes, chunk)
+        };
         if start_quotes
             .input
             .chars()
@@ -175,9 +192,7 @@ impl Value {
             .zip(chunk.input.chars())
             .all(|(a, b)| a == b)
         {
-            let (input, _) = ((take::<_, _, ()>(start_quotes_len), peek(end())))
-                .parse(s_new)
-                .unwrap();
+            let (input, _) = ((take(start_quotes_len), peek(end()))).parse(s_new)?;
             return Ok((input, Value::String(string_inner.to_string())));
         }
 
