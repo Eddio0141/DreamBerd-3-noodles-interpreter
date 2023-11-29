@@ -35,7 +35,7 @@ impl FunctionCall {
         interpreter.state.invoke_func(interpreter, &self.name, args)
     }
 
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
         // function call syntax
         // - `func_name!`
         // with args
@@ -111,7 +111,7 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);

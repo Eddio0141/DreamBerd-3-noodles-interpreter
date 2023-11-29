@@ -65,7 +65,7 @@ fn slice_from() {
 #[test]
 fn calc_line_column_test() {
     let input = "foo bar\nbaz";
-    let (line, column) = calc_line_column(&input);
+    let (line, column) = calc_line_column(input);
     assert_eq!(line, 1);
     assert_eq!(column, 3);
 }

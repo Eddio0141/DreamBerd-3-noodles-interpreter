@@ -25,7 +25,7 @@ fn function_expression_arg_minimum() {
     let (body, (args, statement)) = function_expression(Position::new(body)).unwrap();
 
     assert_eq!(args.len(), 1);
-    let arg = args[0];
+    let arg = &args[0];
     assert_eq!(arg.input, "arg");
     assert_eq!(arg.line, 1);
     assert_eq!(arg.column, 1);
@@ -53,7 +53,7 @@ fn function_expression_args_minimum() {
     assert_eq!(args[1].input, "arg2");
     assert_eq!(args[2].input, "arg3");
     assert_eq!(args[3].input, "=>");
-    let arg5 = args[4];
+    let arg5 = &args[4];
     assert_eq!(arg5.input, "arg5");
     assert_eq!(arg5.line, 1);
     assert_eq!(arg5.column, 18);

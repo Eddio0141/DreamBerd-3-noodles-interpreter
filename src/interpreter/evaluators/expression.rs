@@ -35,7 +35,9 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
         // 1+ 2 * 3
@@ -126,9 +128,9 @@ impl Expression {
     ///     - Each item in the vector is a vector of unary operators
     ///     - Outer vector is meaning there's a ws between the unary operator groups
     /// - Order of the unary operators is from left to right
-    fn atom_to_expression<'a>(
-        input: Position<'a, &'a Interpreter<'a>>,
-    ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
+    fn atom_to_expression<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, (Self, Vec<Vec<UnaryOperator>>)> {
         let (input, (unaries, expr)) = ((
             many0(tuple((many1(UnaryOperator::parse), ws_count)).map(|(unaries, _)| unaries)),
             Atom::parse,
@@ -250,7 +252,9 @@ impl Atom {
         Ok(Wrapper(value))
     }
 
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         if let Ok((input, value)) = FunctionCall::parse(input) {
             return Ok((input, Atom::FunctionCall(value)));
         }
@@ -277,7 +281,7 @@ impl Atom {
         Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
     }
 
-    fn take_count(input: Position<&Interpreter>) -> usize {
+    fn take_count(input: Position<Interpreter>) -> usize {
         input.input.chars().count()
     }
 }
@@ -302,7 +306,9 @@ impl UnaryOperator {
         Ok(value)
     }
 
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         alt((
             value(UnaryOperator::Not, character::complete::char(';')),
             value(UnaryOperator::Minus, character::complete::char('-')),
@@ -334,7 +340,9 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         alt((
             value(Operator::StrictEqual, tag("===")),
             value(Operator::Equal, tag("==")),

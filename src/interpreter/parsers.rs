@@ -82,12 +82,12 @@ where
 /// - The identifier
 pub fn identifier<I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
 where
-    I: InputIter<Item = char> + InputTake + Copy + InputLength + Slice<RangeFrom<usize>>,
+    I: InputIter<Item = char> + InputTake + Clone + InputLength + Slice<RangeFrom<usize>>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
     move |input_original| {
-        let mut input = input_original;
+        let mut input = input_original.clone();
         let mut take_count = 0;
         loop {
             if input.input_len() == 0 {
@@ -95,14 +95,14 @@ where
             }
 
             // is it terminating?
-            if matches!(terminating_parser.parse(input), Ok(_))
-                || matches!(peek(ws_char::<_, ()>)(input), Ok(_))
+            if matches!(terminating_parser.parse(input.clone()), Ok(_))
+                || matches!(peek(ws_char::<_, ()>)(input.clone()), Ok(_))
             {
                 // don't consume
                 break;
             }
 
-            let (_, take_length) = take::<_, _, ()>(1usize)(input).unwrap();
+            let (_, take_length) = take::<_, _, ()>(1usize)(input.clone()).unwrap();
             let take_length = take_length.input_len();
 
             take_count += take_length;
@@ -129,7 +129,7 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse<'a, T: Copy + Debug>(input: Position<'a, T>) -> PosResult<Self, T> {
+    pub fn parse<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a, 'b, Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
         let seconds = map_opt(terminated(double, character::complete::char('s')), |s| {
             if s.is_sign_negative() {
@@ -149,7 +149,7 @@ impl LifeTime {
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
-pub fn parse_isize<'a, T: Copy + Debug>(input: Position<'a, T>) -> PosResult<'a, isize, T> {
+pub fn parse_isize<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a, 'b, isize, T> {
     let negative = character::complete::char::<Position<_>, _>('-');
     tuple((opt(negative).map(|v| v.is_some()), digit1))
         .map(|(neg, digits)| {

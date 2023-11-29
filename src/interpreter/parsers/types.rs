@@ -2,7 +2,6 @@ use std::{
     borrow::Borrow,
     fmt::Debug,
     iter::{Copied, Enumerate},
-    marker::PhantomData,
     ops::{Range, RangeFrom, RangeTo},
     slice::Iter,
     str::{CharIndices, Chars, FromStr},
@@ -17,23 +16,39 @@ use nom::{
 /// # Note
 /// - The position points to the start of the input
 /// - As the input is parsed and sliced, the position will be updated
-#[derive(Debug, Clone, Copy)]
-pub struct Position<'a, T = (), I = &'a str> {
+#[derive(Debug)]
+pub struct Position<'a, 'b, T = (), I: ?Sized = str> {
     pub line: usize,
     pub column: usize,
     pub index: usize,
-    pub input: I,
-    pub extra: T,
-    _phantom: PhantomData<&'a I>,
+    pub input: &'a I,
+    pub extra: &'b T,
 }
 
-impl<T, I: InputLength> InputLength for Position<'_, T, I> {
+impl<'a, 'b, T, I: ?Sized> Clone for Position<'a, 'b, T, I> {
+    fn clone(&self) -> Self {
+        Self {
+            line: self.line.clone(),
+            column: self.column.clone(),
+            index: self.index.clone(),
+            input: self.input,
+            extra: self.extra,
+        }
+    }
+}
+
+impl<'a, 'b, T, I: ?Sized> Copy for Position<'a, 'b, T, I> {}
+
+impl<'a, 'b, T, I: ?Sized> InputLength for Position<'a, 'b, T, I>
+where
+    &'a I: InputLength + 'a,
+{
     fn input_len(&self) -> usize {
         self.input.input_len()
     }
 }
 
-impl<'a, T> InputIter for Position<'a, T, &'a str> {
+impl<'a, 'b, T> InputIter for Position<'a, 'b, T, str> {
     type Item = char;
     type Iter = CharIndices<'a>;
     type IterElem = Chars<'a>;
@@ -73,7 +88,7 @@ impl<'a, T> InputIter for Position<'a, T, &'a str> {
     }
 }
 
-impl<'a, T> InputIter for Position<'a, T, &'a [u8]> {
+impl<'a, 'b, T> InputIter for Position<'a, 'b, T, [u8]> {
     type Item = u8;
     type Iter = Enumerate<Self::IterElem>;
     type IterElem = Copied<Iter<'a, u8>>;
@@ -102,13 +117,13 @@ impl<'a, T> InputIter for Position<'a, T, &'a [u8]> {
     }
 }
 
-impl<'a, T: Copy, I: Copy> InputTake for Position<'a, T, I>
+impl<'a, 'b, T, I: ?Sized> InputTake for Position<'a, 'b, T, I>
 where
-    I: InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
+    &'a I: AsChars + InputLength + InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
 {
     fn take(&self, count: usize) -> Self {
-        let mut new = *self;
-        new.input = self.input.take(count);
+        let mut new = self.clone();
+        new.input = &self.input.take(count);
         new
     }
 
@@ -118,14 +133,17 @@ where
             panic!("count({count}) is larger than length({input_len})");
         }
 
-        let (left, right) = (self.input.slice(..count), self.input.slice(count..));
+        let (left, right) = (&self.input.slice(..count), &self.input.slice(count..));
         let (left, right) = self.left_right_split(left, right, count);
         (right, left)
     }
 }
 
 /// Calculates how many lines and columns the input produces
-pub(super) fn calc_line_column<'a, I: AsChars>(input: &'a I) -> (usize, usize) {
+pub(super) fn calc_line_column<'a, I: ?Sized>(input: &'a I) -> (usize, usize)
+where
+    &'a I: AsChars,
+{
     let mut line = 0;
     let mut column = 0;
     for c in input.as_chars() {
@@ -155,7 +173,7 @@ impl AsChars for &[u8] {
     }
 }
 
-impl<T: Copy + Debug> InputTakeAtPosition for Position<'_, T> {
+impl<T: Debug> InputTakeAtPosition for Position<'_, '_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
@@ -181,7 +199,7 @@ impl<T: Copy + Debug> InputTakeAtPosition for Position<'_, T> {
         P: Fn(Self::Item) -> bool,
     {
         match self.input.find(predicate) {
-            Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
+            Some(0) => Err(Err::Error(E::from_error_kind(self.clone(), e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => {
                 let (left, right) = self.left_right_split(&self.input[..i], &self.input[i..], i);
@@ -221,12 +239,12 @@ impl<T: Copy + Debug> InputTakeAtPosition for Position<'_, T> {
         P: Fn(Self::Item) -> bool,
     {
         let (left, right) = match self.input.find(predicate) {
-            Some(0) => return Err(Err::Error(E::from_error_kind(*self, e))),
+            Some(0) => return Err(Err::Error(E::from_error_kind(self.clone(), e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => self.left_right_split(&self.input[..i], &self.input[i..], i),
             None => {
                 if self.input.is_empty() {
-                    return Err(Err::Error(E::from_error_kind(*self, e)));
+                    return Err(Err::Error(E::from_error_kind(self.clone(), e)));
                 } else {
                     // the end of slice is a char boundary
                     self.left_right_split(
@@ -242,16 +260,16 @@ impl<T: Copy + Debug> InputTakeAtPosition for Position<'_, T> {
     }
 }
 
-impl<T: Copy, I> Slice<RangeFrom<usize>> for Position<'_, T, I>
+impl<'a, 'b, T, I: ?Sized> Slice<RangeFrom<usize>> for Position<'a, 'b, T, I>
 where
-    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
+    &'a I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
 {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
         let (left, right) = (
             self.input.slice(..range.start),
             self.input.slice(range.start..),
         );
-        let (line, column) = calc_line_column(&left);
+        let (line, column) = calc_line_column(left);
 
         Self {
             line: self.line + line,
@@ -259,14 +277,13 @@ where
             index: self.index + left.input_len(),
             input: right,
             extra: self.extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T: Copy, I> Slice<RangeTo<usize>> for Position<'_, T, I>
+impl<'a, 'b, T, I: ?Sized> Slice<RangeTo<usize>> for Position<'a, 'b, T, I>
 where
-    I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
+    &'a I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
 {
     fn slice(&self, range: RangeTo<usize>) -> Self {
         let left = self.input.slice(..range.end);
@@ -277,14 +294,13 @@ where
             index: self.index,
             input: left,
             extra: self.extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T: Copy, I> Slice<Range<usize>> for Position<'_, T, I>
+impl<'a, 'b, T, I: ?Sized> Slice<Range<usize>> for Position<'a, 'b, T, I>
 where
-    I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength,
+    &'a I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
 {
     fn slice(&self, range: Range<usize>) -> Self {
         // position would be left + right
@@ -292,7 +308,7 @@ where
             self.input.slice(range.clone()),
             self.input.slice(range.end..),
         );
-        let (line, column) = calc_line_column(&right);
+        let (line, column) = calc_line_column(right);
 
         Self {
             line: self.line - line,
@@ -300,44 +316,45 @@ where
             index: self.index - right.input_len(),
             input: left,
             extra: self.extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T> From<Position<'_, T, &'a str>> for Position<'a, T, &'a [u8]> {
-    fn from(input: Position<'_, T, &'a str>) -> Self {
+impl<'a, 'b, T> From<Position<'a, 'b, T, &'a str>> for Position<'a, 'b, T, [u8]> {
+    fn from(input: Position<'a, 'b, T, &'a str>) -> Self {
         Self {
             line: input.line,
             column: input.column,
             index: input.index,
             input: input.input.as_bytes(),
             extra: input.extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T> From<Position<'_, T, &'a [u8]>> for Position<'a, T, &'a str> {
-    fn from(input: Position<'_, T, &'a [u8]>) -> Self {
+impl<'a, 'b, T> From<Position<'a, 'b, T, [u8]>> for Position<'a, 'b, T, str> {
+    fn from(input: Position<'a, 'b, T, [u8]>) -> Self {
         Self {
             line: input.line,
             column: input.column,
             index: input.index,
             input: std::str::from_utf8(input.input).unwrap(),
             extra: input.extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<'a, T> From<Position<'a, T, &'a str>> for &'a str {
-    fn from(value: Position<T, &'a str>) -> Self {
+impl<'a, 'b, T> From<Position<'a, 'b, T, str>> for &'a str {
+    fn from(value: Position<'a, 'b, T, str>) -> Self {
         value.input
     }
 }
 
-impl<T, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
+impl<'a, 'b, I, I2, T> Compare<I2> for Position<'a, 'b, T, I>
+where
+    I: ?Sized,
+    &'a I: Compare<I2>,
+{
     fn compare(&self, t: I2) -> CompareResult {
         self.input.compare(t)
     }
@@ -347,53 +364,59 @@ impl<T, I: Compare<I2>, I2> Compare<I2> for Position<'_, T, I> {
     }
 }
 
-impl<T, I: Offset> Offset for Position<'_, T, I> {
+impl<'a, 'b, T, I> Offset for Position<'a, 'b, T, I>
+where
+    I: ?Sized,
+    &'a I: Offset + 'a,
+{
     fn offset(&self, second: &Self) -> usize {
         self.input.offset(&second.input)
     }
 }
 
-impl<T: FromStr, E> ParseTo<T> for Position<'_, E> {
+impl<T: FromStr, E> ParseTo<T> for Position<'_, '_, E> {
     fn parse_to(&self) -> Option<T> {
         self.input.parse_to()
     }
 }
 
-impl<E> AsBytes for Position<'_, E> {
+impl<E> AsBytes for Position<'_, '_, E> {
     fn as_bytes(&self) -> &[u8] {
         self.input.as_bytes()
     }
 }
 
-impl<'a, E> Borrow<str> for Position<'_, E, &'a str> {
+impl<E> Borrow<str> for Position<'_, '_, E, str> {
     fn borrow(&self) -> &str {
         self.input
     }
 }
 
-impl<'a, E> FindSubstring<&'a str> for Position<'a, E, &'a str> {
+impl<'a, 'b, E> FindSubstring<&'a str> for Position<'a, 'b, E, str> {
     fn find_substring(&self, substr: &'a str) -> Option<usize> {
         self.input.find(substr)
     }
 }
 
-impl<'a> Position<'a> {
+impl<'a, 'b> Position<'a, 'b> {
     pub fn new(input: &'a str) -> Self {
         Self {
             line: 1,
             column: 1,
             index: 0,
             input,
-            extra: (),
-            _phantom: PhantomData,
+            extra: &(),
         }
     }
 }
 
-impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
+impl<'a, 'b, T, I: ?Sized> Position<'a, 'b, T, I>
+where
+    &'a I: AsChars,
+{
     /// Splits the input into two positions
-    fn left_right_split(&self, left: I, right: I, len: usize) -> (Self, Self) {
-        let (line, column) = calc_line_column(&left);
+    fn left_right_split(&self, left: &'a I, right: &'a I, len: usize) -> (Self, Self) {
+        let (line, column) = calc_line_column(left);
         (
             Self {
                 line: self.line,
@@ -401,7 +424,6 @@ impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
                 index: self.index,
                 input: left,
                 extra: self.extra,
-                _phantom: PhantomData,
             },
             Self {
                 line: self.line + line,
@@ -409,22 +431,20 @@ impl<'a, T: Copy, I: AsChars> Position<'a, T, I> {
                 index: self.index + len,
                 input: right,
                 extra: self.extra,
-                _phantom: PhantomData,
             },
         )
     }
 
-    pub fn new_with_extra(input: I, extra: T) -> Self {
+    pub fn new_with_extra(input: &'a I, extra: &'b T) -> Self {
         Self {
             line: 1,
             column: 1,
             index: 0,
             input,
             extra,
-            _phantom: PhantomData,
         }
     }
 }
 
-pub type PosResult<'a, O, T = (), I = &'a str, E = nom::error::Error<Position<'a, T>>> =
-    Result<(Position<'a, T, I>, O), nom::Err<E>>;
+pub type PosResult<'a, 'b, O, T = (), I = str, E = nom::error::Error<Position<'a, 'b, T, I>>> =
+    Result<(Position<'a, 'b, T, I>, O), nom::Err<E>>;

@@ -26,7 +26,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(input: Position<'a, 'b, Interpreter<'c>>) -> AstParseResult<'a, 'b, 'c, Self> {
         let (input, _) = ws(input).unwrap();
 
         if input.input.is_empty() {
