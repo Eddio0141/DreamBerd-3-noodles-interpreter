@@ -51,9 +51,10 @@ where
 /// Any amount of whitespace repeated
 /// # Returns
 /// - Slice of the whitespace
-pub fn ws<I>(input: I) -> IResult<I, I>
+pub fn ws<I, E>(input: I) -> IResult<I, I, E>
 where
     I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
+    E: ParseError<I>,
 {
     take_while(is_ws)(input)
 }
@@ -156,7 +157,7 @@ pub fn parse_isize<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a
 }
 
 /// End of statement including the whitespace before it
-pub fn end_of_statement<I>(input: I) -> IResult<I, ()>
+pub fn end_of_statement<I, E>(input: I) -> IResult<I, (), E>
 where
     I: InputIter<Item = char>
         + Clone
@@ -164,6 +165,7 @@ where
         + Slice<RangeFrom<usize>>
         + InputTake
         + InputTakeAtPosition<Item = char>,
+    E: ParseError<I>,
 {
     let end = many1(char('!'));
     value((), tuple((ws, end)))(input)

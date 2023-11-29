@@ -25,7 +25,7 @@ impl Statement {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        let (input, _) = ws(input).unwrap();
+        let (input, _) = ws::<_, ()>(input).unwrap();
 
         if input.input.is_empty() {
             return Err(nom::Err::Error(nom::error::Error::new(

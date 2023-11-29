@@ -1,8 +1,9 @@
-use std::ops::Deref;
+use std::{fmt::Debug, ops::Deref};
 
-pub struct Wrapper<T>(pub T);
+#[derive(Debug)]
+pub struct Wrapper<T: Debug>(pub T);
 
-impl<T> Deref for Wrapper<T> {
+impl<T: Debug> Deref for Wrapper<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

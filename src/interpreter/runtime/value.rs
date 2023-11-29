@@ -137,6 +137,7 @@ impl Value {
         ))
         .map(|(num, _)| Value::BigInt(num));
         let value_f64 = double.map(|num| Value::Number(num));
+        let end = || alt((end_of_statement, ws_char.map(|_| ())));
 
         if let Ok((input, (value, _))) = ((
             alt((
@@ -147,7 +148,7 @@ impl Value {
                 value_bigint,
                 value_f64,
             )),
-            peek(ws_char),
+            peek(end()),
         ))
             .parse(input)
         {
@@ -174,10 +175,7 @@ impl Value {
             .zip(chunk.input.chars())
             .all(|(a, b)| a == b)
         {
-            let (input, _) = ((
-                take(start_quotes_len),
-                peek(alt((end_of_statement, ws_char.map(|_| ())))),
-            ))
+            let (input, _) = ((take::<_, _, ()>(start_quotes_len), peek(end())))
                 .parse(s_new)
                 .unwrap();
             return Ok((input, Value::String(string_inner.to_string())));
