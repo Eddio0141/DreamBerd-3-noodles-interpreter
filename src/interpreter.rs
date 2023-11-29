@@ -30,14 +30,14 @@ impl Debug for Interpreter<'_> {
 impl<'a> Interpreter<'a> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn eval(&'a self, code: &'a str) -> Result<(), self::error::Error> {
+    pub fn eval<'b>(&'a self, code: &'b str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(analysis);
 
-        let mut code = Position::new_with_extra(code, self);
-        while let Ok((code_after, statement)) = Statement::parse(code) {
-            code = code_after;
-            statement.eval(self)?;
+        let mut code_with_pos = Position::new_with_extra(code, self);
+        while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+            code_with_pos = code_after;
+            statement.eval(self, code)?;
         }
 
         Ok(())

@@ -1,8 +1,4 @@
-use nom::{
-    bytes::complete::tag,
-    character::{self, complete::satisfy},
-    InputTake, InputTakeAtPosition, Slice,
-};
+use nom::{bytes::complete::tag, character::complete::*, InputTake, InputTakeAtPosition, Slice};
 
 use crate::parsers::{types::Position, LifeTime};
 
@@ -13,9 +9,7 @@ fn split_at_position() {
     let input = Position::new("foo bar");
 
     // split like i.. and ..i
-    let (l, r) = input
-        .split_at_position::<_, ()>(|c| c == ' ')
-        .unwrap();
+    let (l, r) = input.split_at_position::<_, ()>(|c| c == ' ').unwrap();
     assert_eq!(l.input, " bar");
     assert_eq!(l.line, 1);
     assert_eq!(l.column, 4);
@@ -65,7 +59,7 @@ fn slice_from() {
 #[test]
 fn calc_line_column_test() {
     let input = "foo bar\nbaz";
-    let (line, column) = calc_line_column(&input);
+    let (line, column) = calc_line_column(input);
     assert_eq!(line, 1);
     assert_eq!(column, 3);
 }
@@ -88,7 +82,7 @@ fn take_split() {
 #[test]
 fn identifier_term_at_parser() {
     let input = Position::new("foo1 bar");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
     let (input, identifier) = identifier(input).unwrap();
 
@@ -106,7 +100,7 @@ fn identifier_term_at_parser() {
 #[test]
 fn identifier_term_at_ws() {
     let input = Position::new("foo 1bar");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
     let (input, identifier) = identifier(input).unwrap();
 
@@ -124,7 +118,7 @@ fn identifier_term_at_ws() {
 #[test]
 fn identifier_no_ws_no_term() {
     let input = Position::new("foobar");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
     let (input, identifier) = identifier(input).unwrap();
 
@@ -142,7 +136,7 @@ fn identifier_no_ws_no_term() {
 #[test]
 fn identifier_empty() {
     let input = Position::new("");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
     let result = identifier(input);
     assert!(result.is_err());
@@ -151,7 +145,7 @@ fn identifier_empty() {
 #[test]
 fn identifier_start_at_ws() {
     let input = Position::new(" ");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
     let result = identifier(input);
     assert!(result.is_err());
@@ -160,10 +154,10 @@ fn identifier_start_at_ws() {
 #[test]
 fn identifier_start_at_term() {
     let input = Position::new("1");
-    let mut identifier = identifier(character::complete::char::<_, ()>('1'));
+    let mut identifier = identifier(char::<_, ()>('1'));
 
-    let result = identifier(input);
-    assert!(result.is_err());
+    let (_, identifier) = identifier(input).unwrap();
+    assert_eq!(identifier.input, "1");
 }
 
 #[test]

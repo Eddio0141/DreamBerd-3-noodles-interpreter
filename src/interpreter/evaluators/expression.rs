@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take, take_till, take_until};
 use nom::combinator::{peek, value};
 use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
-use nom::{character, Parser};
+use nom::{character::complete::*, Parser};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
@@ -35,7 +35,9 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
         // 1+ 2 * 3
@@ -126,9 +128,9 @@ impl Expression {
     ///     - Each item in the vector is a vector of unary operators
     ///     - Outer vector is meaning there's a ws between the unary operator groups
     /// - Order of the unary operators is from left to right
-    fn atom_to_expression<'a>(
-        input: Position<'a, &'a Interpreter<'a>>,
-    ) -> AstParseResult<'a, (Self, Vec<Vec<UnaryOperator>>)> {
+    fn atom_to_expression<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, (Self, Vec<Vec<UnaryOperator>>)> {
         let (input, (unaries, expr)) = ((
             many0(tuple((many1(UnaryOperator::parse), ws_count)).map(|(unaries, _)| unaries)),
             Atom::parse,
@@ -182,17 +184,23 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        code: &str,
+    ) -> Result<Wrapper<Cow<Value>>, Error> {
         match self {
-            Expression::Atom(atom) => atom.eval(interpreter),
-            Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
+            Expression::Atom(atom) => atom.eval(interpreter, code),
+            Expression::UnaryOperation { operator, right } => {
+                operator.eval(right, interpreter, code)
+            }
             Expression::Operation {
                 left,
                 operator,
                 right,
             } => {
-                let left = left.eval(interpreter)?;
-                let right = right.eval(interpreter)?;
+                let left = left.eval(interpreter, code)?;
+                let right = right.eval(interpreter, code)?;
 
                 let value = match operator {
                     Operator::Equal => Value::Boolean(left.loose_eq(&right)?),
@@ -241,16 +249,22 @@ pub enum Atom {
 }
 
 impl Atom {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        code: &str,
+    ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
             Atom::Value(value) => Cow::Borrowed(value),
-            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter)?),
+            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter, code)?),
         };
 
         Ok(Wrapper(value))
     }
 
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         if let Ok((input, value)) = FunctionCall::parse(input) {
             return Ok((input, Atom::FunctionCall(value)));
         }
@@ -277,7 +291,7 @@ impl Atom {
         Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
     }
 
-    fn take_count(input: Position<&Interpreter>) -> usize {
+    fn take_count(input: Position<Interpreter>) -> usize {
         input.input.chars().count()
     }
 }
@@ -293,19 +307,22 @@ impl UnaryOperator {
         &'a self,
         right: &'a Expression,
         interpreter: &Interpreter,
+        code: &str,
     ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
-            UnaryOperator::Not => !right.eval(interpreter)?,
-            UnaryOperator::Minus => (-right.eval(interpreter)?)?,
+            UnaryOperator::Not => !right.eval(interpreter, code)?,
+            UnaryOperator::Minus => (-right.eval(interpreter, code)?)?,
         };
 
         Ok(value)
     }
 
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         alt((
-            value(UnaryOperator::Not, character::complete::char(';')),
-            value(UnaryOperator::Minus, character::complete::char('-')),
+            value(UnaryOperator::Not, char(';')),
+            value(UnaryOperator::Minus, char('-')),
         ))(input)
     }
 }
@@ -334,24 +351,26 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         alt((
             value(Operator::StrictEqual, tag("===")),
             value(Operator::Equal, tag("==")),
             value(Operator::StrictNotEqual, tag(";==")),
             value(Operator::NotEqual, tag(";=")),
             value(Operator::GreaterThanOrEqual, tag(">=")),
-            value(Operator::GreaterThan, character::complete::char('>')),
+            value(Operator::GreaterThan, char('>')),
             value(Operator::LessThanOrEqual, tag("<=")),
-            value(Operator::LessThan, character::complete::char('<')),
+            value(Operator::LessThan, char('<')),
             value(Operator::And, tag("&&")),
             value(Operator::Or, tag("||")),
-            value(Operator::Add, character::complete::char('+')),
-            value(Operator::Subtract, character::complete::char('-')),
-            value(Operator::Multiply, character::complete::char('*')),
-            value(Operator::Exponential, character::complete::char('^')),
-            value(Operator::Divide, character::complete::char('/')),
-            value(Operator::Modulo, character::complete::char('%')),
+            value(Operator::Add, char('+')),
+            value(Operator::Subtract, char('-')),
+            value(Operator::Multiply, char('*')),
+            value(Operator::Exponential, char('^')),
+            value(Operator::Divide, char('/')),
+            value(Operator::Modulo, char('%')),
         ))(input)
     }
 }

@@ -5,7 +5,11 @@ use std::{
 };
 
 use crate::{
-    interpreter::static_analysis::{Analysis, FunctionInfo},
+    interpreter::{
+        evaluators::{expression::Expression, statement::Statement},
+        static_analysis::{Analysis, FunctionInfo},
+    },
+    parsers::types::Position,
     prelude::Wrapper,
     Interpreter,
 };
@@ -102,11 +106,12 @@ impl InterpreterState {
     pub fn invoke_func(
         &self,
         interpreter: &Interpreter<'_>,
+        code: &str,
         name: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.get_func_info(name) {
-            return func.eval(interpreter, args);
+            return func.eval(interpreter, code, args);
         }
 
         Err(Error::FunctionNotFound(name.to_string()))
@@ -187,13 +192,28 @@ impl Function {
     pub fn eval(
         &self,
         interpreter: &Interpreter,
+        code: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         match self.variant {
-            FunctionVariant::FunctionDefined {
-                defined_line,
-                body_location,
-            } => todo!(),
+            FunctionVariant::FunctionDefined { body_location, .. } => {
+                let code = &code[body_location..];
+                let mut code_with_pos = Position::new_with_extra(code, interpreter);
+
+                // try expression first (it could be a function)
+                if let Ok((_, expression)) = Expression::parse(code_with_pos) {
+                    let value = expression.eval(interpreter, code)?;
+                    return Ok(value.0.into_owned());
+                }
+
+                // its a block
+                while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+                    code_with_pos = code_after;
+                    statement.eval(interpreter, code)?;
+                }
+
+                Ok(Value::Undefined)
+            }
             FunctionVariant::Native(native) => native(interpreter, args),
         }
     }

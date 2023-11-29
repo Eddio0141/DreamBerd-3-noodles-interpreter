@@ -5,19 +5,19 @@ mod tests;
 
 use std::fmt::Debug;
 
-use nom::{branch::alt, bytes::complete::*, character, combinator::*, multi::*, sequence::*, *};
+use nom::{
+    branch::alt, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
+    *,
+};
 
 use crate::{
     interpreter::parsers::*,
     parsers::types::{PosResult, Position},
 };
 
-pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
-    let str = |input: Position<'a>| -> PosResult<'a, Position> {
-        let quote = alt((
-            character::complete::char('"'),
-            character::complete::char('\''),
-        ));
+pub fn till_term<'a, 'b>(input: Position<'a, 'b>) -> PosResult<'a, 'b, Position<'a, 'b>> {
+    let str = |input: Position<'a, 'b>| -> PosResult<'a, 'b, Position> {
+        let quote = alt((char('"'), char('\'')));
         let (input, mut left_quotes) = many1(quote)(input)?;
         let (input, _) = take_till::<_, _, ()>(|c| c == left_quotes[0])(input).unwrap();
         // since we checking right to left now
@@ -47,7 +47,7 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
         input = input_new;
     }
 
-    Ok((input, statement_chunks[0]))
+    Ok((input, statement_chunks[0].clone()))
 }
 
 /// Parses a variable declaration
@@ -55,15 +55,17 @@ pub fn till_term<'a>(input: Position<'a>) -> PosResult<Position> {
 /// - The expression parser is expected to handle all the way including the `!` terminator
 /// # Returns
 /// (var_decl_pos, identifier, life_time, expression_parser_output)
-pub fn var_decl<'a, P, O: Debug>(
+pub fn var_decl<'a, 'b, P, O: Debug>(
     mut expression_parser: P,
-) -> impl FnMut(Position<'a>) -> PosResult<'a, (Position, Position, Option<LifeTime>, O)>
+) -> impl FnMut(
+    Position<'a, 'b>,
+) -> PosResult<'a, 'b, (Position<'a, 'b>, Position<'a, 'b>, Option<LifeTime>, O)>
 where
-    P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>>,
+    P: Parser<Position<'a, 'b>, O, nom::error::Error<Position<'a, 'b>>>,
 {
     move |input_original: Position| {
         let var = || tag("var");
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
 
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
@@ -80,7 +82,7 @@ where
             eq,
             ws,
         ))
-            .parse(input_original)?;
+            .parse(input_original.clone())?;
 
         let (input, expr) = expression_parser.parse(input)?;
 
@@ -96,9 +98,11 @@ where
 /// # Returns
 /// - Arguments of the function with their identifiers
 /// - Position of where the statement starts
-pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Position)> {
+pub fn function_expression<'a, 'b>(
+    input: Position<'a, 'b>,
+) -> PosResult<'a, 'b, (Vec<Position<'a, 'b>>, Position<'a, 'b>)> {
     let arrow = || tag("=>");
-    let comma = || character::complete::char(',');
+    let comma = || char(',');
     let arg = identifier(comma());
     // either an arrow start (meaning no args) or a list of args
     let args = alt((

@@ -1,15 +1,18 @@
 //! Contains function related structures
 
 use nom::{
-    bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind, multi::*,
-    sequence::*, *,
+    branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
+    multi::*, sequence::*, *,
 };
 
 use crate::{
-    interpreter::runtime::{
-        error::Error,
-        state::{Function, FunctionVariant},
-        value::Value,
+    interpreter::{
+        evaluators::statement::Statement,
+        runtime::{
+            error::Error,
+            state::{Function, FunctionVariant},
+            value::Value,
+        },
     },
     parsers::types::Position,
 };
@@ -26,22 +29,26 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<Value, Error> {
         let mut args = Vec::new();
         for arg in &self.args {
-            args.push(arg.eval(interpreter)?);
+            args.push(arg.eval(interpreter, code)?);
         }
 
-        interpreter.state.invoke_func(interpreter, &self.name, args)
+        interpreter
+            .state
+            .invoke_func(interpreter, code, &self.name, args)
     }
 
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // function call syntax
         // - `func_name!`
         // with args
         // - `func_name arg1, arg2!`
 
-        let mut identifier = identifier(fail::<_, Position<&Interpreter>, _>);
+        let mut identifier = identifier(char('!'));
 
         let (input, identifier) = identifier(input)?;
         let identifier = identifier.into();
@@ -56,20 +63,14 @@ impl FunctionCall {
 
         // no args?
         if func.arg_count == 0 {
-            let result = if let Ok((input, _)) = end_of_statement(input) {
-                // no args
-                Ok((
-                    input,
-                    Self {
-                        name: identifier.to_string(),
-                        args: Vec::new(),
-                    },
-                ))
-            } else {
-                Err(Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))
-            };
-
-            return result;
+            // no args
+            return Ok((
+                input,
+                Self {
+                    name: identifier.to_string(),
+                    args: Vec::new(),
+                },
+            ));
         }
 
         // has args
@@ -84,7 +85,7 @@ impl FunctionCall {
         for _ in 0..func.arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
             let (input_new, (_, _, expr, _)) =
-                tuple((character::complete::char(','), ws, Expression::parse, ws))(input)?;
+                tuple((char(','), ws, Expression::parse, ws))(input)?;
             input = input_new;
             args.push(expr);
         }
@@ -111,7 +112,9 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);
@@ -120,9 +123,6 @@ impl FunctionDef {
         };
 
         let (input, rest) = chunk(input)?;
-        if FUNCTION_HEADER.len() < rest.input.len() - 1 {
-            return Err(Err::Error(nom::error::Error::new(input, ErrorKind::Fail)));
-        }
 
         let mut function_header = FUNCTION_HEADER.iter().skip(header_start_index + 1);
         for ch in rest.input.chars() {
@@ -140,25 +140,32 @@ impl FunctionDef {
         // past header
         // func_args = { identifier ~ (comma ~ identifier)* }
         // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
-        let comma = || character::complete::char(',');
+        let comma = || char(',');
         let arg_identifier = || identifier(comma());
         let args = tuple((
             arg_identifier(),
             many0_count(tuple((ws, comma(), ws, arg_identifier()))),
         ));
-        let args = tuple((ws, args, ws)).map(|(_, (_, count), _)| count + 1);
-        let identifier = identifier(fail::<_, Position, nom::error::Error<_>>);
-        let arrow = tag("=>");
+        let arrow = || tag("=>");
+        let args = tuple((ws, args, ws, arrow())).map(|(_, (_, count), _, _)| count + 1);
+        let identifier = identifier(arrow());
+        let scope_start = char('{');
+        let scope_end = char('}');
+        let scope = tuple((scope_start, ws, many0(Statement::parse), scope_end));
+        let scope = scope.map(|_| ());
+        let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
-        let (input, (_, identifier, args, _, _)) =
-            ((ws, identifier, opt(args), arrow, ws)).parse(input)?;
+        let (input, (_, identifier, _, arg_count, _)) =
+            ((ws, identifier, ws, alt((value(0, arrow()), args)), ws)).parse(input)?;
 
         let body = input.index;
         let body_line = input.line;
 
+        let (input, _) = alt((expression, scope))(input)?;
+
         let instance = Self {
             name: identifier.input.to_string(),
-            arg_count: args.unwrap_or_default(),
+            arg_count,
             body,
             body_line,
         };

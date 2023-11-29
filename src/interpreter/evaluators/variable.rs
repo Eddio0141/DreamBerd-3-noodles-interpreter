@@ -1,12 +1,12 @@
 //! Contains variable related structures
 
 use nom::bytes::complete::tag;
-use nom::character;
+use nom::character::complete::*;
 use nom::combinator::opt;
 use nom::sequence::Tuple;
 
 use crate::parsers::types::Position;
-use crate::parsers::{identifier, ws, LifeTime};
+use crate::parsers::{end_of_statement, identifier, ws, LifeTime};
 
 use crate::interpreter::runtime::error::Error;
 use crate::Interpreter;
@@ -22,19 +22,21 @@ pub struct VariableDecl {
 }
 
 impl VariableDecl {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter)?;
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
+        let value = self.expression.eval(interpreter, code)?;
         interpreter.state.add_var(&self.name, value.0.into_owned());
 
         Ok(())
     }
 
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         let var = || tag("var");
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr
-        let (input, (_, _, _, _, identifier, _, _, _, _, expression)) = (
+        let (input, (_, _, _, _, identifier, _, _, _, _, expression, _)) = (
             var(),
             ws,
             var(),
@@ -45,6 +47,7 @@ impl VariableDecl {
             eq,
             ws,
             Expression::parse,
+            end_of_statement,
         )
             .parse(input)?;
 
@@ -64,18 +67,20 @@ pub struct VarSet {
 }
 
 impl VarSet {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter)?;
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
+        let value = self.expression.eval(interpreter, code)?;
         interpreter.state.set_var(&self.name, value.0.into_owned());
         Ok(())
     }
 
-    pub fn parse<'a>(input: Position<'a, &'a Interpreter<'a>>) -> AstParseResult<'a, Self> {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
         // ident ws* "=" ws* expr ws* !
-        let eq = character::complete::char('=');
+        let eq = char('=');
         let identifier = identifier(LifeTime::parse);
-        let (input, (identifier, _, _, _, expression)) =
-            (identifier, ws, eq, ws, Expression::parse).parse(input)?;
+        let (input, (identifier, _, _, _, expression, _)) =
+            (identifier, ws, eq, ws, Expression::parse, end_of_statement).parse(input)?;
 
         let decl = Self {
             expression,
