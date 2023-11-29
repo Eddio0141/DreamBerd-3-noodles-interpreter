@@ -22,8 +22,8 @@ pub struct VariableDecl {
 }
 
 impl VariableDecl {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter)?;
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
+        let value = self.expression.eval(interpreter, code)?;
         interpreter.state.add_var(&self.name, value.0.into_owned());
 
         Ok(())
@@ -67,8 +67,8 @@ pub struct VarSet {
 }
 
 impl VarSet {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter)?;
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
+        let value = self.expression.eval(interpreter, code)?;
         interpreter.state.set_var(&self.name, value.0.into_owned());
         Ok(())
     }

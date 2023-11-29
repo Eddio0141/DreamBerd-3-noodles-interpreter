@@ -34,10 +34,10 @@ impl<'a> Interpreter<'a> {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(analysis);
 
-        let mut code = Position::new_with_extra(code, self);
-        while let Ok((code_after, statement)) = Statement::parse(code) {
-            code = code_after;
-            statement.eval(self)?;
+        let mut code_with_pos = Position::new_with_extra(code, self);
+        while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+            code_with_pos = code_after;
+            statement.eval(self, code)?;
         }
 
         Ok(())

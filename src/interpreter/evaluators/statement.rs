@@ -73,12 +73,12 @@ impl Statement {
         // ))(input)
     }
 
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<(), runtime::error::Error> {
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), runtime::error::Error> {
         match self {
-            Statement::FunctionCall(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::FunctionCall(statement) => statement.eval(interpreter, code).map(|_| ()),
             Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| ()),
-            Statement::VariableDecl(statement) => statement.eval(interpreter).map(|_| ()),
-            Statement::VarSet(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::VariableDecl(statement) => statement.eval(interpreter, code).map(|_| ()),
+            Statement::VarSet(statement) => statement.eval(interpreter, code).map(|_| ()),
             Statement::Expression => Ok(()),
             Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| ()),
             Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| ()),

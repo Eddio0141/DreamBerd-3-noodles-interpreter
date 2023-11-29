@@ -184,17 +184,23 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        code: &str,
+    ) -> Result<Wrapper<Cow<Value>>, Error> {
         match self {
-            Expression::Atom(atom) => atom.eval(interpreter),
-            Expression::UnaryOperation { operator, right } => operator.eval(right, interpreter),
+            Expression::Atom(atom) => atom.eval(interpreter, code),
+            Expression::UnaryOperation { operator, right } => {
+                operator.eval(right, interpreter, code)
+            }
             Expression::Operation {
                 left,
                 operator,
                 right,
             } => {
-                let left = left.eval(interpreter)?;
-                let right = right.eval(interpreter)?;
+                let left = left.eval(interpreter, code)?;
+                let right = right.eval(interpreter, code)?;
 
                 let value = match operator {
                     Operator::Equal => Value::Boolean(left.loose_eq(&right)?),
@@ -243,10 +249,14 @@ pub enum Atom {
 }
 
 impl Atom {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        code: &str,
+    ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
             Atom::Value(value) => Cow::Borrowed(value),
-            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter)?),
+            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter, code)?),
         };
 
         Ok(Wrapper(value))
@@ -297,10 +307,11 @@ impl UnaryOperator {
         &'a self,
         right: &'a Expression,
         interpreter: &Interpreter,
+        code: &str,
     ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
-            UnaryOperator::Not => !right.eval(interpreter)?,
-            UnaryOperator::Minus => (-right.eval(interpreter)?)?,
+            UnaryOperator::Not => !right.eval(interpreter, code)?,
+            UnaryOperator::Minus => (-right.eval(interpreter, code)?)?,
         };
 
         Ok(value)

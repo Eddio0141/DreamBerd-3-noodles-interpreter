@@ -29,13 +29,15 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<Value, Error> {
         let mut args = Vec::new();
         for arg in &self.args {
-            args.push(arg.eval(interpreter)?);
+            args.push(arg.eval(interpreter, code)?);
         }
 
-        interpreter.state.invoke_func(interpreter, &self.name, args)
+        interpreter
+            .state
+            .invoke_func(interpreter, code, &self.name, args)
     }
 
     pub fn parse<'a, 'b, 'c>(
@@ -46,7 +48,7 @@ impl FunctionCall {
         // with args
         // - `func_name arg1, arg2!`
 
-        let mut identifier = identifier(fail::<_, Position<&Interpreter>, _>);
+        let mut identifier = identifier(char('!'));
 
         let (input, identifier) = identifier(input)?;
         let identifier = identifier.into();
@@ -61,20 +63,14 @@ impl FunctionCall {
 
         // no args?
         if func.arg_count == 0 {
-            let result = if let Ok((input, _)) = end_of_statement(input) {
-                // no args
-                Ok((
-                    input,
-                    Self {
-                        name: identifier.to_string(),
-                        args: Vec::new(),
-                    },
-                ))
-            } else {
-                Err(Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))
-            };
-
-            return result;
+            // no args
+            return Ok((
+                input,
+                Self {
+                    name: identifier.to_string(),
+                    args: Vec::new(),
+                },
+            ));
         }
 
         // has args
@@ -159,18 +155,13 @@ impl FunctionDef {
         let scope = scope.map(|_| ());
         let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
-        let (input, (_, identifier, _, arg_count, _, _)) = ((
-            ws,
-            identifier,
-            ws,
-            alt((value(0, arrow()), args)),
-            ws,
-            alt((expression, scope)),
-        ))
-            .parse(input)?;
+        let (input, (_, identifier, _, arg_count, _)) =
+            ((ws, identifier, ws, alt((value(0, arrow()), args)), ws)).parse(input)?;
 
         let body = input.index;
         let body_line = input.line;
+
+        let (input, _) = alt((expression, scope))(input)?;
 
         let instance = Self {
             name: identifier.input.to_string(),
