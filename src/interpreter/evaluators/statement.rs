@@ -2,6 +2,7 @@ use nom::{
     branch::alt,
     combinator::{eof, value},
     multi::many_till,
+    sequence::tuple,
     Parser,
 };
 
@@ -37,8 +38,11 @@ impl Statement {
             )));
         }
 
+        // this needs to be done here since functions can be recursive
+        let function_call = tuple((FunctionCall::parse, end_of_statement));
+
         if let Ok((input, statement)) = alt((
-            FunctionCall::parse.map(Statement::FunctionCall),
+            function_call.map(|(func, _)| Statement::FunctionCall(func)),
             FunctionDef::parse.map(Statement::FunctionDef),
             VariableDecl::parse.map(Statement::VariableDecl),
             VarSet::parse.map(Statement::VarSet),
