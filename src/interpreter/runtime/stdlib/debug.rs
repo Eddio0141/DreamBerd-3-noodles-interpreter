@@ -15,9 +15,11 @@ pub fn assert(_interpreter: &Interpreter, args: Vec<Wrapper<Cow<Value>>>) -> Res
     }
 
     let arg = &args[0];
-    if let Value::Boolean(false) = arg.as_ref() {
-        return Err(Error::RuntimeException("Assertion failed".to_string()));
+    match arg.as_ref() {
+        Value::Boolean(true) => Ok(Value::Undefined),
+        Value::Boolean(false) => Err(Error::RuntimeException("Assertion failed".to_string())),
+        _ => Err(Error::RuntimeException(
+            "Assertion failed, not a boolean".to_string(),
+        )),
     }
-
-    Ok(Value::Undefined)
 }
