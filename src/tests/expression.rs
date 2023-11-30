@@ -20,12 +20,12 @@ var var 3 = 2!
 var var 4 = 1!
 assert(3 == 2)!
 "#;
-// assert(4 == 1)!
-// assert(3 ;= 4)!
-// assert(4 < 3)!
-// assert(3 <= 2)!
-// assert(3 > 4)!
-// assert(4 >= 1)!
+    // assert(4 == 1)!
+    // assert(3 ;= 4)!
+    // assert(4 < 3)!
+    // assert(3 <= 2)!
+    // assert(3 > 4)!
+    // assert(4 >= 1)!
     Interpreter::new_eval(code).unwrap();
 }
 
