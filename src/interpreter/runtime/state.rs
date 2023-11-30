@@ -44,7 +44,7 @@ impl InterpreterState {
     }
 
     /// Adds the analysis information to the state
-    pub fn add_analysis_info(&self, analysis: Analysis) {
+    pub fn add_analysis_info(&self, code: &str, analysis: Analysis) {
         for func in analysis.hoisted_funcs {
             let FunctionInfo {
                 identifier,
@@ -58,7 +58,7 @@ impl InterpreterState {
                     arg_count,
                     variant: FunctionVariant::FunctionDefined {
                         defined_line: hoisted_line,
-                        body_location,
+                        body: code[body_location..].to_string(),
                     },
                 },
             )
@@ -76,7 +76,7 @@ impl InterpreterState {
         last_scope.retain(|name, func| {
             if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
                 if *defined_line > line {
-                    new_scope.insert(name.to_string(), *func);
+                    new_scope.insert(name.to_string(), func.clone());
                     return false;
                 }
             }
@@ -182,7 +182,7 @@ impl VariableState {
 #[derive(Debug, Default)]
 pub struct FunctionState(pub HashMap<String, Function>);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub arg_count: usize,
     pub variant: FunctionVariant,
@@ -195,10 +195,9 @@ impl Function {
         code: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
-        match self.variant {
-            FunctionVariant::FunctionDefined { body_location, .. } => {
-                let code = &code[body_location..];
-                let mut code_with_pos = Position::new_with_extra(code, interpreter);
+        match &self.variant {
+            FunctionVariant::FunctionDefined { body, .. } => {
+                let mut code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
 
                 // try expression first (it could be a function)
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
@@ -219,13 +218,13 @@ impl Function {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum FunctionVariant {
     FunctionDefined {
         /// The line where the function is usable from
         defined_line: usize,
         /// Where the expression / scope is located as an index
-        body_location: usize,
+        body: String,
     },
     Native(NativeFunc),
 }

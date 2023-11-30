@@ -105,7 +105,7 @@ impl FunctionCall {
 pub struct FunctionDef {
     pub name: String,
     pub arg_count: usize,
-    pub body: usize,
+    pub body: String,
     pub body_line: usize,
 }
 
@@ -155,18 +155,17 @@ impl FunctionDef {
         let scope = scope.map(|_| ());
         let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
-        let (input, (_, identifier, _, arg_count, _)) =
+        let (body, (_, identifier, _, arg_count, _)) =
             ((ws, identifier, ws, alt((value(0, arrow()), args)), ws)).parse(input)?;
 
-        let body = input.index;
-        let body_line = input.line;
+        let body_line = body.line;
 
-        let (input, _) = alt((expression, scope))(input)?;
+        let (input, _) = alt((expression, scope))(body)?;
 
         let instance = Self {
             name: identifier.input.to_string(),
             arg_count,
-            body,
+            body: body.input.to_string(),
             body_line,
         };
 
@@ -185,7 +184,7 @@ impl From<&FunctionDef> for Function {
             arg_count: func.arg_count,
             variant: FunctionVariant::FunctionDefined {
                 defined_line: func.body_line,
-                body_location: func.body,
+                body: func.body.clone(),
             },
         }
     }
