@@ -125,7 +125,7 @@ impl Value {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        let value_true = value(Value::Boolean(true), tag("true"));
+        let value_true = value(Value::Boolean(true), tag::<_, _, ()>("true"));
         let value_false = value(Value::Boolean(false), tag("false"));
         let value_undefined = value(Value::Undefined, tag("undefined"));
         let value_null = value(Value::Object(None), tag("null"));
@@ -137,20 +137,15 @@ impl Value {
         ))
         .map(|(num, _)| Value::BigInt(num));
         let value_f64 = double.map(Value::Number);
-        let end = || alt((end_of_statement, ws_char.map(|_| ())));
 
-        if let Ok((input, (value, _))) = ((
-            alt((
-                value_true,
-                value_false,
-                value_undefined,
-                value_null,
-                value_bigint,
-                value_f64,
-            )),
-            peek(end()),
-        ))
-            .parse(input)
+        if let Ok((input, value)) = alt((
+            value_true,
+            value_false,
+            value_undefined,
+            value_null,
+            value_bigint,
+            value_f64,
+        ))(input)
         {
             return Ok((input, value));
         }
@@ -191,7 +186,6 @@ impl Value {
             let (_, chunk) = peek(chunk)(s_new)?;
             (start_quotes, chunk)
         };
-        dbg!(start_quotes, chunk);
         if start_quotes
             .input
             .chars()
@@ -211,7 +205,7 @@ impl Value {
                 string_inner = string_inner.replace(from, to);
             }
 
-            let (input, _) = ((take(start_quotes_len), peek(end()))).parse(s_new)?;
+            let (input, _) = take(start_quotes_len)(s_new)?;
             return Ok((input, Value::String(string_inner)));
         }
 
