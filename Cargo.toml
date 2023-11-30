@@ -27,6 +27,7 @@ required-features = ["bin"]
 
 [dev-dependencies]
 criterion = {version = "0.5.1", features = ["html_reports"]}
+pretty_assertions = "1.4.0"
 
 [[bench]]
 harness = false
