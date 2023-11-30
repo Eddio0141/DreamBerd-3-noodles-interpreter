@@ -156,13 +156,19 @@ impl Value {
         }
 
         let start_quote = take_while1(|c| c == '\'' || c == '"');
-        let escape_quote = tag("'");
-        let escape_double_quote = tag("\"");
-        let escape_char =
-            tuple((char('\\'), alt((escape_quote, escape_double_quote)))).map(|(_, c)| c);
-        let string_take_check = verify(take(1usize), |s: &str| s != "'" && s != "\"");
+        let escape_quote = char('\'');
+        let escape_double_quote = char('"');
+        let new_line = char('n');
+        let escape_char = value(
+            2,
+            tuple((
+                char('\\'),
+                alt((escape_quote, escape_double_quote, new_line)),
+            )),
+        );
+        let string_take_check = value(1, verify(take(1usize), |s: &str| s != "'" && s != "\""));
         let string_inner = alt((escape_char, string_take_check));
-        let string_inner = many0_count(string_inner);
+        let string_inner = fold_many0(string_inner, || 0, |acc, count| acc + count);
         let (s_new, (start_quotes, string_inner)) = ((start_quote, string_inner)).parse(input)?;
         let start_quotes_len = start_quotes.input.len();
         let string_inner = &input.input[start_quotes_len..start_quotes_len + string_inner];
@@ -185,6 +191,7 @@ impl Value {
             let (_, chunk) = peek(chunk)(s_new)?;
             (start_quotes, chunk)
         };
+        dbg!(start_quotes, chunk);
         if start_quotes
             .input
             .chars()
@@ -192,8 +199,20 @@ impl Value {
             .zip(chunk.input.chars())
             .all(|(a, b)| a == b)
         {
+            // convert escape chars
+            let from_to = [
+                ("\\n", "\n"),
+                ("\\\\", "\\"),
+                ("\\\'", "\'"),
+                ("\\\"", "\""),
+            ];
+            let mut string_inner = string_inner.to_string();
+            for (from, to) in from_to.iter() {
+                string_inner = string_inner.replace(from, to);
+            }
+
             let (input, _) = ((take(start_quotes_len), peek(end()))).parse(s_new)?;
-            return Ok((input, Value::String(string_inner.to_string())));
+            return Ok((input, Value::String(string_inner)));
         }
 
         Err(nom::Err::Error(nom::error::Error::new(
