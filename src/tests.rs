@@ -1,4 +1,5 @@
 use crate::InterpreterBuilder;
+use pretty_assertions::assert_eq;
 
 mod expression;
 mod function;
