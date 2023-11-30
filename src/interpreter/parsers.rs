@@ -60,7 +60,7 @@ where
 }
 
 /// Takes a chunk of code until the next whitespace
-pub fn chunk<'a, I, E>(input: I) -> IResult<I, I, E>
+pub fn chunk<I, E>(input: I) -> IResult<I, I, E>
 where
     I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
     E: ParseError<I>,
@@ -81,7 +81,7 @@ where
     P: Parser<I, PO, E>,
 {
     move |input_original| {
-        let mut input = input_original.clone();
+        let mut input = input_original;
         let mut take_count = 0;
         let mut first_ch = true;
         loop {
@@ -91,8 +91,8 @@ where
 
             // is it terminating
             // note: terminating parser can be the name of the identifier as well
-            if matches!(peek(ws_char::<_, ()>)(input), Ok(_))
-                || (!first_ch && matches!(terminating_parser.parse(input), Ok(_)))
+            if peek(ws_char::<_, ()>)(input).is_ok()
+                || (!first_ch && terminating_parser.parse(input).is_ok())
             {
                 // don't consume
                 break;
@@ -135,7 +135,7 @@ impl LifeTime {
                 Some(LifeTime::Seconds(s))
             }
         });
-        let lines = parse_isize.map(|l| LifeTime::Lines(l));
+        let lines = parse_isize.map(LifeTime::Lines);
         delimited(char('<'), alt((infinity, seconds, lines)), char('>'))(input)
     }
 }
@@ -146,7 +146,7 @@ pub fn parse_isize<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a
     let negative = char::<Position<_>, _>('-');
     tuple((opt(negative).map(|v| v.is_some()), digit1))
         .map(|(neg, digits)| {
-            let digits = isize::from_str_radix(digits.input, 10).unwrap();
+            let digits = digits.input.parse::<isize>().unwrap();
             if neg {
                 digits.saturating_neg()
             } else {

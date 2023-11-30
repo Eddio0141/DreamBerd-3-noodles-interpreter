@@ -400,7 +400,7 @@ impl PartialEq for Operator {
 
 impl PartialOrd for Operator {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        usize::from(*self).partial_cmp(&(*other).into())
+        Some(self.cmp(other))
     }
 }
 

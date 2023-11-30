@@ -11,7 +11,7 @@ pub fn get_typeof(
     args: Vec<Wrapper<Cow<Value>>>,
 ) -> Result<Value, Error> {
     let value = args
-        .get(0)
+        .first()
         .unwrap_or(&Wrapper(Cow::Owned(Value::Undefined)));
 
     let result = match value.as_ref() {

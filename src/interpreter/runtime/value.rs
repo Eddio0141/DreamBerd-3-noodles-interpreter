@@ -136,7 +136,7 @@ impl Value {
             char('n'),
         ))
         .map(|(num, _)| Value::BigInt(num));
-        let value_f64 = double.map(|num| Value::Number(num));
+        let value_f64 = double.map(Value::Number);
         let end = || alt((end_of_statement, ws_char.map(|_| ())));
 
         if let Ok((input, (value, _))) = ((

@@ -27,13 +27,7 @@ pub struct Position<'a, 'b, T = (), I: ?Sized = str> {
 
 impl<'a, 'b, T, I: ?Sized> Clone for Position<'a, 'b, T, I> {
     fn clone(&self) -> Self {
-        Self {
-            line: self.line.clone(),
-            column: self.column.clone(),
-            index: self.index.clone(),
-            input: self.input,
-            extra: self.extra,
-        }
+        *self
     }
 }
 
@@ -122,7 +116,7 @@ where
     &'a I: AsChars + InputLength + InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
 {
     fn take(&self, count: usize) -> Self {
-        let mut new = self.clone();
+        let mut new = *self;
         new.input = &self.input.take(count);
         new
     }
@@ -199,7 +193,7 @@ impl<T: Debug> InputTakeAtPosition for Position<'_, '_, T> {
         P: Fn(Self::Item) -> bool,
     {
         match self.input.find(predicate) {
-            Some(0) => Err(Err::Error(E::from_error_kind(self.clone(), e))),
+            Some(0) => Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => {
                 let (left, right) = self.left_right_split(&self.input[..i], &self.input[i..], i);
@@ -239,12 +233,12 @@ impl<T: Debug> InputTakeAtPosition for Position<'_, '_, T> {
         P: Fn(Self::Item) -> bool,
     {
         let (left, right) = match self.input.find(predicate) {
-            Some(0) => return Err(Err::Error(E::from_error_kind(self.clone(), e))),
+            Some(0) => return Err(Err::Error(E::from_error_kind(*self, e))),
             // find() returns a byte index that is already in the slice at a char boundary
             Some(i) => self.left_right_split(&self.input[..i], &self.input[i..], i),
             None => {
                 if self.input.is_empty() {
-                    return Err(Err::Error(E::from_error_kind(self.clone(), e)));
+                    return Err(Err::Error(E::from_error_kind(*self, e)));
                 } else {
                     // the end of slice is a char boundary
                     self.left_right_split(

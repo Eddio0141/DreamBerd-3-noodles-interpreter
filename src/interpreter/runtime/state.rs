@@ -227,5 +227,7 @@ pub enum FunctionVariant {
         /// Where the expression / scope is located as an index
         body_location: usize,
     },
-    Native(fn(&Interpreter, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>),
+    Native(NativeFunc),
 }
+
+pub type NativeFunc = fn(&Interpreter<'_>, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>;

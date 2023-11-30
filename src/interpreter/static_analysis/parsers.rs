@@ -47,7 +47,7 @@ pub fn till_term<'a, 'b>(input: Position<'a, 'b>) -> PosResult<'a, 'b, Position<
         input = input_new;
     }
 
-    Ok((input, statement_chunks[0].clone()))
+    Ok((input, statement_chunks[0]))
 }
 
 /// Parses a variable declaration
@@ -82,7 +82,7 @@ where
             eq,
             ws,
         ))
-            .parse(input_original.clone())?;
+            .parse(input_original)?;
 
         let (input, expr) = expression_parser.parse(input)?;
 
