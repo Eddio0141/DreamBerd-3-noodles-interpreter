@@ -1,4 +1,8 @@
-use std::{fs, io::BufRead, path::PathBuf};
+use std::{
+    fs,
+    io::{BufRead, Write},
+    path::PathBuf,
+};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -22,10 +26,13 @@ impl Cli {
         } else {
             // repl mode
             let mut stdout = std::io::stdout().lock();
-            let mut stdin = std::io::stdin().lock();
             let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+            let mut stdout = std::io::stdout().lock();
+            let mut stdin = std::io::stdin().lock();
             loop {
                 let mut input = String::new();
+                write!(stdout, ">>> ").context("Failed to write prompt")?;
+                stdout.flush().context("Failed to flush stdout")?;
                 stdin
                     .read_line(&mut input)
                     .context("Failed to read input for REPL")?;
