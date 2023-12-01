@@ -7,6 +7,7 @@ use nom::character::complete::char;
 
 use super::parsers::AstParseResult;
 
+#[derive(Debug)]
 pub struct ScopeStart {
     line: usize,
 }
@@ -29,6 +30,7 @@ impl ScopeStart {
     }
 }
 
+#[derive(Debug)]
 pub struct ScopeEnd {
     line: usize,
 }

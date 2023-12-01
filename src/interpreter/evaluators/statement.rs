@@ -11,6 +11,7 @@ use crate::{
 
 use super::{function::FunctionDef, parsers::AstParseResult, scope::*, variable::VariableDecl};
 
+#[derive(Debug)]
 pub enum Statement {
     FunctionCall(FunctionCall),
     FunctionDef(FunctionDef),
