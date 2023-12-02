@@ -32,7 +32,7 @@ impl Interpreter<'_> {
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval<'a, 'b>(&'a self, code: &'b str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
-        self.state.add_analysis_info(analysis);
+        self.state.add_analysis_info(code, analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
         while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
