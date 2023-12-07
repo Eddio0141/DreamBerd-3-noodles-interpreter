@@ -80,3 +80,8 @@ print foo!
 "#;
     interpreter_test_output(code, "Hello, World!\n1\n2\n");
 }
+
+#[test]
+fn comment_block() {
+    todo!("comment block");
+}
