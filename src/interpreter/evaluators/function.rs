@@ -1,5 +1,7 @@
 //! Contains function related structures
 
+use std::cell::Ref;
+
 use nom::{
     branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
     multi::*, sequence::*, *,
@@ -40,6 +42,26 @@ impl FunctionCall {
             .invoke_func(interpreter, code, &self.name, args)
     }
 
+    fn try_get_func<'a, 'b, 'c, P, PO>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+        identifier_term: P,
+    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (&'a str, Ref<'b, Function>), ()>
+    where
+        P: Parser<Position<'a, 'b, Interpreter<'c>>, PO, ()>,
+    {
+        let mut identifier = identifier(identifier_term);
+
+        let (input, identifier) = identifier(input)?;
+        let identifier = identifier.into();
+
+        let Some(func) = input.extra.state.get_func_info(identifier) else {
+            return Err(nom::Err::Error(()));
+        };
+
+        // does the function exist
+        Ok((input, (identifier, func)))
+    }
+
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
@@ -48,17 +70,12 @@ impl FunctionCall {
         // with args
         // - `func_name arg1, arg2!`
 
-        let mut identifier = identifier(char('!'));
-
-        let (input, identifier) = identifier(input)?;
-        let identifier = identifier.into();
-
-        // does the function exist
-        let Some(func) = input.extra.state.get_func_info(identifier) else {
-            return Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                ErrorKind::Fail,
-            )));
+        // try a stricter one first, and the relaxed after
+        let (input, (identifier, func)) = if let Ok(res) = Self::try_get_func(input, char('!')) {
+            res
+        } else {
+            Self::try_get_func(input, fail::<_, (), _>)
+                .map_err(|_| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))?
         };
 
         // no args?

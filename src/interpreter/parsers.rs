@@ -17,46 +17,81 @@ pub fn is_ws(ch: char) -> bool {
 }
 
 /// Tries to parse a single whitespace character
-pub fn ws_char<I, E>(input: I) -> IResult<I, char, E>
+/// # Note
+/// - It also handles comments
+pub fn ws_char<'a, I, E>(input: I) -> IResult<I, (), E>
 where
-    I: Slice<RangeFrom<usize>> + InputIter<Item = char>,
+    I: Slice<RangeFrom<usize>>
+        + InputIter<Item = char>
+        + InputTake
+        + InputLength
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Compare<&'a str>,
     E: ParseError<I>,
 {
-    satisfy(is_ws)(input)
+    value((), tuple((satisfy(is_ws), opt(comment_line))))(input)
 }
 
 /// At least one whitespace repeated
-pub fn ws1<I>(input: I) -> IResult<I, ()>
-where
-    I: InputIter<Item = char> + InputLength + InputTake + Clone + InputTakeAtPosition<Item = char>,
-{
-    take_while1(is_ws).map(|_| ()).parse(input)
-}
-
-/// Any amount of whitespace repeated
-/// # Returns
-/// - The amount of whitespace
-pub fn ws_count<I>(input: I) -> IResult<I, usize>
+pub fn ws1<'a, I>(input: I) -> IResult<I, ()>
 where
     I: InputIter<Item = char>
         + InputLength
         + InputTake
         + Clone
         + InputTakeAtPosition<Item = char>
-        + Slice<RangeFrom<usize>>,
+        + Slice<RangeFrom<usize>>
+        + Compare<&'a str>,
+{
+    value((), many1_count(ws_char))(input)
+}
+
+/// Any amount of whitespace repeated
+/// # Returns
+/// - The amount of whitespace
+pub fn ws_count<'a, I>(input: I) -> IResult<I, usize>
+where
+    I: InputIter<Item = char>
+        + InputLength
+        + InputTake
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Slice<RangeFrom<usize>>
+        + Compare<&'a str>,
 {
     many0_count(ws_char)(input)
 }
 
 /// Any amount of whitespace repeated
-/// # Returns
-/// - Slice of the whitespace
-pub fn ws<I, E>(input: I) -> IResult<I, I, E>
+pub fn ws<'a, I, E>(input: I) -> IResult<I, (), E>
 where
-    I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
+    I: InputLength
+        + InputIter<Item = char>
+        + InputTake
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Slice<RangeFrom<usize>>
+        + Compare<&'a str>,
     E: ParseError<I>,
 {
-    take_while(is_ws)(input)
+    value((), many0_count(ws_char))(input)
+}
+
+/// Parses and ignores a comment
+pub fn comment_line<'a, I, E>(input: I) -> IResult<I, (), E>
+where
+    I: InputTake
+        + InputIter<Item = char>
+        + InputLength
+        + InputTakeAtPosition<Item = char>
+        + Clone
+        + Compare<&'a str>,
+    E: ParseError<I>,
+{
+    let start = tag("//");
+    let end = take_while(|ch| ch != '\n');
+    value((), tuple((start, end)))(input)
 }
 
 /// Takes a chunk of code until the next whitespace
@@ -68,15 +103,32 @@ where
     take_while(|ch| !is_ws(ch))(input)
 }
 
+/// Takes a chunk of code until the next whitespace
+/// # Note
+/// - This version will not include the terminator and stops before it or the whitespace
+pub fn terminated_chunk<I, E>(input: I) -> IResult<I, I, E>
+where
+    I: InputLength + InputIter<Item = char> + InputTake + Clone + InputTakeAtPosition<Item = char>,
+    E: ParseError<I>,
+{
+    take_while(|ch| !is_ws(ch) && ch != '!')(input)
+}
+
 /// Gets the identifier
 /// # Arguments
 /// - `terminating_parser`: A parser that terminates the identifier. If this is hit or a whitespace is hit, then the identifier is terminated
 ///
 /// # Returns
 /// - The identifier
-pub fn identifier<I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
+pub fn identifier<'a, I, E, P, PO>(mut terminating_parser: P) -> impl FnMut(I) -> IResult<I, I, E>
 where
-    I: InputIter<Item = char> + InputTake + Copy + InputLength + Slice<RangeFrom<usize>>,
+    I: InputIter<Item = char>
+        + InputTake
+        + Copy
+        + InputLength
+        + Slice<RangeFrom<usize>>
+        + Compare<&'a str>
+        + InputTakeAtPosition<Item = char>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
@@ -157,14 +209,15 @@ pub fn parse_isize<'a, 'b, T: Debug>(input: Position<'a, 'b, T>) -> PosResult<'a
 }
 
 /// End of statement including the whitespace before it
-pub fn end_of_statement<I, E>(input: I) -> IResult<I, (), E>
+pub fn end_of_statement<'a, I, E>(input: I) -> IResult<I, (), E>
 where
     I: InputIter<Item = char>
         + Clone
         + InputLength
         + Slice<RangeFrom<usize>>
         + InputTake
-        + InputTakeAtPosition<Item = char>,
+        + InputTakeAtPosition<Item = char>
+        + Compare<&'a str>,
     E: ParseError<I>,
 {
     let end = many1(char('!'));

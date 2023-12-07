@@ -1,4 +1,4 @@
-use nom::{branch::*, combinator::*, multi::*, sequence::*, Parser};
+use nom::{branch::*, combinator::*, sequence::*, Parser};
 
 use crate::{
     interpreter::{
@@ -26,7 +26,7 @@ impl Statement {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        let (input, _) = ws::<_, ()>(input).unwrap();
+        let (mut input, _) = ws::<_, ()>(input).unwrap();
 
         if input.input.is_empty() {
             return Err(nom::Err::Error(nom::error::Error::new(
@@ -58,18 +58,15 @@ impl Statement {
 
         // TODO rewrite test to ensure type isn't implicit string
         // last resort, pass it as an implicit string
-        many_till(alt((ws, chunk)), alt((value((), eof), end_of_statement)))
-            .map(|_| Self::Expression)
-            .parse(input)
+        loop {
+            if let Ok((input, _)) = alt((value((), eof::<_, ()>), end_of_statement))(input) {
+                return Ok((input, Self::Expression));
+            }
 
-        // alt((
-        //     VariableDecl::parse,
-        //     VarSet::parse,
-        //     Ast::parse_scope,
-        //     // those are fallback parsers
-        //     map(FunctionCall::parse, |func| Statement::FunctionCall(func)),
-        //     Expression::parse,
-        // ))(input)
+            if let Ok((input_new, _)) = alt((ws1, chunk.map(|_| ())))(input) {
+                input = input_new;
+            }
+        }
     }
 
     pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), runtime::error::Error> {
