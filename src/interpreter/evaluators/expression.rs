@@ -56,16 +56,15 @@ impl Expression {
             .parse(input)?;
 
         // work on expression
-        let (left, mut pending_unary) = first_atom;
-        let mut left: Cow<'_, Expression> = Cow::Owned(left);
+        let (mut left, mut pending_unary) = first_atom;
 
         // handle initial unary
         let removed_unary = if let Some((op, ws)) = pending_unary.first() {
             if *ws == 0 {
-                left = Cow::Owned(Expression::UnaryOperation {
+                left = Expression::UnaryOperation {
                     operator: op[0],
-                    right: Box::new(left.into_owned()),
-                });
+                    right: Box::new(left),
+                };
                 true
             } else {
                 false
@@ -95,7 +94,7 @@ impl Expression {
                     pending_unary.push(right_pending_unary);
                 }
                 left_pending.push((left, op));
-                left = Cow::Owned(right);
+                left = right;
                 pending_order_is_left.extend(vec![false; pending_unary.len()]);
                 pending_order_is_left.push(true);
                 continue;
@@ -110,7 +109,7 @@ impl Expression {
                     // beause we have to build from the right now, we need to store the left
                     // expr(left, op, right)
                     left_pending.push((left, op));
-                    left = Cow::Owned(right);
+                    left = right;
                     pending_order_is_left.push(true);
                     continue;
                 }
@@ -118,32 +117,32 @@ impl Expression {
 
             // now we need to do the pending ops
             // we need to drain left_pending
-            left = Cow::Owned(Expression::Operation {
-                left: Box::new(left.into_owned()),
+            left = Expression::Operation {
+                left: Box::new(left),
                 operator: op,
                 right: Box::new(right),
-            });
+            };
             for take_left in pending_order_is_left.drain(..) {
                 if take_left {
                     let (left_inner, op_inner) = left_pending.pop().unwrap();
-                    left = Cow::Owned(Expression::Operation {
-                        left: Box::new(left_inner.into_owned()),
+                    left = Expression::Operation {
+                        left: Box::new(left_inner),
                         operator: op_inner,
-                        right: Box::new(left.into_owned()),
-                    });
+                        right: Box::new(left),
+                    };
                 } else {
                     let (op_inner, _) = pending_unary.remove(0);
                     for operator in op_inner {
-                        left = Cow::Owned(Expression::UnaryOperation {
+                        left = Expression::UnaryOperation {
                             operator,
-                            right: Box::new(left.into_owned()),
-                        });
+                            right: Box::new(left),
+                        };
                     }
                 }
             }
         }
 
-        Ok((input, dbg!(left.into_owned())))
+        Ok((input, dbg!(left)))
     }
 
     // fn apply_pending_unary_immediate TODO

@@ -30,7 +30,7 @@ impl Debug for Interpreter<'_> {
 impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn eval<'a, 'b>(&'a self, code: &'b str) -> Result<(), self::error::Error> {
+    pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(code, analysis);
 
