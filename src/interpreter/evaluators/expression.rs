@@ -57,22 +57,45 @@ impl Expression {
 
         // work on expression
         let (left, mut pending_unary) = first_atom;
-        let mut left = Cow::Owned(left);
+        let mut left: Cow<'_, Expression> = Cow::Owned(left);
+
+        // handle initial unary
+        let removed_unary = if let Some((op, ws)) = pending_unary.first() {
+            if *ws == 0 {
+                left = Cow::Owned(Expression::UnaryOperation {
+                    operator: op[0],
+                    right: Box::new(left.into_owned()),
+                });
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if removed_unary {
+            pending_unary.remove(0);
+        }
+
+        dbg!(&left, &pending_unary);
 
         // if true, it will take from left_pending, if false it will take pending_unary
         let mut pending_order_is_left = pending_unary.iter().map(|_| false).collect::<Vec<_>>();
         let mut left_pending = Vec::new();
 
-        for (i, ((op, ws), (right, right_pending_unary))) in priorities.iter().enumerate() {
-            let next_op = priorities.get(i + 1);
+        let mut priorities = priorities.into_iter().peekable();
+        while let Some(((op, ws), (right, right_pending_unary))) = priorities.next() {
+            let next_op = priorities.peek();
 
             // is there next unary
+            dbg!(&right_pending_unary);
             if !right_pending_unary.is_empty() {
                 for right_pending_unary in right_pending_unary {
-                    pending_unary.push(right_pending_unary.clone());
+                    pending_unary.push(right_pending_unary);
                 }
                 left_pending.push((left, op));
-                left = Cow::Borrowed(right);
+                left = Cow::Owned(right);
                 pending_order_is_left.extend(vec![false; pending_unary.len()]);
                 pending_order_is_left.push(true);
                 continue;
@@ -82,12 +105,12 @@ impl Expression {
             if let Some(((next_op, next_ws), _)) = next_op {
                 // check ws first, then operation type
                 let next_ws = *next_ws;
-                let ws = *ws;
+                let next_op = *next_op;
                 if (next_ws < ws) || (next_ws == ws && next_op > op) {
                     // beause we have to build from the right now, we need to store the left
                     // expr(left, op, right)
                     left_pending.push((left, op));
-                    left = Cow::Borrowed(right);
+                    left = Cow::Owned(right);
                     pending_order_is_left.push(true);
                     continue;
                 }
@@ -97,19 +120,19 @@ impl Expression {
             // we need to drain left_pending
             left = Cow::Owned(Expression::Operation {
                 left: Box::new(left.into_owned()),
-                operator: *op,
-                right: Box::new(right.clone()),
+                operator: op,
+                right: Box::new(right),
             });
             for take_left in pending_order_is_left.drain(..) {
                 if take_left {
                     let (left_inner, op_inner) = left_pending.pop().unwrap();
                     left = Cow::Owned(Expression::Operation {
                         left: Box::new(left_inner.into_owned()),
-                        operator: *op_inner,
+                        operator: op_inner,
                         right: Box::new(left.into_owned()),
                     });
                 } else {
-                    let op_inner = pending_unary.remove(0);
+                    let (op_inner, _) = pending_unary.remove(0);
                     for operator in op_inner {
                         left = Cow::Owned(Expression::UnaryOperation {
                             operator,
@@ -120,8 +143,10 @@ impl Expression {
             }
         }
 
-        Ok((input, left.into_owned()))
+        Ok((input, dbg!(left.into_owned())))
     }
+
+    // fn apply_pending_unary_immediate TODO
 
     /// Parses atom with its unary operators
     /// - Returns the built expression and if any unprocessed unary operators
@@ -130,9 +155,9 @@ impl Expression {
     /// - Order of the unary operators is from left to right
     fn atom_to_expression<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, (Self, Vec<Vec<UnaryOperator>>)> {
+    ) -> AstParseResult<'a, 'b, 'c, (Self, Vec<(Vec<UnaryOperator>, usize)>)> {
         let (input, (unaries, expr)) = ((
-            many0(tuple((many1(UnaryOperator::parse), ws_count)).map(|(unaries, _)| unaries)),
+            many0(tuple((many1(UnaryOperator::parse), ws_count))),
             Atom::parse,
         ))
             .parse(input)?;
@@ -140,10 +165,15 @@ impl Expression {
         // 1. unaries must be reversed
         // 2. split by whitespace (its already done in the parser)
         // 3. on a group of same unary, only keep even number ones
+        // 4. if cancelled out unary operations, combine the ws prior to them
+        //    - e.g. `-  -- 1` -> `-   1` (combination of 1 ws and 2 ws)
+        //    - if there's no more unary operations, then the ws tracking doesn't matter
+        let mut ws_prior = 0;
         let unaries = unaries
             .into_iter()
             .rev()
-            .filter_map(|unaries| {
+            .filter_map(|(unaries, ws)| {
+                let ws = ws + ws_prior;
                 let mut unaries = unaries.iter();
                 let mut last_unary = unaries.next().unwrap();
                 let mut use_unary = true;
@@ -166,9 +196,11 @@ impl Expression {
                 }
 
                 if ret.is_empty() {
+                    ws_prior = ws;
                     None
                 } else {
-                    Some(ret)
+                    ws_prior = 0;
+                    Some((ret, ws_prior))
                 }
             })
             .collect::<Vec<_>>();
