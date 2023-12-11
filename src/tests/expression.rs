@@ -1,5 +1,7 @@
 use crate::Interpreter;
 
+use super::interpreter_test_output;
+
 #[test]
 fn int_comparisons() {
     let code = r#"
@@ -46,10 +48,10 @@ assert(1 >= 2 == false)!
 #[test]
 fn comparison_order() {
     let code = r#"
-    assert(false || true&&false  == false)!
+assert(false || true&&false  == false)!
+assert(false == 1==2)!
+assert(true == 1;=2)!
     "#;
-    // assert(false == 1==2)!
-    // assert(true == 1;=2)!
     Interpreter::new_eval(code).unwrap();
 }
 
@@ -69,17 +71,45 @@ assert(1>=2==false)!
 #[test]
 fn math_expr() {
     let code = r#"
-assert(1+1==2)!
-assert(1-1==0)!
-assert(2*3==6)!
-assert(6/2==3)!
-assert(6%2==0)!
-assert(6**2==36)!
-assert(-6*-2==6*2)!
-assert(--6==6)!
-assert(6--6==12)!
+assert(1+1===2)!
+assert(1-1===0)!
+assert(2*3===6)!
+assert(6/2===3)!
+assert(6%2===0)!
+assert(6^2===36)!
+assert(-6*-2===6*2)!
+assert(--6===6)!
+assert(6--6===12)!
 "#;
     Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn math_expr_unary() {
+    let code = r#"
+assert(-1 === -1)!
+assert(- 1+2 ===- 1+2)!
+assert(-6*- 2+3 ===6*5)!
+assert(- 6+2 ===-8)!
+assert(-  6+2+ 3  ===-11)!
+assert(- 6+2+ 3 ===-5)!
+assert(-6+2===-4)!
+assert(- ;0 ===-1)!
+assert(- --1+2 ===-3)!
+assert(- 1+2 +- 3+4 ===-10)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn math_expr_unary2() {
+    let code = r#"
+print - -1!
+print - - -1!
+print - - - -1!
+"#;
+
+    interpreter_test_output(code, "1\n-1\n1\n");
 }
 
 #[test]
@@ -89,18 +119,18 @@ fn math_expr_order() {
     // 2 * 3 + 1 = 7
     // 2 * (3 + 1) = 8
     // 2 * (3 + (4 * 5)) + 6 = 52
-    // 2 * -(-3 + 4) - -5 + -(-6) = 9
-    // 2 * -(-(3 + 4)) = 14
-    // (2 * -(3 + 4)) = -14
+    // 2 * -(-3+4) - -5 + - -6 = 9
+    // 2 * --3 + 4 = 10
+    // 2 * -(3 + 4) = -14
     let code = r#"
-assert(1+1*2==3)!
-assert(1-1 * 2  == 0)!
-assert(2*3+1==7)!
-assert(2 *3+1  ==  8)!
-assert(2 * 3+ 4*5 + 6  ==52)!
-assert(2 * - -3+4 - -5 + - -6    == 9)!
-assert(2 * - - 3 + 4    ==    14)!
-assert(2 * - 3 + 4    ==    -14)!
+assert(1+1*2===3)!
+assert(1-1 * 2  === 0)!
+assert(2*3+1===7)!
+assert(2 *3+1  ===  8)!
+assert(2 * 3+ 4*5 + 6  ===52)!
+assert(2 * - -3+4 - -5 + - -6    === 9)!
+assert(2 * - - 3 + 4    ===    10)!
+assert(2 * - 3+4    ===    -14)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
