@@ -34,6 +34,14 @@ pub enum Expression {
     },
 }
 
+type AtomToExpressionResult<'a, 'b, 'c> =
+    AstParseResult<'a, 'b, 'c, (Expression, Vec<(Vec<UnaryOperator>, usize)>)>;
+
+type NextExprOperation<'a> = Option<&'a (
+    (Operator, usize),
+    (Expression, Vec<(Vec<UnaryOperator>, usize)>),
+)>;
+
 impl Expression {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
@@ -160,10 +168,7 @@ impl Expression {
     fn apply_pending_unary_immediate(
         pending_unary: &mut Vec<(Vec<UnaryOperator>, usize)>,
         mut left: Expression,
-        next_op: Option<&(
-            (Operator, usize),
-            (Expression, Vec<(Vec<UnaryOperator>, usize)>),
-        )>,
+        next_op: NextExprOperation,
     ) -> Expression {
         while let Some((op, ws)) = pending_unary.first() {
             let apply = match next_op {
@@ -195,7 +200,7 @@ impl Expression {
     /// - Order of the unary operators is from left to right
     fn atom_to_expression<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, (Self, Vec<(Vec<UnaryOperator>, usize)>)> {
+    ) -> AtomToExpressionResult<'a, 'b, 'c> {
         let (input, (unaries, expr)) = ((
             many0(tuple((many1(UnaryOperator::parse), ws_count))),
             Atom::parse,
