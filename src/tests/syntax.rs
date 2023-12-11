@@ -65,3 +65,23 @@ fnto d() => 4!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn comment_line() {
+    let code = r#"
+// This is a comment
+print "Hello, World!"! // another comment
+var var foo = // comment
+    1!
+print foo!
+var var foo // comment
+    = 2!
+print foo!
+"#;
+    interpreter_test_output(code, "Hello, World!\n1\n2\n");
+}
+
+#[test]
+fn comment_block() {
+    todo!("comment block");
+}

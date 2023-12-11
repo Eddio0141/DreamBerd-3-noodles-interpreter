@@ -12,7 +12,7 @@ use nom::{character::complete::*, Parser};
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, ws_count};
+use crate::parsers::{chunk, terminated_chunk, ws_count};
 use crate::prelude::Wrapper;
 use crate::Interpreter;
 
@@ -341,10 +341,13 @@ impl Atom {
             return Ok((input, Atom::FunctionCall(value)));
         }
 
+        let variable_parse = |chunk: Position<_>| input.extra.state.get_var(chunk.input);
+
         // variable?
-        if let Ok((input, var)) = map_opt(chunk::<_, ()>, |chunk: Position<_>| {
-            input.extra.state.get_var(chunk.input)
-        })(input)
+        if let Ok((input, var)) = alt((
+            map_opt(terminated_chunk::<_, ()>, variable_parse),
+            map_opt(chunk, variable_parse),
+        ))(input)
         {
             return Ok((input, Atom::Value(var)));
         }

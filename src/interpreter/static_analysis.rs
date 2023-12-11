@@ -64,7 +64,6 @@ impl<'a> Analysis<'a> {
                 .parse(input)
         };
 
-        // TODO comment
         let mut input = Position::new(input);
         let mut hoisted_funcs = Vec::new();
 
