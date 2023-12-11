@@ -59,23 +59,7 @@ impl Expression {
         let (mut left, mut pending_unary) = first_atom;
 
         // handle initial unary
-        let removed_unary = if let Some((op, ws)) = pending_unary.first() {
-            if *ws == 0 {
-                left = Expression::UnaryOperation {
-                    operator: op[0],
-                    right: Box::new(left),
-                };
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        if removed_unary {
-            pending_unary.remove(0);
-        }
+        left = Self::apply_pending_unary_immediate(&mut pending_unary, left);
 
         dbg!(&left, &pending_unary);
 
@@ -84,7 +68,9 @@ impl Expression {
         let mut left_pending = Vec::new();
 
         let mut priorities = priorities.into_iter().peekable();
-        while let Some(((op, ws), (right, right_pending_unary))) = priorities.next() {
+        while let Some(((op, ws), (mut right, mut right_pending_unary))) = priorities.next() {
+            right = Self::apply_pending_unary_immediate(&mut right_pending_unary, right);
+
             let next_op = priorities.peek();
 
             // is there next unary
@@ -92,10 +78,10 @@ impl Expression {
             if !right_pending_unary.is_empty() {
                 for right_pending_unary in right_pending_unary {
                     pending_unary.push(right_pending_unary);
+                    pending_order_is_left.push(false);
                 }
                 left_pending.push((left, op));
                 left = right;
-                pending_order_is_left.extend(vec![false; pending_unary.len()]);
                 pending_order_is_left.push(true);
                 continue;
             }
@@ -122,30 +108,76 @@ impl Expression {
                 operator: op,
                 right: Box::new(right),
             };
-            for take_left in pending_order_is_left.drain(..) {
-                if take_left {
+            dbg!(&left, &next_op);
+            let mut pending_order_removes = Vec::new();
+            for (i, take_left) in pending_order_is_left.iter().enumerate() {
+                dbg!(&pending_unary, take_left);
+                if *take_left {
                     let (left_inner, op_inner) = left_pending.pop().unwrap();
                     left = Expression::Operation {
                         left: Box::new(left_inner),
                         operator: op_inner,
                         right: Box::new(left),
                     };
+                    pending_order_removes.push(i);
                 } else {
-                    let (op_inner, _) = pending_unary.remove(0);
-                    for operator in op_inner {
-                        left = Expression::UnaryOperation {
-                            operator,
-                            right: Box::new(left),
-                        };
+                    let (op_inner, ws) = pending_unary.last().unwrap();
+
+                    // apply if unary ws is equals or less than next op ws
+                    let apply_unary = match next_op {
+                        Some(((_, next_ws), _)) => ws <= next_ws,
+                        None => true,
+                    };
+
+                    if apply_unary {
+                        for operator in op_inner {
+                            left = Expression::UnaryOperation {
+                                operator: *operator,
+                                right: Box::new(left),
+                            };
+                        }
+
+                        pending_order_removes.push(i);
+                        pending_unary.remove(0);
                     }
                 }
             }
+
+            // remove the pending orders
+            for i in pending_order_removes.into_iter().rev() {
+                pending_order_is_left.remove(i);
+            }
         }
+
+        assert!(pending_order_is_left.is_empty());
 
         Ok((input, dbg!(left)))
     }
 
-    // fn apply_pending_unary_immediate TODO
+    fn apply_pending_unary_immediate(
+        pending_unary: &mut Vec<(Vec<UnaryOperator>, usize)>,
+        mut left: Expression,
+    ) -> Expression {
+        let removed_unary = if let Some((op, ws)) = pending_unary.first() {
+            if *ws == 0 {
+                left = Expression::UnaryOperation {
+                    operator: op[0],
+                    right: Box::new(left),
+                };
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if removed_unary {
+            pending_unary.remove(0);
+        }
+
+        left
+    }
 
     /// Parses atom with its unary operators
     /// - Returns the built expression and if any unprocessed unary operators
@@ -199,7 +231,7 @@ impl Expression {
                     None
                 } else {
                     ws_prior = 0;
-                    Some((ret, ws_prior))
+                    Some((ret, ws))
                 }
             })
             .collect::<Vec<_>>();
