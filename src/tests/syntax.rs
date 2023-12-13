@@ -83,5 +83,15 @@ print foo!
 
 #[test]
 fn comment_block() {
-    todo!("comment block");
+    let code = r#"
+/* This is a comment
+    that spans multiple lines */
+print "Hello, World!"!
+var var foo = /* comment */ 1!
+print foo!
+var var foo /* comment
+    that spans multiple lines */ = 2!
+print foo!
+"#;
+    interpreter_test_output(code, "Hello, World!\n1\n2\n");
 }

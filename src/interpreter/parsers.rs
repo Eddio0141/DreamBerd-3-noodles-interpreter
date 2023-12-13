@@ -27,10 +27,14 @@ where
         + InputLength
         + Clone
         + InputTakeAtPosition<Item = char>
-        + Compare<&'a str>,
+        + Compare<&'a str>
+        + FindSubstring<&'a str>,
     E: ParseError<I>,
 {
-    value((), tuple((satisfy(is_ws), opt(comment_line))))(input)
+    value(
+        (),
+        tuple((satisfy(is_ws), opt(alt((comment_line, comment_block))))),
+    )(input)
 }
 
 /// At least one whitespace repeated
@@ -42,7 +46,8 @@ where
         + Clone
         + InputTakeAtPosition<Item = char>
         + Slice<RangeFrom<usize>>
-        + Compare<&'a str>,
+        + Compare<&'a str>
+        + FindSubstring<&'a str>,
 {
     value((), many1_count(ws_char))(input)
 }
@@ -58,7 +63,8 @@ where
         + Clone
         + InputTakeAtPosition<Item = char>
         + Slice<RangeFrom<usize>>
-        + Compare<&'a str>,
+        + Compare<&'a str>
+        + FindSubstring<&'a str>,
 {
     many0_count(ws_char)(input)
 }
@@ -72,13 +78,14 @@ where
         + Clone
         + InputTakeAtPosition<Item = char>
         + Slice<RangeFrom<usize>>
-        + Compare<&'a str>,
+        + Compare<&'a str>
+        + FindSubstring<&'a str>,
     E: ParseError<I>,
 {
     value((), many0_count(ws_char))(input)
 }
 
-/// Parses and ignores a comment
+/// Parses and ignores a line comment
 pub fn comment_line<'a, I, E>(input: I) -> IResult<I, (), E>
 where
     I: InputTake
@@ -91,6 +98,19 @@ where
 {
     let start = tag("//");
     let end = take_while(|ch| ch != '\n');
+    value((), tuple((start, end)))(input)
+}
+
+/// Parses and ignores block comments
+pub fn comment_block<'a, I, E>(input: I) -> IResult<I, (), E>
+where
+    I: InputTake + InputIter<Item = char> + Clone + Compare<&'a str> + FindSubstring<&'a str>,
+    E: ParseError<I>,
+{
+    let start = tag("/*");
+    // we fail if not terminated
+    const END: &str = "*/";
+    let end = tuple((take_until(END), take(END.len())));
     value((), tuple((start, end)))(input)
 }
 
@@ -128,7 +148,8 @@ where
         + InputLength
         + Slice<RangeFrom<usize>>
         + Compare<&'a str>
-        + InputTakeAtPosition<Item = char>,
+        + InputTakeAtPosition<Item = char>
+        + FindSubstring<&'a str>,
     E: ParseError<I>,
     P: Parser<I, PO, E>,
 {
@@ -217,7 +238,8 @@ where
         + Slice<RangeFrom<usize>>
         + InputTake
         + InputTakeAtPosition<Item = char>
-        + Compare<&'a str>,
+        + Compare<&'a str>
+        + FindSubstring<&'a str>,
     E: ParseError<I>,
 {
     let end = many1(char('!'));
