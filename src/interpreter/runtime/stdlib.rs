@@ -37,6 +37,6 @@ pub fn load(interpreter: &Interpreter) {
     ];
 
     for (name, value) in vars {
-        interpreter.state.add_var(name, value);
+        interpreter.state.add_var(name, value, 0);
     }
 }

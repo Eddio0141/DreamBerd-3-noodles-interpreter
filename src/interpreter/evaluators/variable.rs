@@ -19,12 +19,15 @@ use super::parsers::AstParseResult;
 pub struct VariableDecl {
     name: String,
     expression: Expression,
+    line: usize,
 }
 
 impl VariableDecl {
     pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
         let value = self.expression.eval(interpreter, code)?;
-        interpreter.state.add_var(&self.name, value.0.into_owned());
+        interpreter
+            .state
+            .add_var(&self.name, value.0.into_owned(), self.line);
 
         Ok(())
     }
@@ -36,7 +39,7 @@ impl VariableDecl {
         let eq = char('=');
         let identifier = identifier(LifeTime::parse);
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr
-        let (input, (_, _, _, _, identifier, _, _, _, _, expression, _)) = (
+        let (input, (start, _, _, _, identifier, _, _, _, _, expression, _)) = (
             var(),
             ws,
             var(),
@@ -54,6 +57,7 @@ impl VariableDecl {
         let decl = Self {
             expression,
             name: identifier.input.to_string(),
+            line: start.line,
         };
 
         Ok((input, decl))
@@ -64,12 +68,15 @@ impl VariableDecl {
 pub struct VarSet {
     name: String,
     expression: Expression,
+    line: usize,
 }
 
 impl VarSet {
     pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
         let value = self.expression.eval(interpreter, code)?;
-        interpreter.state.set_var(&self.name, value.0.into_owned());
+        interpreter
+            .state
+            .set_var(&self.name, value.0.into_owned(), self.line);
         Ok(())
     }
 
@@ -85,6 +92,7 @@ impl VarSet {
         let decl = Self {
             expression,
             name: identifier.input.to_string(),
+            line: identifier.line,
         };
 
         Ok((input, decl))

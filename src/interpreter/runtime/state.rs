@@ -77,8 +77,8 @@ impl InterpreterState {
             if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
                 if *defined_line > line {
                     new_scope.insert(name.to_string(), func.clone());
-                    return false;
                 }
+                return false;
             }
 
             true
@@ -117,15 +117,15 @@ impl InterpreterState {
         Err(Error::FunctionNotFound(name.to_string()))
     }
 
-    pub fn add_var(&self, name: &str, value: Value) {
+    pub fn add_var(&self, name: &str, value: Value, line: usize) {
         self.vars
             .borrow_mut()
             .last_mut()
             .unwrap()
-            .declare_var(name, value);
+            .declare_var(name, value, line);
     }
 
-    pub fn get_var(&self, name: &str) -> Option<Value> {
+    fn get_var(&self, name: &str) -> Option<Variable> {
         self.vars
             .borrow()
             .iter()
@@ -133,7 +133,7 @@ impl InterpreterState {
             .find_map(|vars| vars.get_var(name).cloned())
     }
 
-    pub fn set_var(&self, name: &str, value: Value) {
+    pub fn set_var(&self, name: &str, value: Value, line: usize) {
         let mut vars = self.vars.borrow_mut();
         let vars_iter = vars.iter_mut().rev();
 
@@ -144,7 +144,7 @@ impl InterpreterState {
         }
 
         // declare global
-        vars.last_mut().unwrap().declare_var(name, value);
+        vars.last_mut().unwrap().declare_var(name, value, line);
     }
 
     pub fn add_func(&self, name: &str, func: Function) {
@@ -155,28 +155,67 @@ impl InterpreterState {
             .0
             .insert(name.to_string(), func);
     }
+
+    /// Tries to get the latest defined variable or function with the given name
+    pub fn get_identifier(&self, name: &str) -> Option<DefineType> {
+        // check functions first
+        let func = self.get_func_info(name);
+        let var = self.get_var(name);
+
+        let Some(func) = func else {
+            return var.map(DefineType::Var);
+        };
+
+        let Some(var) = var else {
+            return Some(DefineType::Func(func));
+        };
+
+        let ret = match func.variant {
+            FunctionVariant::FunctionDefined { defined_line, .. } => {
+                if var.line > defined_line {
+                    DefineType::Var(var)
+                } else {
+                    DefineType::Func(func)
+                }
+            }
+            FunctionVariant::Native(_) => DefineType::Var(var),
+        };
+
+        Some(ret)
+    }
+}
+
+pub enum DefineType<'a> {
+    Var(Variable),
+    Func(Ref<'a, Function>),
 }
 
 #[derive(Debug, Default)]
-pub struct VariableState(pub HashMap<String, Value>);
+pub struct VariableState(pub HashMap<String, Variable>);
 
 impl VariableState {
-    pub fn declare_var(&mut self, name: &str, value: Value) {
-        self.0.insert(name.to_string(), value);
+    pub fn declare_var(&mut self, name: &str, value: Value, line: usize) {
+        self.0.insert(name.to_string(), Variable { value, line });
     }
 
-    pub fn get_var(&self, name: &str) -> Option<&Value> {
+    pub fn get_var(&self, name: &str) -> Option<&Variable> {
         self.0.get(name)
     }
 
     pub fn set_var(&mut self, name: &str, value: &Value) -> Option<()> {
         if let Some(var) = self.0.get_mut(name) {
-            *var = value.clone();
+            var.value = value.clone();
             Some(())
         } else {
             None
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Variable {
+    pub value: Value,
+    line: usize,
 }
 
 #[derive(Debug, Default)]

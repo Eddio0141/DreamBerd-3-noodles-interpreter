@@ -36,7 +36,7 @@ impl Statement {
         }
 
         // this needs to be done here since functions can be recursive
-        let function_call = tuple((FunctionCall::parse, end_of_statement))
+        let function_call = tuple((FunctionCall::parse_as_func, end_of_statement))
             .map(|(func, _)| Statement::FunctionCall(func));
         let function_def = FunctionDef::parse.map(Statement::FunctionDef);
         let variable_decl = VariableDecl::parse.map(Statement::VariableDecl);

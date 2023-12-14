@@ -10,6 +10,7 @@ use nom::sequence::{tuple, Tuple};
 use nom::{character::complete::*, Parser};
 
 use crate::interpreter::runtime::error::Error;
+use crate::interpreter::runtime::state::DefineType;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
 use crate::parsers::{chunk, terminated_chunk, ws_count};
@@ -342,11 +343,21 @@ impl Atom {
     fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        if let Ok((input, value)) = FunctionCall::parse(input) {
+        if let Ok((input, value)) = FunctionCall::parse_maybe_as_func(input) {
             return Ok((input, Atom::FunctionCall(value)));
         }
 
-        let variable_parse = |chunk: Position<_>| input.extra.state.get_var(chunk.input);
+        let variable_parse =
+            |chunk: Position<_>| match input.extra.state.get_identifier(chunk.input) {
+                Some(defined) => {
+                    if let DefineType::Var(var) = defined {
+                        Some(var)
+                    } else {
+                        None
+                    }
+                }
+                None => None,
+            };
 
         // variable?
         if let Ok((input, var)) = alt((
@@ -354,7 +365,7 @@ impl Atom {
             map_opt(chunk, variable_parse),
         ))(input)
         {
-            return Ok((input, Atom::Value(var)));
+            return Ok((input, Atom::Value(var.value.clone())));
         }
 
         // either an actual value or implicit string

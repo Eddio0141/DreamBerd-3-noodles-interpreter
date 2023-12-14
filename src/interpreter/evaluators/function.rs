@@ -12,7 +12,7 @@ use crate::{
         evaluators::statement::Statement,
         runtime::{
             error::Error,
-            state::{Function, FunctionVariant},
+            state::{DefineType, Function, FunctionVariant},
             value::Value,
         },
     },
@@ -45,6 +45,7 @@ impl FunctionCall {
     fn try_get_func<'a, 'b, 'c, P, PO>(
         input: Position<'a, 'b, Interpreter<'c>>,
         identifier_term: P,
+        fail_if_lower_identifier_order: bool,
     ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (&'a str, Ref<'b, Function>), ()>
     where
         P: Parser<Position<'a, 'b, Interpreter<'c>>, PO, ()>,
@@ -54,16 +55,39 @@ impl FunctionCall {
         let (input, identifier) = identifier(input)?;
         let identifier = identifier.into();
 
-        let Some(func) = input.extra.state.get_func_info(identifier) else {
-            return Err(nom::Err::Error(()));
+        let func = if fail_if_lower_identifier_order {
+            if let Some(DefineType::Func(func)) = input.extra.state.get_identifier(identifier) {
+                func
+            } else {
+                return Err(nom::Err::Error(()));
+            }
+        } else {
+            if let Some(func) = input.extra.state.get_func_info(identifier) {
+                func
+            } else {
+                return Err(nom::Err::Error(()));
+            }
         };
 
         // does the function exist
         Ok((input, (identifier, func)))
     }
 
-    pub fn parse<'a, 'b, 'c>(
+    pub fn parse_maybe_as_func<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
+        Self::parse(input, true)
+    }
+
+    pub fn parse_as_func<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
+        Self::parse(input, false)
+    }
+
+    fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+        fail_if_lower_identifier_order: bool,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
         // function call syntax
         // - `func_name!`
@@ -71,12 +95,13 @@ impl FunctionCall {
         // - `func_name arg1, arg2!`
 
         // try a stricter one first, and the relaxed after
-        let (input, (identifier, func)) = if let Ok(res) = Self::try_get_func(input, char('!')) {
-            res
-        } else {
-            Self::try_get_func(input, fail::<_, (), _>)
-                .map_err(|_| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))?
-        };
+        let (input, (identifier, func)) =
+            if let Ok(res) = Self::try_get_func(input, char('!'), fail_if_lower_identifier_order) {
+                res
+            } else {
+                Self::try_get_func(input, fail::<_, (), _>, fail_if_lower_identifier_order)
+                    .map_err(|_| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))?
+            };
 
         // no args?
         if func.arg_count == 0 {
