@@ -146,7 +146,7 @@ impl FunctionCall {
 /// A function definition
 pub struct FunctionDef {
     pub name: String,
-    pub arg_count: usize,
+    pub args: Vec<String>,
     pub body: String,
     pub body_line: usize,
 }
@@ -182,14 +182,24 @@ impl FunctionDef {
         // past header
         // func_args = { identifier ~ (comma ~ identifier)* }
         // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
-        let comma = || char(',');
+        let comma = || char::<Position<_, _>, _>(',');
         let arg_identifier = || identifier(comma());
         let args = tuple((
             arg_identifier(),
-            many0_count(tuple((ws, comma(), ws, arg_identifier()))),
-        ));
+            many0(
+                tuple((ws, comma(), ws, arg_identifier())).map(|(_, _, _, identifier)| identifier),
+            ),
+        ))
+        .map(|(first, mut rest)| {
+            rest.insert(0, first);
+            rest
+        });
         let arrow = || tag("=>");
-        let args = tuple((ws, args, ws, arrow())).map(|(_, (_, count), _, _)| count + 1);
+        let args = tuple((ws, args, ws, arrow())).map(|(_, args, _, _)| {
+            args.into_iter()
+                .map(|s| s.input.to_string())
+                .collect::<Vec<_>>()
+        });
         let identifier = identifier(arrow());
         let scope_start = char('{');
         let scope_end = char('}');
@@ -197,8 +207,14 @@ impl FunctionDef {
         let scope = scope.map(|_| ());
         let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
-        let (body, (_, identifier, _, arg_count, _)) =
-            ((ws, identifier, ws, alt((value(0, arrow()), args)), ws)).parse(input)?;
+        let (body, (_, identifier, _, args, _)) = ((
+            ws,
+            identifier,
+            ws,
+            alt((arrow().map(|_| Vec::new()), args)),
+            ws,
+        ))
+            .parse(input)?;
 
         let body_line = body.line;
 
@@ -206,7 +222,7 @@ impl FunctionDef {
 
         let instance = Self {
             name: identifier.input.to_string(),
-            arg_count,
+            args,
             body: body.input.to_string(),
             body_line,
         };
@@ -223,10 +239,11 @@ impl FunctionDef {
 impl From<&FunctionDef> for Function {
     fn from(func: &FunctionDef) -> Self {
         Self {
-            arg_count: func.arg_count,
+            arg_count: func.args.len(),
             variant: FunctionVariant::FunctionDefined {
                 defined_line: func.body_line,
                 body: func.body.clone(),
+                args: func.args.clone(),
             },
         }
     }

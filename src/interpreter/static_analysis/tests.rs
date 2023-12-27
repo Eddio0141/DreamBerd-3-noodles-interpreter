@@ -50,7 +50,7 @@ var var func = =>statement!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 0,
+        args: Vec::new(),
         hoisted_line: 4,
         body_location: 41,
     };
@@ -71,7 +71,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 0,
+        args: Vec::new(),
         hoisted_line: 3,
         body_location: 34,
     };
@@ -92,7 +92,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 1,
+        args: vec!["arg"],
         hoisted_line: 3,
         body_location: 33,
     };
@@ -113,7 +113,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 1,
+        args: vec!["arg"],
         hoisted_line: 3,
         body_location: 38,
     };
@@ -134,7 +134,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 3,
+        args: vec!["arg", "arg2", "arg3"],
         hoisted_line: 3,
         body_location: 46,
     };
@@ -155,7 +155,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 4,
+        args: vec!["arg", "arg2", "arg3", "arg4"],
         hoisted_line: 3,
         body_location: 55,
     };
@@ -176,7 +176,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 3,
+        args: vec!["arg", "=>", "=>"],
         hoisted_line: 3,
         body_location: 43,
     };
@@ -197,7 +197,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 2,
+        args: vec!["arg", "arg2"],
         hoisted_line: 1,
         body_location: 44,
     };
@@ -218,7 +218,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 2,
+        args: vec!["arg", "arg2"],
         hoisted_line: 3,
         body_location: 43,
     };
@@ -239,7 +239,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 2,
+        args: vec!["arg", "arg2"],
         hoisted_line: 3,
         body_location: 45,
     };
@@ -260,7 +260,7 @@ statement2!
     let func = &analysis.hoisted_funcs[0];
     let func_expected = FunctionInfo {
         identifier: "func",
-        arg_count: 2,
+        args: vec!["arg", "arg2"],
         hoisted_line: 3,
         body_location: 50,
     };

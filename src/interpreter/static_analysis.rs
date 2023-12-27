@@ -26,7 +26,7 @@ pub struct Analysis<'a> {
 /// - This only applies for functions defined with `function` keyword and functions assigned to a variable
 pub struct FunctionInfo<'a> {
     pub identifier: &'a str,
-    pub arg_count: usize,
+    pub args: Vec<&'a str>,
     /// Index of the line where the function will become usable
     pub hoisted_line: usize,
     /// Where the expression / scope is located as an index
@@ -41,7 +41,7 @@ impl<'a> Analysis<'a> {
                 .map(|(var_decl_pos, identifier, life_time, (args, expr_pos))| {
                     FunctionInfo {
                         identifier: identifier.input,
-                        arg_count: args.len(),
+                        args: args.iter().map(|s| s.input).collect(),
                         hoisted_line: match life_time {
                             Some(life_time) => match life_time {
                                 LifeTime::Infinity => var_decl_pos.line, // positive infinity

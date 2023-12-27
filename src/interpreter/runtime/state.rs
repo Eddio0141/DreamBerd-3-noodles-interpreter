@@ -48,17 +48,18 @@ impl InterpreterState {
         for func in analysis.hoisted_funcs {
             let FunctionInfo {
                 identifier,
-                arg_count,
+                args,
                 hoisted_line,
                 body_location,
             } = func;
             self.add_func(
                 identifier,
                 Function {
-                    arg_count,
+                    arg_count: args.len(),
                     variant: FunctionVariant::FunctionDefined {
                         defined_line: hoisted_line,
                         body: code[body_location..].to_string(),
+                        args: args.iter().map(|s| s.to_string()).collect(),
                     },
                 },
             )
@@ -228,14 +229,25 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn eval(
+    fn eval(
         &self,
         interpreter: &Interpreter,
         code: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         match &self.variant {
-            FunctionVariant::FunctionDefined { body, .. } => {
+            FunctionVariant::FunctionDefined {
+                body,
+                args: arg_names,
+                defined_line: _,
+            } => {
+                // declare arguments
+                for (arg_name, arg_value) in arg_names.iter().zip(args) {
+                    interpreter
+                        .state
+                        .add_var(arg_name, arg_value.0.into_owned(), 0);
+                }
+
                 let mut code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
 
                 // try expression first (it could be a function)
@@ -264,6 +276,8 @@ pub enum FunctionVariant {
         defined_line: usize,
         /// Where the expression / scope is located as an index
         body: String,
+        /// The arguments of the function
+        args: Vec<String>,
     },
     Native(NativeFunc),
 }
