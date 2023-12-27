@@ -11,6 +11,26 @@ assert(output === 1)!
 }
 
 #[test]
+fn declare_function_arg() {
+    let code = r#"
+function add left => left!
+var var output = add 1!
+assert(output === 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_function_args() {
+    let code = r#"
+function add left, right => left + right!
+var var output = add 1, 2!
+assert(output === 3)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
 fn scope_test() {
     let code = r#"
 var var a = 1!
