@@ -90,6 +90,10 @@ impl InterpreterState {
     pub fn pop_scope(&self, line: usize) {
         let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
 
+        if vars.len() == 1 {
+            return;
+        }
+
         vars.pop();
 
         // opposite to push_scope with hoisted functions
