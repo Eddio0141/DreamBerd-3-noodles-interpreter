@@ -201,10 +201,8 @@ impl FunctionDef {
                 .collect::<Vec<_>>()
         });
         let identifier = identifier(arrow());
-        let scope_start = char('{');
-        let scope_end = char('}');
-        let scope = tuple((scope_start, ws, many0(Statement::parse), scope_end));
-        let scope = scope.map(|_| ());
+        let scope_end = tuple((ws, char('}')));
+        let scope = many_till(Statement::parse, scope_end).map(|_| ());
         let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
         let (body, (_, identifier, _, args, _)) = ((
@@ -218,7 +216,7 @@ impl FunctionDef {
 
         let body_line = body.line;
 
-        let (input, _) = alt((expression, scope))(body)?;
+        let (input, _) = alt((scope, expression))(body)?;
 
         let instance = Self {
             name: identifier.input.to_string(),

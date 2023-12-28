@@ -63,7 +63,7 @@ impl Statement {
                 return Ok((input, Self::Expression));
             }
 
-            if let Ok((input_new, _)) = alt((ws1, chunk.map(|_| ())))(input) {
+            if let Ok((input_new, _)) = alt((ws1, terminated_chunk.map(|_| ())))(input) {
                 input = input_new;
             }
         }
