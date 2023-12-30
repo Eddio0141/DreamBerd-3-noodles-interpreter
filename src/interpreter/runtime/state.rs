@@ -254,19 +254,30 @@ impl Function {
 
                 let mut code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
 
-                // try expression first (it could be a function)
+                // check if block
+                if matches!(
+                    Statement::parse(code_with_pos),
+                    Ok((_, Statement::ScopeStart(_)))
+                ) {
+                    // its a block
+                    while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+                        code_with_pos = code_after;
+                        let ret = statement.eval(interpreter, code)?;
+                        if let Some(ret) = ret {
+                            return Ok(ret);
+                        }
+                    }
+
+                    return Ok(Value::Undefined);
+                }
+
+                // expression (this won't fail because implicit strings)
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
                     let value = expression.eval(interpreter, code)?;
                     return Ok(value.0.into_owned());
                 }
 
-                // its a block
-                while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
-                    code_with_pos = code_after;
-                    statement.eval(interpreter, code)?;
-                }
-
-                Ok(Value::Undefined)
+                unreachable!("function body is not a block or expression, which should be impossible because of implicit strings");
             }
             FunctionVariant::Native(native) => native(interpreter, args),
         }
