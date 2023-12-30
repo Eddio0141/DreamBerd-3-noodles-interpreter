@@ -13,8 +13,8 @@ assert(output === 1)!
 #[test]
 fn declare_function_arg() {
     let code = r#"
-function add left => left!
-var var output = add 1!
+function foo arg => arg!
+var var output = foo 1!
 assert(output === 1)!
 "#;
     Interpreter::new_eval(code).unwrap();
@@ -24,6 +24,30 @@ assert(output === 1)!
 fn declare_function_args() {
     let code = r#"
 function add left, right => left + right!
+var var output = add 1, 2!
+assert(output === 3)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_function_arg_scope() {
+    let code = r#"
+function foo arg => {
+    return arg!
+}
+var var output = foo 1!
+assert(output === 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn declare_function_args_scope() {
+    let code = r#"
+function add left, right => {
+    return left + right!
+}
 var var output = add 1, 2!
 assert(output === 3)!
 "#;
