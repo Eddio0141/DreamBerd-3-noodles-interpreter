@@ -246,3 +246,22 @@ impl From<&FunctionDef> for Function {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Return(Expression);
+
+impl Return {
+    pub fn parse<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> AstParseResult<'a, 'b, 'c, Self> {
+        let ret = tag("return");
+        let (input, (_, _, expr, _)) =
+            tuple((ret, ws, Expression::parse, end_of_statement))(input)?;
+
+        Ok((input, Self(expr)))
+    }
+
+    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<Value, Error> {
+        Ok(self.0.eval(interpreter, code).map(|v| v.0.into_owned())?)
+    }
+}

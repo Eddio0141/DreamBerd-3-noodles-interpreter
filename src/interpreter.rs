@@ -37,7 +37,10 @@ impl Interpreter<'_> {
         let mut code_with_pos = Position::new_with_extra(code, self);
         while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
             code_with_pos = code_after;
-            statement.eval(self, code)?;
+            let ret = statement.eval(self, code)?;
+            if ret.is_some() {
+                break;
+            }
         }
 
         Ok(())

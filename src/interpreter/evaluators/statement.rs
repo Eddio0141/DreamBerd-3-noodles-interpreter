@@ -3,13 +3,18 @@ use nom::{branch::*, combinator::*, sequence::*, Parser};
 use crate::{
     interpreter::{
         evaluators::{function::FunctionCall, variable::VarSet},
-        runtime,
+        runtime::{self, value::Value},
     },
     parsers::{types::Position, *},
     Interpreter,
 };
 
-use super::{function::FunctionDef, parsers::AstParseResult, scope::*, variable::VariableDecl};
+use super::{
+    function::{FunctionDef, Return},
+    parsers::AstParseResult,
+    scope::*,
+    variable::VariableDecl,
+};
 
 #[derive(Debug)]
 pub enum Statement {
@@ -20,6 +25,7 @@ pub enum Statement {
     Expression,
     ScopeStart(ScopeStart),
     ScopeEnd(ScopeEnd),
+    Return(Return),
 }
 
 impl Statement {
@@ -43,6 +49,7 @@ impl Statement {
         let var_set = VarSet::parse.map(Statement::VarSet);
         let scope_start = ScopeStart::parse.map(Statement::ScopeStart);
         let scope_end = ScopeEnd::parse.map(Statement::ScopeEnd);
+        let ret = Return::parse.map(Statement::Return);
 
         if let Ok((input, statement)) = alt((
             function_call,
@@ -51,6 +58,7 @@ impl Statement {
             var_set,
             scope_start,
             scope_end,
+            ret,
         ))(input)
         {
             return Ok((input, statement));
@@ -69,15 +77,20 @@ impl Statement {
         }
     }
 
-    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), runtime::error::Error> {
+    pub fn eval(
+        &self,
+        interpreter: &Interpreter,
+        code: &str,
+    ) -> Result<Option<Value>, runtime::error::Error> {
         match self {
-            Statement::FunctionCall(statement) => statement.eval(interpreter, code).map(|_| ()),
-            Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| ()),
-            Statement::VariableDecl(statement) => statement.eval(interpreter, code).map(|_| ()),
-            Statement::VarSet(statement) => statement.eval(interpreter, code).map(|_| ()),
-            Statement::Expression => Ok(()),
-            Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| ()),
-            Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| ()),
+            Statement::FunctionCall(statement) => statement.eval(interpreter, code).map(|_| None),
+            Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| None),
+            Statement::VariableDecl(statement) => statement.eval(interpreter, code).map(|_| None),
+            Statement::VarSet(statement) => statement.eval(interpreter, code).map(|_| None),
+            Statement::Expression => Ok(None),
+            Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| None),
+            Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| None),
+            Statement::Return(statement) => statement.eval(interpreter, code).map(Some),
         }
     }
 }
