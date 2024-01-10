@@ -16,13 +16,26 @@ use nom::{
 /// # Note
 /// - The position points to the start of the input
 /// - As the input is parsed and sliced, the position will be updated
-#[derive(Debug)]
 pub struct Position<'a, 'b, T = (), I: ?Sized = str> {
     pub line: usize,
     pub column: usize,
     pub index: usize,
     pub input: &'a I,
     pub extra: &'b T,
+}
+
+impl<'a, 'b, T, I> Debug for Position<'a, 'b, T, I>
+where
+    I: ?Sized + Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Position")
+            .field("line", &self.line)
+            .field("column", &self.column)
+            .field("index", &self.index)
+            .field("input", &self.input)
+            .finish()
+    }
 }
 
 impl<'a, 'b, T, I: ?Sized> Clone for Position<'a, 'b, T, I> {
