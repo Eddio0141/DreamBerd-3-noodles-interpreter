@@ -131,8 +131,6 @@ impl InterpreterState {
             }
             None => last_scope.extend(remove_scope),
         }
-
-        dbg!(vars);
     }
 
     pub fn invoke_func(
@@ -272,7 +270,6 @@ impl Function {
     fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
         let interpreter = eval_args.1.extra;
         let state = &interpreter.state;
-        dbg!(&state.vars);
 
         let pop_call_stack = || {
             state.funcs.borrow_mut().pop();
@@ -296,28 +293,40 @@ impl Function {
                     state.add_var(arg_name, arg_value.0.into_owned(), 0);
                 }
 
-                let mut code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
+                let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
                 let eval_args = (eval_args.0, code_with_pos);
 
                 // check if block
-                if matches!(
-                    Statement::parse(code_with_pos),
-                    Ok((_, Statement::ScopeStart(_)))
-                ) {
+                if let Ok((mut code_with_pos, Statement::ScopeStart(_))) =
+                    Statement::parse(code_with_pos)
+                {
+                    let mut scope_count = 1usize;
+
                     // its a block
                     while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+                        match statement {
+                            Statement::ScopeStart(_) => {
+                                scope_count =
+                                    scope_count.checked_add(1).expect("scope count overflow")
+                            }
+                            Statement::ScopeEnd(_) => {
+                                scope_count -= 1;
+                                if scope_count == 0 {
+                                    break;
+                                }
+                            }
+                            _ => (),
+                        }
+
                         code_with_pos = code_after;
                         let ret = statement.eval(eval_args)?;
                         if let Some(ret) = ret {
-                            dbg!(&ret);
-                            dbg!(&state.vars);
                             pop_call_stack();
                             return Ok(ret);
                         }
                     }
 
                     pop_call_stack();
-                    dbg!(&state.vars);
                     return Ok(Value::Undefined);
                 }
 
@@ -325,7 +334,6 @@ impl Function {
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
                     let value = expression.eval(eval_args)?;
                     pop_call_stack();
-                    dbg!(&state.vars);
                     return Ok(value.0.into_owned());
                 }
 
