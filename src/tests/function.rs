@@ -61,6 +61,37 @@ assert(right_type === "string")!
 }
 
 #[test]
+fn function_nested_scopes_return() {
+    let code = r#"
+function add left, right => {
+    {
+        var var foo = 1!
+        {{
+            return left + right!
+        }}
+    }
+}
+add 1, 2!
+var var left_type = typeof(left)!
+assert(left_type === "string")!
+var var right_type = typeof(right)!
+assert(right_type === "string")!
+var var foo_type = typeof(foo)!
+assert(foo_type === "string")!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn empty_function() {
+    let code = r#"
+function foo => {}
+foo!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
 fn scope_test() {
     let code = r#"
 var var a = 1!
