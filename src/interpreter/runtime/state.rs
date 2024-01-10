@@ -12,19 +12,36 @@ use crate::{
 
 use super::{error::Error, value::Value};
 
+type Scope<T> = Vec<T>;
+type CallStack<T> = Vec<T>;
+
 #[derive(Debug)]
 /// Interpreter state
 pub struct InterpreterState {
-    vars: Rc<RefCell<Vec<VariableState>>>,
+    /*
+     * by having a vec for each function call (CallStack), function call is as easy as pushing and popping
+     * without keeping track of how many scopes were opened which the `return` statement
+     * will have to pop on early return
+     */
+    vars: Rc<RefCell<CallStack<Scope<VariableState>>>>,
     // functions are either global or declared as a variable
-    funcs: Rc<RefCell<Vec<FunctionState>>>,
+    funcs: Rc<RefCell<CallStack<Scope<FunctionState>>>>,
 }
 
 impl Default for InterpreterState {
     fn default() -> Self {
+        let var_state = VariableState::default();
+        let func_state = FunctionState::default();
+
+        let vars = vec![var_state];
+        let funcs = vec![func_state];
+
+        let vars = vec![vars];
+        let funcs = vec![funcs];
+
         Self {
-            vars: Rc::new(RefCell::new(vec![Default::default()])),
-            funcs: Rc::new(RefCell::new(vec![Default::default()])),
+            vars: Rc::new(RefCell::new(vars)),
+            funcs: Rc::new(RefCell::new(funcs)),
         }
     }
 }
@@ -33,7 +50,10 @@ impl InterpreterState {
     /// Gets function info
     pub fn get_func_info(&self, name: &str) -> Option<Function> {
         let funcs = self.funcs.borrow();
-        funcs.iter().find_map(|funcs| funcs.0.get(name)).cloned()
+        funcs
+            .iter()
+            .find_map(|funcs| funcs.iter().find_map(|funcs| funcs.0.get(name)))
+            .cloned()
     }
 
     /// Adds the analysis information to the state
@@ -59,62 +79,36 @@ impl InterpreterState {
         }
     }
 
-    pub fn push_scope_at_line(&self, line: usize) {
+    pub fn push_scope(&self, line: Option<usize>) {
         let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
+        let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
 
         vars.push(Default::default());
 
         // when pushing scope, the hoisted functions that's defined after the push position will be pushed up to the new scope
         let last_scope = &mut funcs.last_mut().unwrap().0;
         let mut new_scope = HashMap::new();
-        last_scope.retain(|name, func| {
-            if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
-                if *defined_line > line {
-                    new_scope.insert(name.to_string(), func.clone());
-                }
-                return false;
-            }
 
-            true
-        });
+        match line {
+            Some(line) => last_scope.retain(|name, func| {
+                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
+                    if *defined_line > line {
+                        new_scope.insert(name.to_string(), func.clone());
+                    }
+                    return false;
+                }
+
+                true
+            }),
+            None => new_scope.extend(last_scope.drain()),
+        }
+
         funcs.push(FunctionState(new_scope));
     }
 
-    pub fn pop_scope_at_line(&self, line: usize) {
+    pub fn pop_scope(&self, line: Option<usize>) {
         let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
-
-        if vars.len() == 1 {
-            return;
-        }
-
-        vars.pop();
-
-        // opposite to push_scope with hoisted functions
-        let remove_scope = funcs.pop().unwrap();
-        let last_scope = &mut funcs.last_mut().unwrap().0;
-        for (name, func) in remove_scope.0 {
-            if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
-                if *defined_line > line {
-                    last_scope.insert(name, func);
-                }
-            }
-        }
-    }
-
-    pub fn push_scope(&self) {
-        let mut funcs = self.funcs.borrow_mut();
-
-        self.vars.borrow_mut().push(Default::default());
-
-        // same effect as moving hoisted functions up to the new scope
-        let last_scope = &mut funcs.last_mut().unwrap().0;
-        let mut new_scope = HashMap::new();
-        new_scope.extend(last_scope.drain());
-        funcs.push(FunctionState(new_scope));
-    }
-
-    pub fn pop_scope(&self) {
-        let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
+        let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
 
         if vars.len() == 1 {
             return;
@@ -125,7 +119,20 @@ impl InterpreterState {
         // opposite to push_scope with hoisted functions
         let remove_scope = funcs.pop().unwrap().0;
         let last_scope = &mut funcs.last_mut().unwrap().0;
-        last_scope.extend(remove_scope);
+        match line {
+            Some(line) => {
+                for (name, func) in remove_scope {
+                    if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
+                        if *defined_line > line {
+                            last_scope.insert(name, func);
+                        }
+                    }
+                }
+            }
+            None => last_scope.extend(remove_scope),
+        }
+
+        dbg!(vars);
     }
 
     pub fn invoke_func(
@@ -146,34 +153,44 @@ impl InterpreterState {
             .borrow_mut()
             .last_mut()
             .unwrap()
+            .last_mut()
+            .unwrap()
             .declare_var(name, value, line);
     }
 
     fn get_var(&self, name: &str) -> Option<Variable> {
-        self.vars
-            .borrow()
-            .iter()
-            .rev()
-            .find_map(|vars| vars.get_var(name).cloned())
+        self.vars.borrow().iter().find_map(|vars| {
+            vars.iter()
+                .rev()
+                .find_map(|vars| vars.get_var(name).cloned())
+        })
     }
 
     pub fn set_var(&self, name: &str, value: Value, line: usize) {
         let mut vars = self.vars.borrow_mut();
-        let vars_iter = vars.iter_mut().rev();
+        for vars in vars.iter_mut() {
+            let vars_iter = vars.iter_mut().rev();
 
-        for vars in vars_iter {
-            if vars.set_var(name, &value).is_some() {
-                return;
+            for vars in vars_iter {
+                if vars.set_var(name, &value).is_some() {
+                    return;
+                }
             }
         }
 
         // declare global
-        vars.last_mut().unwrap().declare_var(name, value, line);
+        vars.first_mut()
+            .unwrap()
+            .first_mut()
+            .unwrap()
+            .declare_var(name, value, line);
     }
 
     pub fn add_func(&self, name: &str, func: Function) {
         self.funcs
             .borrow_mut()
+            .last_mut()
+            .unwrap()
             .last_mut()
             .unwrap()
             .0
@@ -255,6 +272,12 @@ impl Function {
     fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
         let interpreter = eval_args.1.extra;
         let state = &interpreter.state;
+        dbg!(&state.vars);
+
+        let pop_call_stack = || {
+            state.funcs.borrow_mut().pop();
+            state.vars.borrow_mut().pop();
+        };
 
         match &self.variant {
             FunctionVariant::FunctionDefined {
@@ -262,7 +285,11 @@ impl Function {
                 args: arg_names,
                 defined_line: _,
             } => {
-                state.push_scope();
+                state
+                    .funcs
+                    .borrow_mut()
+                    .push(vec![FunctionState::default()]);
+                state.vars.borrow_mut().push(vec![VariableState::default()]);
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args) {
@@ -282,19 +309,23 @@ impl Function {
                         code_with_pos = code_after;
                         let ret = statement.eval(eval_args)?;
                         if let Some(ret) = ret {
-                            state.pop_scope();
+                            dbg!(&ret);
+                            dbg!(&state.vars);
+                            pop_call_stack();
                             return Ok(ret);
                         }
                     }
 
-                    state.pop_scope();
+                    pop_call_stack();
+                    dbg!(&state.vars);
                     return Ok(Value::Undefined);
                 }
 
                 // expression (this won't fail because implicit strings)
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
                     let value = expression.eval(eval_args)?;
-                    state.pop_scope();
+                    pop_call_stack();
+                    dbg!(&state.vars);
                     return Ok(value.0.into_owned());
                 }
 
