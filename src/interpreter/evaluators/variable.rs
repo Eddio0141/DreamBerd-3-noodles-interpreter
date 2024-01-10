@@ -13,6 +13,7 @@ use crate::Interpreter;
 
 use super::expression::Expression;
 use super::parsers::AstParseResult;
+use super::EvalArgs;
 
 #[derive(Debug, Clone)]
 /// Declared variable
@@ -23,8 +24,9 @@ pub struct VariableDecl {
 }
 
 impl VariableDecl {
-    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter, code)?;
+    pub fn eval(&self, args: EvalArgs) -> Result<(), Error> {
+        let interpreter = args.1.extra;
+        let value = self.expression.eval(args)?;
         interpreter
             .state
             .add_var(&self.name, value.0.into_owned(), self.line);
@@ -72,8 +74,9 @@ pub struct VarSet {
 }
 
 impl VarSet {
-    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<(), Error> {
-        let value = self.expression.eval(interpreter, code)?;
+    pub fn eval(&self, args: EvalArgs) -> Result<(), Error> {
+        let interpreter = args.1.extra;
+        let value = self.expression.eval(args)?;
         interpreter
             .state
             .set_var(&self.name, value.0.into_owned(), self.line);

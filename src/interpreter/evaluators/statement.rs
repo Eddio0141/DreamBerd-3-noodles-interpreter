@@ -14,6 +14,7 @@ use super::{
     parsers::AstParseResult,
     scope::*,
     variable::VariableDecl,
+    EvalArgs,
 };
 
 #[derive(Debug)]
@@ -77,20 +78,17 @@ impl Statement {
         }
     }
 
-    pub fn eval(
-        &self,
-        interpreter: &Interpreter,
-        code: &str,
-    ) -> Result<Option<Value>, runtime::error::Error> {
+    pub fn eval(&self, args: EvalArgs) -> Result<Option<Value>, runtime::error::Error> {
+        let interpreter = args.1.extra;
         match self {
-            Statement::FunctionCall(statement) => statement.eval(interpreter, code).map(|_| None),
+            Statement::FunctionCall(statement) => statement.eval(args).map(|_| None),
             Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| None),
-            Statement::VariableDecl(statement) => statement.eval(interpreter, code).map(|_| None),
-            Statement::VarSet(statement) => statement.eval(interpreter, code).map(|_| None),
+            Statement::VariableDecl(statement) => statement.eval(args).map(|_| None),
+            Statement::VarSet(statement) => statement.eval(args).map(|_| None),
             Statement::Expression => Ok(None),
             Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| None),
             Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| None),
-            Statement::Return(statement) => statement.eval(interpreter, code).map(Some),
+            Statement::Return(statement) => statement.eval(args).map(Some),
         }
     }
 }

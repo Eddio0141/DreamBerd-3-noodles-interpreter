@@ -20,8 +20,8 @@ use crate::{
 };
 use crate::{parsers::*, Interpreter};
 
-use super::expression::Expression;
 use super::parsers::AstParseResult;
+use super::{expression::Expression, EvalArgs};
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -31,15 +31,14 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<Value, Error> {
+    pub fn eval(&self, eval_args: EvalArgs) -> Result<Value, Error> {
+        let interpreter = eval_args.1.extra;
         let mut args = Vec::new();
         for arg in &self.args {
-            args.push(arg.eval(interpreter, code)?);
+            args.push(arg.eval(eval_args)?);
         }
 
-        interpreter
-            .state
-            .invoke_func(interpreter, code, &self.name, args)
+        interpreter.state.invoke_func(eval_args, &self.name, args)
     }
 
     fn try_get_func<'a, 'b, 'c, P, PO>(
@@ -265,12 +264,16 @@ impl Return {
         Ok((input, Self { expr, line }))
     }
 
-    pub fn eval(&self, interpreter: &Interpreter, code: &str) -> Result<Value, Error> {
+    pub fn eval(&self, args: EvalArgs) -> Result<Value, Error> {
+        let interpreter = args.1.extra;
         // return also ends the scope
+        // TODO nvm this is invalid
+        /* if statement {
+            return!
+          }
+        */
+        // this code above won't close the if statement scope
         interpreter.state.pop_scope_at_line(self.line);
-        Ok(self
-            .expr
-            .eval(interpreter, code)
-            .map(|v| v.0.into_owned())?)
+        Ok(self.expr.eval(args).map(|v| v.0.into_owned())?)
     }
 }

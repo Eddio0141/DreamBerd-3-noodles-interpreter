@@ -2,7 +2,7 @@ use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     interpreter::{
-        evaluators::{expression::Expression, statement::Statement},
+        evaluators::{expression::Expression, statement::Statement, EvalArgs},
         static_analysis::{Analysis, FunctionInfo},
     },
     parsers::types::Position,
@@ -130,13 +130,12 @@ impl InterpreterState {
 
     pub fn invoke_func(
         &self,
-        interpreter: &Interpreter<'_>,
-        code: &str,
+        eval_args: EvalArgs,
         name: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.get_func_info(name) {
-            return func.eval(interpreter, code, args);
+            return func.eval(eval_args, args);
         }
 
         Err(Error::FunctionNotFound(name.to_string()))
@@ -253,28 +252,25 @@ pub struct Function {
 }
 
 impl Function {
-    fn eval(
-        &self,
-        interpreter: &Interpreter,
-        code: &str,
-        args: Vec<Wrapper<Cow<Value>>>,
-    ) -> Result<Value, Error> {
+    fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
+        let interpreter = eval_args.1.extra;
+        let state = &interpreter.state;
+
         match &self.variant {
             FunctionVariant::FunctionDefined {
                 body,
                 args: arg_names,
                 defined_line: _,
             } => {
-                interpreter.state.push_scope();
+                state.push_scope();
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args) {
-                    interpreter
-                        .state
-                        .add_var(arg_name, arg_value.0.into_owned(), 0);
+                    state.add_var(arg_name, arg_value.0.into_owned(), 0);
                 }
 
                 let mut code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
+                let eval_args = (eval_args.0, code_with_pos);
 
                 // check if block
                 if matches!(
@@ -284,21 +280,21 @@ impl Function {
                     // its a block
                     while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
                         code_with_pos = code_after;
-                        let ret = statement.eval(interpreter, code)?;
+                        let ret = statement.eval(eval_args)?;
                         if let Some(ret) = ret {
-                            interpreter.state.pop_scope();
+                            state.pop_scope();
                             return Ok(ret);
                         }
                     }
 
-                    interpreter.state.pop_scope();
+                    state.pop_scope();
                     return Ok(Value::Undefined);
                 }
 
                 // expression (this won't fail because implicit strings)
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
-                    let value = expression.eval(interpreter, code)?;
-                    interpreter.state.pop_scope();
+                    let value = expression.eval(eval_args)?;
+                    state.pop_scope();
                     return Ok(value.0.into_owned());
                 }
 

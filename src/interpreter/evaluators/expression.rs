@@ -19,6 +19,7 @@ use crate::Interpreter;
 
 use super::function::FunctionCall;
 use super::parsers::AstParseResult;
+use super::EvalArgs;
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -262,23 +263,17 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval(
-        &self,
-        interpreter: &Interpreter,
-        code: &str,
-    ) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
         match self {
-            Expression::Atom(atom) => atom.eval(interpreter, code),
-            Expression::UnaryOperation { operator, right } => {
-                operator.eval(right, interpreter, code)
-            }
+            Expression::Atom(atom) => atom.eval(args),
+            Expression::UnaryOperation { operator, right } => operator.eval(right, args),
             Expression::Operation {
                 left,
                 operator,
                 right,
             } => {
-                let left = left.eval(interpreter, code)?;
-                let right = right.eval(interpreter, code)?;
+                let left = left.eval(args)?;
+                let right = right.eval(args)?;
 
                 let value = match operator {
                     Operator::Equal => Value::Boolean(left.loose_eq(&right)?),
@@ -327,14 +322,10 @@ pub enum Atom {
 }
 
 impl Atom {
-    pub fn eval(
-        &self,
-        interpreter: &Interpreter,
-        code: &str,
-    ) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
             Atom::Value(value) => Cow::Borrowed(value),
-            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(interpreter, code)?),
+            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
         };
 
         Ok(Wrapper(value))
@@ -391,12 +382,11 @@ impl UnaryOperator {
     pub fn eval<'a>(
         &'a self,
         right: &'a Expression,
-        interpreter: &Interpreter,
-        code: &str,
+        args: EvalArgs,
     ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
-            UnaryOperator::Not => !right.eval(interpreter, code)?,
-            UnaryOperator::Minus => (-right.eval(interpreter, code)?)?,
+            UnaryOperator::Not => !right.eval(args)?,
+            UnaryOperator::Minus => (-right.eval(args)?)?,
         };
 
         Ok(value)
