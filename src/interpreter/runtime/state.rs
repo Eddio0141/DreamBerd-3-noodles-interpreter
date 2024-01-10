@@ -59,7 +59,7 @@ impl InterpreterState {
         }
     }
 
-    pub fn push_scope(&self, line: usize) {
+    pub fn push_scope_at_line(&self, line: usize) {
         let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
 
         vars.push(Default::default());
@@ -80,7 +80,7 @@ impl InterpreterState {
         funcs.push(FunctionState(new_scope));
     }
 
-    pub fn pop_scope(&self, line: usize) {
+    pub fn pop_scope_at_line(&self, line: usize) {
         let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
 
         if vars.len() == 1 {
@@ -99,6 +99,16 @@ impl InterpreterState {
                 }
             }
         }
+    }
+
+    pub fn push_scope(&self) {
+        self.vars.borrow_mut().push(Default::default());
+        self.funcs.borrow_mut().push(Default::default());
+    }
+
+    pub fn pop_scope(&self) {
+        self.vars.borrow_mut().pop();
+        self.funcs.borrow_mut().pop();
     }
 
     pub fn invoke_func(
@@ -238,6 +248,8 @@ impl Function {
                 args: arg_names,
                 defined_line: _,
             } => {
+                interpreter.state.push_scope();
+
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args) {
                     interpreter
@@ -257,16 +269,19 @@ impl Function {
                         code_with_pos = code_after;
                         let ret = statement.eval(interpreter, code)?;
                         if let Some(ret) = ret {
+                            interpreter.state.pop_scope();
                             return Ok(ret);
                         }
                     }
 
+                    interpreter.state.pop_scope();
                     return Ok(Value::Undefined);
                 }
 
                 // expression (this won't fail because implicit strings)
                 if let Ok((_, expression)) = Expression::parse(code_with_pos) {
                     let value = expression.eval(interpreter, code)?;
+                    interpreter.state.pop_scope();
                     return Ok(value.0.into_owned());
                 }
 

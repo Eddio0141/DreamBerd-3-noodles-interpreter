@@ -25,7 +25,7 @@ impl ScopeStart {
     }
 
     pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
-        interpreter.state.push_scope(self.line);
+        interpreter.state.push_scope_at_line(self.line);
         Ok(Value::Undefined)
     }
 }
@@ -48,7 +48,7 @@ impl ScopeEnd {
     }
 
     pub fn eval(&self, interpreter: &Interpreter) -> Result<Value, Error> {
-        interpreter.state.pop_scope(self.line);
+        interpreter.state.pop_scope_at_line(self.line);
         Ok(Value::Undefined)
     }
 }
