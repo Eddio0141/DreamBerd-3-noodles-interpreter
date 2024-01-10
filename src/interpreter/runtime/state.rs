@@ -102,13 +102,30 @@ impl InterpreterState {
     }
 
     pub fn push_scope(&self) {
+        let mut funcs = self.funcs.borrow_mut();
+
         self.vars.borrow_mut().push(Default::default());
-        self.funcs.borrow_mut().push(Default::default());
+
+        // same effect as moving hoisted functions up to the new scope
+        let last_scope = &mut funcs.last_mut().unwrap().0;
+        let mut new_scope = HashMap::new();
+        new_scope.extend(last_scope.drain());
+        funcs.push(FunctionState(new_scope));
     }
 
     pub fn pop_scope(&self) {
-        self.vars.borrow_mut().pop();
-        self.funcs.borrow_mut().pop();
+        let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
+
+        if vars.len() == 1 {
+            return;
+        }
+
+        vars.pop();
+
+        // opposite to push_scope with hoisted functions
+        let remove_scope = funcs.pop().unwrap().0;
+        let last_scope = &mut funcs.last_mut().unwrap().0;
+        last_scope.extend(remove_scope);
     }
 
     pub fn invoke_func(
