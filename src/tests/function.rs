@@ -38,6 +38,8 @@ function foo arg => {
 }
 var var output = foo 1!
 assert(output === 1)!
+var var arg_type = typeof(arg)!
+assert(arg_type === "string")!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -50,6 +52,10 @@ function add left, right => {
 }
 var var output = add 1, 2!
 assert(output === 3)!
+var var left_type = typeof(left)!
+assert(left_type === "string")!
+var var right_type = typeof(right)!
+assert(right_type === "string")!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -82,5 +88,16 @@ var var a = 1!
 }
 assert(a === 1)!
 "#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn scope_close_mass() {
+    let code = r#"
+var var a = 1!
+{{{{
+    assert(a === 1)!
+    "#;
+
     Interpreter::new_eval(code).unwrap();
 }
