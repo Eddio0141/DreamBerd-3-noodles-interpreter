@@ -200,8 +200,45 @@ impl FunctionDef {
                 .collect::<Vec<_>>()
         });
         let identifier = identifier(arrow());
-        let scope_end = tuple((ws, char('}')));
-        let scope = many_till(Statement::parse, scope_end).map(|_| ());
+
+        // this parses the function body
+        // properly checks scope balance
+        let scope = |input| {
+            let scope_start = char('{');
+            let (mut input, _) = scope_start(input)?;
+            let scope_start = || tuple((ws, char('{'))).map(|_| Some(true));
+
+            let scope_end = || tuple((ws, char('}'))).map(|_| Some(false));
+            let mut statements_in_scope = many_till(
+                Statement::parse,
+                alt((scope_start(), scope_end(), eof.map(|_| None))),
+            );
+
+            let mut scope_track = 1usize;
+            loop {
+                if let Ok((i, (_, open_scope))) = statements_in_scope.parse(input) {
+                    input = i;
+
+                    if let Some(open_scope) = open_scope {
+                        if open_scope {
+                            scope_track = scope_track.checked_add(1).expect("scope overflow");
+                        } else {
+                            scope_track -= 1;
+                            if scope_track == 0 {
+                                return Ok((input, ()));
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+
+                // this basically parses the rest of the code as this function's body, and this is fine
+                // TODO do we parse the function as implicit string if it doesn't end with a scope?
+                return Ok((input, ()));
+            }
+        };
+
         let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
 
         let (body, (_, identifier, _, args, _)) = ((
@@ -273,7 +310,7 @@ impl Return {
           }
         */
         // this code above won't close the if statement scope
-        interpreter.state.pop_scope_at_line(self.line);
+        interpreter.state.pop_scope(Some(self.line));
         Ok(self.expr.eval(args).map(|v| v.0.into_owned())?)
     }
 }
