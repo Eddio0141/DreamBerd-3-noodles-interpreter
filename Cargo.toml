@@ -40,10 +40,8 @@ unsafe_code = "forbid"
 [profile.release]
 lto = "fat" # https://doc.rust-lang.org/cargo/reference/profiles.html#lto
 codegen-units = 1 # https://nnethercote.github.io/perf-book/build-configuration.html#codegen-units
-panic = "abort" # https://nnethercote.github.io/perf-book/build-configuration.html#abort-on-panic
 
 [profile.bench]
 lto = "fat"
 codegen-units = 1
-# panic settings are ignored for bench profile
 
