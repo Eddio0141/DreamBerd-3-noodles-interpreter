@@ -35,3 +35,12 @@ name = "bench"
 
 [lints.rust]
 unsafe_code = "forbid"
+
+[profile.release]
+lto = "fat" # https://doc.rust-lang.org/cargo/reference/profiles.html#lto
+codegen-units = 1 # https://nnethercote.github.io/perf-book/build-configuration.html#codegen-units
+
+[profile.bench]
+lto = "fat"
+codegen-units = 1
+
