@@ -1,8 +1,4 @@
-use std::{
-    borrow::Cow,
-    cell::{Ref, RefCell},
-    collections::HashMap,
-};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     interpreter::{
@@ -19,28 +15,25 @@ use super::{error::Error, value::Value};
 #[derive(Debug)]
 /// Interpreter state
 pub struct InterpreterState {
-    vars: RefCell<Vec<VariableState>>,
+    vars: Rc<RefCell<Vec<VariableState>>>,
     // functions are either global or declared as a variable
-    funcs: RefCell<Vec<FunctionState>>,
+    funcs: Rc<RefCell<Vec<FunctionState>>>,
 }
 
 impl Default for InterpreterState {
     fn default() -> Self {
         Self {
-            vars: RefCell::new(vec![Default::default()]),
-            funcs: RefCell::new(vec![Default::default()]),
+            vars: Rc::new(RefCell::new(vec![Default::default()])),
+            funcs: Rc::new(RefCell::new(vec![Default::default()])),
         }
     }
 }
 
 impl InterpreterState {
     /// Gets function info
-    pub fn get_func_info(&self, name: &str) -> Option<Ref<Function>> {
+    pub fn get_func_info(&self, name: &str) -> Option<Function> {
         let funcs = self.funcs.borrow();
-        Ref::filter_map(funcs, |funcs| {
-            funcs.iter().find_map(|funcs| funcs.0.get(name))
-        })
-        .ok()
+        funcs.iter().find_map(|funcs| funcs.0.get(name)).cloned()
     }
 
     /// Adds the analysis information to the state
@@ -58,8 +51,8 @@ impl InterpreterState {
                     arg_count: args.len(),
                     variant: FunctionVariant::FunctionDefined {
                         defined_line: hoisted_line,
-                        body: code[body_location..].to_string(),
-                        args: args.iter().map(|s| s.to_string()).collect(),
+                        body: Rc::new(code[body_location..].to_string()),
+                        args: Rc::new(args.iter().map(|s| s.to_string()).collect()),
                     },
                 },
             )
@@ -190,9 +183,9 @@ impl InterpreterState {
     }
 }
 
-pub enum DefineType<'a> {
+pub enum DefineType {
     Var(Variable),
-    Func(Ref<'a, Function>),
+    Func(Function),
 }
 
 #[derive(Debug, Default)]
@@ -290,9 +283,9 @@ pub enum FunctionVariant {
         /// The line where the function is usable from
         defined_line: usize,
         /// Where the expression / scope is located as an index
-        body: String,
+        body: Rc<String>,
         /// The arguments of the function
-        args: Vec<String>,
+        args: Rc<Vec<String>>,
     },
     Native(NativeFunc),
 }

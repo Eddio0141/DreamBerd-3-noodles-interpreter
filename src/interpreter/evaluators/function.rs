@@ -1,6 +1,6 @@
 //! Contains function related structures
 
-use std::cell::Ref;
+use std::rc::Rc;
 
 use nom::{
     branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
@@ -46,7 +46,7 @@ impl FunctionCall {
         input: Position<'a, 'b, Interpreter<'c>>,
         identifier_term: P,
         fail_if_lower_identifier_order: bool,
-    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (&'a str, Ref<'b, Function>), ()>
+    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (&'a str, Function), ()>
     where
         P: Parser<Position<'a, 'b, Interpreter<'c>>, PO, ()>,
     {
@@ -240,8 +240,8 @@ impl From<&FunctionDef> for Function {
             arg_count: func.args.len(),
             variant: FunctionVariant::FunctionDefined {
                 defined_line: func.body_line,
-                body: func.body.clone(),
-                args: func.args.clone(),
+                body: Rc::new(func.body.clone()),
+                args: Rc::new(func.args.clone()),
             },
         }
     }
