@@ -31,6 +31,11 @@
 //! "#;
 //! ```
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 pub use interpreter::error::*;
 pub use interpreter::*;
 
