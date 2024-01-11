@@ -1,12 +1,9 @@
-use std::{
-    fs,
-    io::{BufRead, Write},
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use dreamberd_noodles_interpreter::{interpreter::Interpreter, InterpreterBuilder};
+use rustyline::{error::ReadlineError, DefaultEditor};
 
 #[derive(Parser)]
 #[command(author, about, version)]
@@ -27,20 +24,30 @@ impl Cli {
             // repl mode
             let mut stdout = std::io::stdout().lock();
             let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
-            let mut stdout = std::io::stdout().lock();
-            let mut stdin = std::io::stdin().lock();
+
+            let mut editor = DefaultEditor::new().context("Failed to start repl with history")?;
+
             loop {
-                let mut input = String::new();
-                write!(stdout, ">>> ").context("Failed to write prompt")?;
-                stdout.flush().context("Failed to flush stdout")?;
-                stdin
-                    .read_line(&mut input)
-                    .context("Failed to read input for REPL")?;
-                let res = interpreter.eval(&input);
-                if let Err(err) = res {
-                    eprintln!("{}", err);
+                let line = editor.readline("> ");
+
+                match line {
+                    Ok(line) => {
+                        // history isn't required but it's nice to have
+                        let _ = editor.add_history_entry(&line);
+                        let res = interpreter.eval(&line);
+                        if let Err(err) = res {
+                            eprintln!("{}", err);
+                        }
+                    }
+                    Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
+                        // ctrl-c | ctrl-d
+                        break;
+                    }
+                    _ => (),
                 }
             }
+
+            Ok(())
         }
     }
 }
