@@ -284,33 +284,24 @@ impl From<&FunctionDef> for Function {
 }
 
 #[derive(Debug, Clone)]
-pub struct Return {
-    expr: Expression,
-    line: usize,
-}
+pub struct Return(Option<Expression>);
 
 impl Return {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        let line = input.line;
         let ret = tag("return");
-        let (input, (_, _, expr, _)) =
-            tuple((ret, ws, Expression::parse, end_of_statement))(input)?;
+        let empty_return = end_of_statement.map(|_| None);
+        let expr_return = tuple((Expression::parse, end_of_statement)).map(|(expr, _)| Some(expr));
+        let (input, (_, _, expr)) = tuple((ret, ws, alt((empty_return, expr_return))))(input)?;
 
-        Ok((input, Self { expr, line }))
+        Ok((input, Self(expr)))
     }
 
-    pub fn eval(&self, args: EvalArgs) -> Result<Value, Error> {
-        let interpreter = args.1.extra;
-        // return also ends the scope
-        // TODO nvm this is invalid
-        /* if statement {
-            return!
-          }
-        */
-        // this code above won't close the if statement scope
-        interpreter.state.pop_scope(Some(self.line));
-        Ok(self.expr.eval(args).map(|v| v.0.into_owned())?)
+    pub fn eval(&self, args: EvalArgs) -> Result<Option<Value>, Error> {
+        self.0
+            .as_ref()
+            .map(|expr| expr.eval(args).map(|result| result.0.into_owned()))
+            .transpose()
     }
 }
