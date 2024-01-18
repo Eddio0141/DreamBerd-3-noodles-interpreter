@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::Debug,
+    fmt::{Debug, Display},
     iter::{Copied, Enumerate},
     ops::{Range, RangeFrom, RangeTo},
     slice::Iter,
@@ -22,6 +22,12 @@ pub struct Position<'a, 'b, T = (), I: ?Sized = str> {
     pub index: usize,
     pub input: &'a I,
     pub extra: &'b T,
+}
+
+impl<'a, 'b, T> Display for Position<'a, 'b, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.input)
+    }
 }
 
 impl<'a, 'b, T, I> Debug for Position<'a, 'b, T, I>

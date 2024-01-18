@@ -1,4 +1,7 @@
-use std::{fmt::Debug, ops::RangeFrom};
+use std::{
+    fmt::{Debug, Display},
+    ops::RangeFrom,
+};
 
 use self::types::*;
 use nom::{
@@ -37,6 +40,29 @@ where
     )(input)
 }
 
+/// Same as `ws_char` but returns everything
+pub fn ws_char_value<'a, I, E>(input: I) -> IResult<I, String, E>
+where
+    I: Slice<RangeFrom<usize>>
+        + InputIter<Item = char>
+        + InputTake
+        + InputLength
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Compare<&'a str>
+        + FindSubstring<&'a str>
+        + Display,
+    E: ParseError<I>,
+{
+    let (input, ws) = satisfy(is_ws)(input)?;
+    let (input, comment) = opt(alt((comment_line_value, comment_block_value)))(input)?;
+    let mut value = ws.to_string();
+    if let Some(comment) = comment {
+        value.push_str(&comment);
+    }
+    Ok((input, value))
+}
+
 /// At least one whitespace repeated
 pub fn ws1<'a, I>(input: I) -> IResult<I, ()>
 where
@@ -50,6 +76,22 @@ where
         + FindSubstring<&'a str>,
 {
     value((), many1_count(ws_char))(input)
+}
+
+/// Same as `ws1` but returns everything
+pub fn ws1_value<'a, I>(input: I) -> IResult<I, String>
+where
+    I: InputIter<Item = char>
+        + InputLength
+        + InputTake
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Slice<RangeFrom<usize>>
+        + Compare<&'a str>
+        + FindSubstring<&'a str>
+        + Display,
+{
+    many1(ws_char_value).map(|ws| ws.concat()).parse(input)
 }
 
 /// Any amount of whitespace repeated
@@ -101,6 +143,24 @@ where
     value((), tuple((start, end)))(input)
 }
 
+/// Same as `comment_line` but returns everything
+pub fn comment_line_value<'a, I, E>(input: I) -> IResult<I, String, E>
+where
+    I: InputTake
+        + InputIter<Item = char>
+        + InputLength
+        + InputTakeAtPosition<Item = char>
+        + Clone
+        + Compare<&'a str>
+        + Display,
+    E: ParseError<I>,
+{
+    let start = tag("//");
+    let end = take_while(|ch| ch != '\n');
+    let (input, (start, end)) = tuple((start, end))(input)?;
+    Ok((input, format!("{start}{end}")))
+}
+
 /// Parses and ignores block comments
 pub fn comment_block<'a, I, E>(input: I) -> IResult<I, (), E>
 where
@@ -112,6 +172,25 @@ where
     const END: &str = "*/";
     let end = tuple((take_until(END), take(END.len())));
     value((), tuple((start, end)))(input)
+}
+
+/// Same as `comment_block` but returns everything
+pub fn comment_block_value<'a, I, E>(input: I) -> IResult<I, String, E>
+where
+    I: InputTake
+        + InputIter<Item = char>
+        + Clone
+        + Compare<&'a str>
+        + FindSubstring<&'a str>
+        + Display,
+    E: ParseError<I>,
+{
+    let start = tag("/*");
+    // we fail if not terminated
+    const END: &str = "*/";
+    let end = tuple((take_until(END), take(END.len())));
+    let (input, (start, (end, end2))) = tuple((start, end))(input)?;
+    Ok((input, format!("{start}{end}{end2}")))
 }
 
 /// Takes a chunk of code until the next whitespace
@@ -132,6 +211,22 @@ where
     E: ParseError<I>,
 {
     take_while(|ch| !is_ws(ch) && ch != '!')(input)
+}
+
+/// Same as `terminated_chunk` but returns everything as a string
+pub fn terminated_chunk_value<I, E>(input: I) -> IResult<I, String, E>
+where
+    I: InputLength
+        + InputIter<Item = char>
+        + InputTake
+        + Clone
+        + InputTakeAtPosition<Item = char>
+        + Display,
+    E: ParseError<I>,
+{
+    take_while(|ch| !is_ws(ch) && ch != '!')
+        .map(|res: I| res.to_string())
+        .parse(input)
 }
 
 /// Gets the identifier

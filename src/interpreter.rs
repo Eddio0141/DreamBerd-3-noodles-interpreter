@@ -1,4 +1,6 @@
-use std::{cell::RefCell, fmt::Debug, io::Write};
+use self::evaluators::{expression::Expression, statement::StatementReturn};
+use self::runtime::value::Value;
+use nom::{combinator::eof, sequence::tuple, Parser};
 
 use self::{
     evaluators::statement::Statement,
@@ -6,11 +8,12 @@ use self::{
     runtime::{state::InterpreterState, stdlib},
     static_analysis::Analysis,
 };
+use std::{cell::RefCell, fmt::Debug, io::Write};
 
 pub mod error;
 mod evaluators;
 pub mod parsers;
-mod runtime;
+pub mod runtime;
 mod static_analysis;
 
 /// The DreamBerd interpreter
@@ -30,21 +33,74 @@ impl Debug for Interpreter<'_> {
 impl Interpreter<'_> {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
-    pub fn eval(&self, code: &str) -> Result<(), self::error::Error> {
+    pub fn eval(&self, code: &str) -> Result<Vec<Value>, self::error::Error> {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(code, analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
         let args = (code, code_with_pos);
+
+        let mut values = Vec::new();
+
         while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
             code_with_pos = code_after;
-            let ret = statement.eval(args)?;
-            if ret.is_some() {
-                break;
+            let StatementReturn {
+                value,
+                return_value,
+            } = statement.eval(args)?;
+
+            if let Statement::Return(_) = statement {
+                if let Some(return_value) = return_value {
+                    values.push(return_value);
+                }
+                return Ok(values);
+            }
+
+            if let Some(value) = value {
+                values.push(value);
             }
         }
 
-        Ok(())
+        Ok(values)
+    }
+
+    /// Evaluate the given code but for repl
+    /// This will first try to parse the code as an expression first
+    pub fn eval_repl(&self, code: &str) -> Result<Vec<Value>, self::error::Error> {
+        let analysis = Analysis::analyze(code);
+        self.state.add_analysis_info(code, analysis);
+
+        let mut code_with_pos = Position::new_with_extra(code, self);
+        let args = (code, code_with_pos);
+
+        let mut expr = tuple((Expression::parse, eof)).map(|(expr, _)| expr);
+        if let Ok((_, expr)) = expr.parse(code_with_pos) {
+            let res: Value = expr.eval(args)?.0.into_owned();
+            return Ok(vec![res]);
+        }
+
+        let mut values = Vec::new();
+
+        while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+            code_with_pos = code_after;
+            let StatementReturn {
+                value,
+                return_value,
+            } = statement.eval(args)?;
+
+            if let Statement::Return(_) = statement {
+                if let Some(return_value) = return_value {
+                    values.push(return_value);
+                }
+                return Ok(values);
+            }
+
+            if let Some(value) = value {
+                values.push(value);
+            }
+        }
+
+        Ok(values)
     }
 
     /// Create a new interpreter and evaluate the given code
@@ -53,7 +109,8 @@ impl Interpreter<'_> {
         let mut stdout = std::io::stdout().lock();
         let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
         stdlib::load(&interpreter);
-        interpreter.eval(code)
+        interpreter.eval(code)?;
+        Ok(())
     }
 }
 

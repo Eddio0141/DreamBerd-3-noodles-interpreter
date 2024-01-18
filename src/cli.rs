@@ -2,7 +2,10 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use dreamberd_noodles_interpreter::{interpreter::Interpreter, InterpreterBuilder};
+use dreamberd_noodles_interpreter::{
+    interpreter::{runtime::value::Value, Interpreter},
+    InterpreterBuilder,
+};
 use rustyline::{error::ReadlineError, DefaultEditor};
 
 #[derive(Parser)]
@@ -34,9 +37,28 @@ impl Cli {
                     Ok(line) => {
                         // history isn't required but it's nice to have
                         let _ = editor.add_history_entry(&line);
-                        let res = interpreter.eval(&line);
-                        if let Err(err) = res {
-                            eprintln!("{}", err);
+                        let res = interpreter.eval_repl(&line);
+                        match res {
+                            Ok(mut res) => {
+                                while let Some(Value::Undefined) = res.last() {
+                                    res.pop();
+                                }
+
+                                if res.is_empty() {
+                                    continue;
+                                }
+
+                                println!(
+                                    "{}",
+                                    res.iter()
+                                        .map(|val| val.to_string())
+                                        .collect::<Vec<_>>()
+                                        .join("\n")
+                                );
+                            }
+                            Err(err) => {
+                                eprintln!("{}", err);
+                            }
                         }
                     }
                     Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {

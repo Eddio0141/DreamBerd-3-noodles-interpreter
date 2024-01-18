@@ -23,7 +23,7 @@ pub enum Statement {
     FunctionDef(FunctionDef),
     VariableDecl(VariableDecl),
     VarSet(VarSet),
-    Expression,
+    ImplicitString(Value),
     ScopeStart(ScopeStart),
     ScopeEnd(ScopeEnd),
     Return(Return),
@@ -67,28 +67,55 @@ impl Statement {
 
         // TODO rewrite test to ensure type isn't implicit string
         // last resort, pass it as an implicit string
+        let mut implicit_string = String::new();
+
         loop {
             if let Ok((input, _)) = alt((value((), eof::<_, ()>), end_of_statement))(input) {
-                return Ok((input, Self::Expression));
+                return Ok((input, Self::ImplicitString(Value::String(implicit_string))));
             }
 
-            if let Ok((input_new, _)) = alt((ws1, terminated_chunk.map(|_| ())))(input) {
+            if let Ok((input_new, chunk)) = alt((ws1_value, terminated_chunk_value))(input) {
                 input = input_new;
+                implicit_string.push_str(&chunk);
             }
         }
     }
 
-    pub fn eval(&self, args: EvalArgs) -> Result<Option<Value>, runtime::error::Error> {
+    pub fn eval(&self, args: EvalArgs) -> Result<StatementReturn, runtime::error::Error> {
         let interpreter = args.1.extra;
-        match self {
-            Statement::FunctionCall(statement) => statement.eval(args).map(|_| None),
-            Statement::FunctionDef(statement) => statement.eval(interpreter).map(|_| None),
-            Statement::VariableDecl(statement) => statement.eval(args).map(|_| None),
-            Statement::VarSet(statement) => statement.eval(args).map(|_| None),
-            Statement::Expression => Ok(None),
-            Statement::ScopeStart(statement) => statement.eval(interpreter).map(|_| None),
-            Statement::ScopeEnd(statement) => statement.eval(interpreter).map(|_| None),
-            Statement::Return(statement) => statement.eval(args).map(Some),
-        }
+        let value = match self {
+            Statement::FunctionCall(statement) => statement.eval(args)?,
+            Statement::FunctionDef(statement) => {
+                return statement.eval(interpreter).map(|_| Default::default())
+            }
+            Statement::VariableDecl(statement) => {
+                return statement.eval(args).map(|_| Default::default())
+            }
+            Statement::VarSet(statement) => {
+                return statement.eval(args).map(|_| Default::default())
+            }
+            Statement::ImplicitString(value) => value.to_owned(),
+            Statement::ScopeStart(statement) => statement.eval(interpreter)?,
+            Statement::ScopeEnd(statement) => statement.eval(interpreter)?,
+            Statement::Return(statement) => {
+                return statement.eval(args).map(|return_value| StatementReturn {
+                    value: None,
+                    return_value,
+                })
+            }
+        };
+
+        Ok(StatementReturn {
+            value: Some(value),
+            return_value: None,
+        })
     }
+}
+
+#[derive(Default)]
+pub struct StatementReturn {
+    /// Any value that is generated from the statement
+    pub value: Option<Value>,
+    /// For return statements, this is the value that is returned
+    pub return_value: Option<Value>,
 }

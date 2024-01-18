@@ -92,6 +92,18 @@ foo!
 }
 
 #[test]
+fn empty_return() {
+    let code = r#"
+function foo => {
+    return!
+}
+var var result = foo!
+assert(result === undefined)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
 fn scope_test() {
     let code = r#"
 var var a = 1!

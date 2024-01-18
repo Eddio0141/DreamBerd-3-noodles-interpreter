@@ -319,7 +319,7 @@ impl Function {
                         }
 
                         code_with_pos = code_after;
-                        let ret = statement.eval(eval_args)?;
+                        let ret = statement.eval(eval_args)?.return_value;
                         if let Some(ret) = ret {
                             pop_call_stack();
                             return Ok(ret);
