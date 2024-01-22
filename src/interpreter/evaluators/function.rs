@@ -239,7 +239,8 @@ impl FunctionDef {
             }
         };
 
-        let expression = tuple((Expression::parse, end_of_statement)).map(|_| ());
+        let expression =
+            tuple((recognize(Expression::parse), end_of_statement)).map(|(expr, _)| expr);
 
         let (body, (_, identifier, _, args, _)) = ((
             ws,
@@ -252,12 +253,12 @@ impl FunctionDef {
 
         let body_line = body.line;
 
-        let (input, _) = alt((scope, expression))(body)?;
+        let (input, body) = alt((recognize(scope), expression))(body)?;
 
         let instance = Self {
             name: identifier.input.to_string(),
             args,
-            body: body.input.to_string(),
+            body: body.to_string(),
             body_line,
         };
 
