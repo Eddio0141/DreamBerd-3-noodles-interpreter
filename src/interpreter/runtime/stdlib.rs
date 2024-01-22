@@ -1,9 +1,6 @@
 //! Module containing the standard library functions
 
-use crate::{
-    interpreter::runtime::{state::FunctionVariant, value::Value},
-    Interpreter,
-};
+use crate::{interpreter::runtime::state::FunctionVariant, Interpreter};
 
 use super::state::{Function, NativeFunc};
 
@@ -28,15 +25,5 @@ pub fn load(interpreter: &Interpreter) {
                 variant: FunctionVariant::Native(func),
             },
         );
-    }
-
-    // vars
-    let vars = vec![
-        ("undefined", Value::Undefined),
-        ("null", Value::Object(None)),
-    ];
-
-    for (name, value) in vars {
-        interpreter.state.add_var(name, value, 0);
     }
 }
