@@ -3,6 +3,7 @@ use pretty_assertions::assert_eq;
 
 mod expression;
 mod function;
+mod object;
 mod stdlib;
 mod syntax;
 mod variable;
