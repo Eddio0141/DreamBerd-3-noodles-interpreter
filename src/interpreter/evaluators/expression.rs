@@ -49,7 +49,6 @@ impl Expression {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        dbg!(&input);
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
         // 1+ 2 * 3
