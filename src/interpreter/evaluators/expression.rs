@@ -18,6 +18,7 @@ use crate::prelude::Wrapper;
 use crate::Interpreter;
 
 use super::function::FunctionCall;
+use super::object::ObjectInitialiser;
 use super::parsers::AstParseResult;
 use super::EvalArgs;
 
@@ -48,6 +49,7 @@ impl Expression {
     pub fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
+        dbg!(&input);
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
         // 1+ 2 * 3
@@ -319,6 +321,7 @@ impl Expression {
 pub enum Atom {
     Value(Value),
     FunctionCall(FunctionCall),
+    ObjectInitialiser(ObjectInitialiser),
 }
 
 impl Atom {
@@ -326,6 +329,7 @@ impl Atom {
         let value = match self {
             Atom::Value(value) => Cow::Borrowed(value),
             Atom::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
+            Atom::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
         };
 
         Ok(Wrapper(value))
@@ -362,6 +366,12 @@ impl Atom {
         // either an actual value or implicit string
         if let Ok((input, value)) = Value::parse(input) {
             return Ok((input, Atom::Value(value)));
+        }
+
+        // object initialiser
+        // this isn't merged with `Value::parse` because object initialiser contains expressions, not values
+        if let Ok((input, value)) = ObjectInitialiser::parse(input) {
+            return Ok((input, Atom::ObjectInitialiser(value)));
         }
 
         // implicit string

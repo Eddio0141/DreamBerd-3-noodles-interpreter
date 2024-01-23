@@ -37,6 +37,12 @@ pub enum Value {
     Object(Option<Rc<RefCell<Object>>>),
 }
 
+impl From<Object> for Value {
+    fn from(value: Object) -> Self {
+        Value::Object(Some(Rc::new(RefCell::new(value))))
+    }
+}
+
 impl Value {
     pub fn pow(&self, rhs: &Self) -> Result<Self, runtime::Error> {
         Ok(Value::Number(
@@ -572,7 +578,7 @@ impl<'a> Neg for Wrapper<Cow<'a, Value>> {
 
 #[derive(Debug, Clone)]
 pub struct Object {
-    properties: HashMap<String, Value>,
+    pub properties: HashMap<String, Value>,
 }
 
 impl Display for Object {
