@@ -11,6 +11,7 @@ criterion_group!(
     expressions::compare_expressions_chain,
     expressions::unary_chain,
     expressions::unary_chain_spaced,
+    expressions::obj_initialiser,
     function::many_args
 );
 criterion_main!(benches);
