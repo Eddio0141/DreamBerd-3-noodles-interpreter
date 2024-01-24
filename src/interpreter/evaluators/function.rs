@@ -72,35 +72,59 @@ impl FunctionCall {
         Ok((input, (identifier, func)))
     }
 
-    pub fn parse_maybe_as_func<'a, 'b, 'c>(
+    pub fn parse_maybe_as_func<'a, 'b, 'c, P>(
         input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
-        Self::parse(input, true)
+        identifier_term: Option<P>,
+    ) -> AstParseResult<'a, 'b, 'c, Self>
+    where
+        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+    {
+        Self::parse(input, identifier_term, true)
     }
 
     pub fn parse_as_func<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        Self::parse(input, false)
+        Self::parse::<fn(Position<'_, '_, Interpreter<'_>>) -> _>(input, None, false)
     }
 
-    fn parse<'a, 'b, 'c>(
+    /// Parses a function call
+    /// # Arguments
+    /// - `fail_if_lower_identifier_order`: if true, this will fail the parser if an identifier is found that is a variable too
+    fn parse<'a, 'b, 'c, P>(
         input: Position<'a, 'b, Interpreter<'c>>,
+        identifier_term: Option<P>,
         fail_if_lower_identifier_order: bool,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    ) -> AstParseResult<'a, 'b, 'c, Self>
+    where
+        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+    {
         // function call syntax
         // - `func_name!`
         // with args
         // - `func_name arg1, arg2!`
 
         // try a stricter one first, and the relaxed after
-        let (input, (identifier, func)) =
-            if let Ok(res) = Self::try_get_func(input, char('!'), fail_if_lower_identifier_order) {
-                res
-            } else {
-                Self::try_get_func(input, fail::<_, (), _>, fail_if_lower_identifier_order)
-                    .map_err(|_| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))?
+        let strict_result = match identifier_term.clone() {
+            Some(identifier_term) => Self::try_get_func(
+                input,
+                alt((identifier_term, char('!').map(|_| ()))),
+                fail_if_lower_identifier_order,
+            ),
+            None => Self::try_get_func(input, char('!'), fail_if_lower_identifier_order),
+        };
+        let (input, (identifier, func)) = if let Ok(res) = strict_result {
+            res
+        } else {
+            let relaxed_result = match identifier_term {
+                Some(identifier_term) => {
+                    Self::try_get_func(input, identifier_term, fail_if_lower_identifier_order)
+                }
+                None => Self::try_get_func(input, fail::<_, (), _>, fail_if_lower_identifier_order),
             };
+            relaxed_result
+                .map_err(|_| nom::Err::Error(nom::error::Error::new(input, ErrorKind::Fail)))?
+        };
 
         // no args?
         if func.arg_count == 0 {

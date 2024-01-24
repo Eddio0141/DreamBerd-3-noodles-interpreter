@@ -4,18 +4,20 @@ use std::borrow::Cow;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until};
-use nom::combinator::{map_opt, value};
+use nom::combinator::{map_opt, rest, value};
+use nom::error::ErrorKind;
 use nom::multi::{many0, many1};
 use nom::sequence::{tuple, Tuple};
+use nom::IResult;
 use nom::{character::complete::*, Parser};
 
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::state::DefineType;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, terminated_chunk, ws_count};
+use crate::parsers::{chunk, identifier, terminated_chunk, ws_count};
 use crate::prelude::Wrapper;
-use crate::Interpreter;
+use crate::{impl_eval, Interpreter};
 
 use super::function::FunctionCall;
 use super::object::ObjectInitialiser;
@@ -317,19 +319,77 @@ impl Expression {
 }
 
 #[derive(Debug, Clone)]
-pub enum Atom {
+// everything in here isn't evaluated until `eval`
+pub struct Atom {
+    value: AtomValue,
+    postfix: Vec<AtomPostfix>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AtomValue {
     Value(Value),
     FunctionCall(FunctionCall),
     ObjectInitialiser(ObjectInitialiser),
 }
 
+#[derive(Debug, Clone)]
+pub enum AtomPostfix {
+    ObjectAccess(String),
+}
+
+impl AtomPostfix {
+    pub fn parse<'a, 'b, 'c, E>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, Self, E>
+    where
+        E: nom::error::ParseError<Position<'a, 'b, Interpreter<'c>>>,
+    {
+        // object postfix can recurse
+        // obj.postfix.postfix
+        let mut obj_property = tuple((
+            char('.'),
+            alt((identifier(AtomPostfix::parse), terminated_chunk)),
+        ))
+        .map(|(_, property)| AtomPostfix::ObjectAccess(property.to_string()));
+
+        obj_property.parse(input)
+    }
+
+    pub fn parse_empty<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (), ()> {
+        Self::parse(input).map(|(input, _)| (input, ()))
+    }
+}
+
+impl_eval!(AtomPostfix, self, value: Cow<Value>, {
+    match self {
+        AtomPostfix::ObjectAccess(property) => {
+            let Value::Object(Some(obj)) = value.into_owned() else {
+                todo!()
+            };
+
+            let obj = obj.borrow();
+
+            match obj.properties.get(property) {
+                Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
+                None => todo!(),
+            }
+        }
+    }
+}, Wrapper<Cow<Value>>);
+
 impl Atom {
     pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
-        let value = match self {
-            Atom::Value(value) => Cow::Borrowed(value),
-            Atom::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
-            Atom::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
+        let mut value = match &self.value {
+            AtomValue::Value(value) => Cow::Borrowed(value),
+            AtomValue::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
+            AtomValue::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
         };
+
+        for postfix in &self.postfix {
+            value = postfix.eval(value)?.0;
+        }
 
         Ok(Wrapper(value))
     }
@@ -337,8 +397,48 @@ impl Atom {
     fn parse<'a, 'b, 'c>(
         input: Position<'a, 'b, Interpreter<'c>>,
     ) -> AstParseResult<'a, 'b, 'c, Self> {
-        if let Ok((input, value)) = FunctionCall::parse_maybe_as_func(input) {
-            return Ok((input, Atom::FunctionCall(value)));
+        // try parse without postfix and assume the whole thing is an identifier
+        if let Ok((input, value)) =
+            AtomValue::parse::<fn(Position<'_, '_, Interpreter<'_>>) -> _>(input, None)
+        {
+            return Ok((
+                input,
+                Atom {
+                    value,
+                    postfix: Vec::new(),
+                },
+            ));
+        }
+
+        // try parse with postfix
+        if let Ok((input, value)) = AtomValue::parse(input, Some(AtomPostfix::parse_empty)) {
+            // has postfix, now grab them
+            let (input, postfix) = many1(AtomPostfix::parse)(input)?;
+            return Ok((input, Atom { value, postfix }));
+        }
+
+        // last resort, will return implicit string if all fails
+        let (input, value) = AtomValue::parse_last_resort(input);
+
+        // ok, parse postfix too
+        let (input, postfix) = many0(AtomPostfix::parse)(input)?;
+
+        Ok((input, Atom { value, postfix }))
+    }
+}
+
+impl AtomValue {
+    fn parse<'a, 'b, 'c, P>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+        postfix_separator: Option<P>,
+    ) -> AstParseResult<'a, 'b, 'c, Self>
+    where
+        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+    {
+        if let Ok((input, value)) =
+            FunctionCall::parse_maybe_as_func(input, postfix_separator.clone())
+        {
+            return Ok((input, AtomValue::FunctionCall(value)));
         }
 
         let variable_parse =
@@ -354,30 +454,52 @@ impl Atom {
             };
 
         // variable?
-        if let Ok((input, var)) = alt((
-            map_opt(terminated_chunk::<_, ()>, variable_parse),
-            map_opt(chunk, variable_parse),
-        ))(input)
-        {
-            return Ok((input, Atom::Value(var.value.clone())));
+        let variable_parse_result = match postfix_separator {
+            Some(postfix_separator) => alt((
+                map_opt(
+                    identifier(alt((char('!').map(|_| ()), postfix_separator))),
+                    variable_parse,
+                ),
+                map_opt(chunk, variable_parse),
+            ))(input),
+            None => alt((
+                map_opt(terminated_chunk::<_, ()>, variable_parse),
+                map_opt(chunk, variable_parse),
+            ))(input),
+        };
+        if let Ok((input, var)) = variable_parse_result {
+            return Ok((input, AtomValue::Value(var.value.clone())));
         }
 
-        // either an actual value or implicit string
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            ErrorKind::Verify,
+        )));
+    }
+
+    /// Parsing last resort
+    fn parse_last_resort<'a, 'b, 'c>(
+        input: Position<'a, 'b, Interpreter<'c>>,
+    ) -> (Position<'a, 'b, Interpreter<'c>>, Self) {
+        // actual value?
         if let Ok((input, value)) = Value::parse(input) {
-            return Ok((input, Atom::Value(value)));
+            return (input, AtomValue::Value(value));
         }
 
         // object initialiser
         // this isn't merged with `Value::parse` because object initialiser contains expressions, not values
         if let Ok((input, value)) = ObjectInitialiser::parse(input) {
-            return Ok((input, Atom::ObjectInitialiser(value)));
+            return (input, AtomValue::ObjectInitialiser(value));
         }
 
         // implicit string
         // take until `!`
-        let (input, rest) = take_until("!")(input)?;
+        let (input, str) = alt((take_until::<_, _, ()>("!"), rest))(input).unwrap();
 
-        Ok((input, Atom::Value(Value::String(rest.input.to_string()))))
+        (
+            input,
+            AtomValue::Value(Value::String(str.input.to_string())),
+        )
     }
 }
 
