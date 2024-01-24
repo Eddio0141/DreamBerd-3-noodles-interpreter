@@ -37,7 +37,7 @@ impl_parser!(
         ))(input)?;
 
         // unique properties, if duplicate, last one is used
-        let properties = properties.into_iter().rev().collect();
+        let properties = properties.into_iter().collect();
 
         Ok((input, Self(properties)))
     },
