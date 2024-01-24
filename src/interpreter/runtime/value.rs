@@ -592,9 +592,24 @@ impl Display for Object {
             .iter()
             .map(|(key, value)| {
                 let value = if let Value::String(value) = value {
+                    let value = value.replace('\n', "\\n");
                     format!("\'{value}\'")
                 } else {
-                    value.to_string()
+                    let value = value.to_string();
+
+                    // for the value, each newline after the first should be indented
+                    let mut value = value.split('\n');
+
+                    let mut lines = Vec::new();
+                    if let Some(value) = value.next() {
+                        lines.push(value.to_string());
+                    }
+
+                    for value in value {
+                        lines.push(format!("  {}", value));
+                    }
+
+                    lines.join("\n")
                 };
 
                 format!("  {key}: {value}")
