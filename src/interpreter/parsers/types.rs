@@ -16,21 +16,21 @@ use nom::{
 /// # Note
 /// - The position points to the start of the input
 /// - As the input is parsed and sliced, the position will be updated
-pub struct Position<'a, 'b, T = (), I: ?Sized = str> {
+pub struct Position<'input, T = (), I: ?Sized = str> {
     pub line: usize,
     pub column: usize,
     pub index: usize,
-    pub input: &'a I,
-    pub extra: &'b T,
+    pub input: &'input I,
+    pub extra: &'input T,
 }
 
-impl<'a, 'b, T> Display for Position<'a, 'b, T> {
+impl<'input, T> Display for Position<'input, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.input)
     }
 }
 
-impl<'a, 'b, T, I> Debug for Position<'a, 'b, T, I>
+impl<'input, T, I> Debug for Position<'input, T, I>
 where
     I: ?Sized + Debug,
 {
@@ -44,27 +44,27 @@ where
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Clone for Position<'a, 'b, T, I> {
+impl<'input, T, I: ?Sized> Clone for Position<'input, T, I> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Copy for Position<'a, 'b, T, I> {}
+impl<'input, T, I: ?Sized> Copy for Position<'input, T, I> {}
 
-impl<'a, 'b, T, I: ?Sized> InputLength for Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> InputLength for Position<'input, T, I>
 where
-    &'a I: InputLength + 'a,
+    &'input I: InputLength + 'input,
 {
     fn input_len(&self) -> usize {
         self.input.input_len()
     }
 }
 
-impl<'a, 'b, T> InputIter for Position<'a, 'b, T, str> {
+impl<'input, T> InputIter for Position<'input, T, str> {
     type Item = char;
-    type Iter = CharIndices<'a>;
-    type IterElem = Chars<'a>;
+    type Iter = CharIndices<'input>;
+    type IterElem = Chars<'input>;
 
     fn iter_indices(&self) -> Self::Iter {
         self.input.char_indices()
@@ -101,10 +101,10 @@ impl<'a, 'b, T> InputIter for Position<'a, 'b, T, str> {
     }
 }
 
-impl<'a, 'b, T> InputIter for Position<'a, 'b, T, [u8]> {
+impl<'input, T> InputIter for Position<'input, T, [u8]> {
     type Item = u8;
     type Iter = Enumerate<Self::IterElem>;
-    type IterElem = Copied<Iter<'a, u8>>;
+    type IterElem = Copied<Iter<'input, u8>>;
 
     fn iter_indices(&self) -> Self::Iter {
         self.iter_elements().enumerate()
@@ -130,9 +130,9 @@ impl<'a, 'b, T> InputIter for Position<'a, 'b, T, [u8]> {
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> InputTake for Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> InputTake for Position<'input, T, I>
 where
-    &'a I: AsChars + InputLength + InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
+    &'input I: AsChars + InputLength + InputTake + Slice<RangeTo<usize>> + Slice<RangeFrom<usize>>,
 {
     fn take(&self, count: usize) -> Self {
         let mut new = *self;
@@ -153,9 +153,9 @@ where
 }
 
 /// Calculates how many lines and columns the input produces
-pub(super) fn calc_line_column<'a, I: ?Sized>(input: &'a I) -> (usize, usize)
+pub(super) fn calc_line_column<'input, I: ?Sized>(input: &'input I) -> (usize, usize)
 where
-    &'a I: AsChars,
+    &'input I: AsChars,
 {
     let mut line = 0;
     let mut column = 0;
@@ -186,7 +186,7 @@ impl AsChars for &[u8] {
     }
 }
 
-impl<T: Debug> InputTakeAtPosition for Position<'_, '_, T> {
+impl<T: Debug> InputTakeAtPosition for Position<'_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
@@ -273,9 +273,9 @@ impl<T: Debug> InputTakeAtPosition for Position<'_, '_, T> {
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Slice<RangeFrom<usize>> for Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> Slice<RangeFrom<usize>> for Position<'input, T, I>
 where
-    &'a I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
+    &'input I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'input,
 {
     fn slice(&self, range: RangeFrom<usize>) -> Self {
         let (left, right) = (
@@ -294,9 +294,9 @@ where
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Slice<RangeTo<usize>> for Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> Slice<RangeTo<usize>> for Position<'input, T, I>
 where
-    &'a I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
+    &'input I: Slice<RangeTo<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'input,
 {
     fn slice(&self, range: RangeTo<usize>) -> Self {
         let left = self.input.slice(..range.end);
@@ -311,9 +311,9 @@ where
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Slice<Range<usize>> for Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> Slice<Range<usize>> for Position<'input, T, I>
 where
-    &'a I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'a,
+    &'input I: Slice<Range<usize>> + Slice<RangeFrom<usize>> + AsChars + InputLength + 'input,
 {
     fn slice(&self, range: Range<usize>) -> Self {
         // position would be left + right
@@ -333,8 +333,8 @@ where
     }
 }
 
-impl<'a, 'b, T> From<Position<'a, 'b, T, &'a str>> for Position<'a, 'b, T, [u8]> {
-    fn from(input: Position<'a, 'b, T, &'a str>) -> Self {
+impl<'input, T> From<Position<'input, T, &'input str>> for Position<'input, T, [u8]> {
+    fn from(input: Position<'input, T, &'input str>) -> Self {
         Self {
             line: input.line,
             column: input.column,
@@ -345,8 +345,8 @@ impl<'a, 'b, T> From<Position<'a, 'b, T, &'a str>> for Position<'a, 'b, T, [u8]>
     }
 }
 
-impl<'a, 'b, T> From<Position<'a, 'b, T, [u8]>> for Position<'a, 'b, T, str> {
-    fn from(input: Position<'a, 'b, T, [u8]>) -> Self {
+impl<'input, T> From<Position<'input, T, [u8]>> for Position<'input, T, str> {
+    fn from(input: Position<'input, T, [u8]>) -> Self {
         Self {
             line: input.line,
             column: input.column,
@@ -357,16 +357,16 @@ impl<'a, 'b, T> From<Position<'a, 'b, T, [u8]>> for Position<'a, 'b, T, str> {
     }
 }
 
-impl<'a, 'b, T> From<Position<'a, 'b, T, str>> for &'a str {
-    fn from(value: Position<'a, 'b, T, str>) -> Self {
+impl<'input, T> From<Position<'input, T, str>> for &'input str {
+    fn from(value: Position<'input, T, str>) -> Self {
         value.input
     }
 }
 
-impl<'a, 'b, I, I2, T> Compare<I2> for Position<'a, 'b, T, I>
+impl<'input, I, I2, T> Compare<I2> for Position<'input, T, I>
 where
     I: ?Sized,
-    &'a I: Compare<I2>,
+    &'input I: Compare<I2>,
 {
     fn compare(&self, t: I2) -> CompareResult {
         self.input.compare(t)
@@ -377,42 +377,42 @@ where
     }
 }
 
-impl<'a, 'b, T, I> Offset for Position<'a, 'b, T, I>
+impl<'input, T, I> Offset for Position<'input, T, I>
 where
     I: ?Sized,
-    &'a I: Offset + 'a,
+    &'input I: Offset + 'input,
 {
     fn offset(&self, second: &Self) -> usize {
         self.input.offset(&second.input)
     }
 }
 
-impl<T: FromStr, E> ParseTo<T> for Position<'_, '_, E> {
+impl<T: FromStr, E> ParseTo<T> for Position<'_, E> {
     fn parse_to(&self) -> Option<T> {
         self.input.parse_to()
     }
 }
 
-impl<E> AsBytes for Position<'_, '_, E> {
+impl<E> AsBytes for Position<'_, E> {
     fn as_bytes(&self) -> &[u8] {
         self.input.as_bytes()
     }
 }
 
-impl<E> Borrow<str> for Position<'_, '_, E, str> {
+impl<E> Borrow<str> for Position<'_, E, str> {
     fn borrow(&self) -> &str {
         self.input
     }
 }
 
-impl<'a, 'b, E> FindSubstring<&'a str> for Position<'a, 'b, E, str> {
-    fn find_substring(&self, substr: &'a str) -> Option<usize> {
+impl<'input, E> FindSubstring<&'input str> for Position<'input, E, str> {
+    fn find_substring(&self, substr: &'input str) -> Option<usize> {
         self.input.find(substr)
     }
 }
 
-impl<'a, 'b> Position<'a, 'b> {
-    pub fn new(input: &'a str) -> Self {
+impl<'input> Position<'input> {
+    pub fn new(input: &'input str) -> Self {
         Self {
             line: 1,
             column: 1,
@@ -423,12 +423,12 @@ impl<'a, 'b> Position<'a, 'b> {
     }
 }
 
-impl<'a, 'b, T, I: ?Sized> Position<'a, 'b, T, I>
+impl<'input, T, I: ?Sized> Position<'input, T, I>
 where
-    &'a I: AsChars,
+    &'input I: AsChars,
 {
     /// Splits the input into two positions
-    fn left_right_split(&self, left: &'a I, right: &'a I, len: usize) -> (Self, Self) {
+    fn left_right_split(&self, left: &'input I, right: &'input I, len: usize) -> (Self, Self) {
         let (line, column) = calc_line_column(left);
         (
             Self {
@@ -448,7 +448,7 @@ where
         )
     }
 
-    pub fn new_with_extra(input: &'a I, extra: &'b T) -> Self {
+    pub fn new_with_extra(input: &'input I, extra: &'input T) -> Self {
         Self {
             line: 1,
             column: 1,
@@ -459,5 +459,5 @@ where
     }
 }
 
-pub type PosResult<'a, 'b, O, T = (), I = str, E = nom::error::Error<Position<'a, 'b, T, I>>> =
-    Result<(Position<'a, 'b, T, I>, O), nom::Err<E>>;
+pub type PosResult<'input, O, T = (), I = str, E = nom::error::Error<Position<'input, T, I>>> =
+    Result<(Position<'input, T, I>, O), nom::Err<E>>;

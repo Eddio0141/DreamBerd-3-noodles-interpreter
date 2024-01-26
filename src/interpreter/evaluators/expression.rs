@@ -39,8 +39,8 @@ pub enum Expression {
     },
 }
 
-type AtomToExpressionResult<'a, 'b, 'c> =
-    AstParseResult<'a, 'b, 'c, (Expression, Vec<(Vec<UnaryOperator>, usize)>)>;
+type AtomToExpressionResult<'a, 'b> =
+    AstParseResult<'a, 'b, (Expression, Vec<(Vec<UnaryOperator>, usize)>)>;
 
 type NextExprOperation<'a> = Option<&'a (
     (Operator, usize),
@@ -48,9 +48,7 @@ type NextExprOperation<'a> = Option<&'a (
 )>;
 
 impl Expression {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         // ws on the left and right of op needs to be added, and each op needs to have that info
         // atom -> (ws -> op -> ws) -> atom -> (ws -> op -> ws) -> atom
         // 1+ 2 * 3
@@ -203,9 +201,9 @@ impl Expression {
     ///     - Each item in the vector is a vector of unary operators
     ///     - Outer vector is meaning there's a ws between the unary operator groups
     /// - Order of the unary operators is from left to right
-    fn atom_to_expression<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AtomToExpressionResult<'a, 'b, 'c> {
+    fn atom_to_expression<'a, 'b>(
+        input: Position<'a, Interpreter<'b>>,
+    ) -> AtomToExpressionResult<'a, 'b> {
         let (input, (unaries, expr)) = ((
             many0(tuple((many1(UnaryOperator::parse), ws_count))),
             Atom::parse,
@@ -338,11 +336,11 @@ pub enum AtomPostfix {
 }
 
 impl AtomPostfix {
-    pub fn parse<'a, 'b, 'c, E>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, Self, E>
+    pub fn parse<'a, 'b, E>(
+        input: Position<'a, Interpreter<'b>>,
+    ) -> IResult<Position<'a, Interpreter<'b>>, Self, E>
     where
-        E: nom::error::ParseError<Position<'a, 'b, Interpreter<'c>>>,
+        E: nom::error::ParseError<Position<'a, Interpreter<'b>>>,
     {
         // object postfix can recurse
         // obj.postfix.postfix
@@ -355,9 +353,9 @@ impl AtomPostfix {
         obj_property.parse(input)
     }
 
-    pub fn parse_empty<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (), ()> {
+    pub fn parse_empty<'a, 'b>(
+        input: Position<'a, Interpreter<'b>>,
+    ) -> IResult<Position<'a, Interpreter<'b>>, (), ()> {
         Self::parse(input).map(|(input, _)| (input, ()))
     }
 }
@@ -394,12 +392,10 @@ impl Atom {
         Ok(Wrapper(value))
     }
 
-    fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         // try parse without postfix and assume the whole thing is an identifier
         if let Ok((input, value)) =
-            AtomValue::parse::<fn(Position<'_, '_, Interpreter<'_>>) -> _>(input, None)
+            AtomValue::parse::<fn(Position<'_, Interpreter<'_>>) -> _>(input, None)
         {
             return Ok((
                 input,
@@ -428,12 +424,12 @@ impl Atom {
 }
 
 impl AtomValue {
-    fn parse<'a, 'b, 'c, P>(
-        input: Position<'a, 'b, Interpreter<'c>>,
+    fn parse<'a, 'b, P>(
+        input: Position<'a, Interpreter<'b>>,
         postfix_separator: Option<P>,
-    ) -> AstParseResult<'a, 'b, 'c, Self>
+    ) -> AstParseResult<'a, 'b, Self>
     where
-        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+        P: Parser<Position<'a, Interpreter<'b>>, (), ()> + Clone,
     {
         if let Ok((input, value)) =
             FunctionCall::parse_maybe_as_func(input, postfix_separator.clone())
@@ -478,9 +474,9 @@ impl AtomValue {
     }
 
     /// Parsing last resort
-    fn parse_last_resort<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> (Position<'a, 'b, Interpreter<'c>>, Self) {
+    fn parse_last_resort<'a, 'b>(
+        input: Position<'a, Interpreter<'b>>,
+    ) -> (Position<'a, Interpreter<'b>>, Self) {
         // actual value?
         if let Ok((input, value)) = Value::parse(input) {
             return (input, AtomValue::Value(value));
@@ -523,9 +519,7 @@ impl UnaryOperator {
         Ok(value)
     }
 
-    fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         alt((
             value(UnaryOperator::Not, char(';')),
             value(UnaryOperator::Minus, char('-')),
@@ -557,9 +551,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         alt((
             value(Operator::StrictEqual, tag("===")),
             value(Operator::Equal, tag("==")),

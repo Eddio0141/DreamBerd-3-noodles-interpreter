@@ -30,9 +30,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         let (mut input, _) = ws::<_, ()>(input).unwrap();
 
         if input.input.is_empty() {

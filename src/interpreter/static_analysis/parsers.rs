@@ -15,8 +15,8 @@ use crate::{
     parsers::types::{PosResult, Position},
 };
 
-pub fn till_term<'a, 'b>(input: Position<'a, 'b>) -> PosResult<'a, 'b, Position<'a, 'b>> {
-    let str = |input: Position<'a, 'b>| -> PosResult<'a, 'b, Position> {
+pub fn till_term<'a>(input: Position<'a>) -> PosResult<'a, Position<'a>> {
+    let str = |input: Position<'a>| -> PosResult<'a, Position> {
         let quote = alt((char('"'), char('\'')));
         let (input, mut left_quotes) = many1(quote)(input)?;
         let (input, _) = take_till::<_, _, ()>(|c| c == left_quotes[0])(input).unwrap();
@@ -55,13 +55,11 @@ pub fn till_term<'a, 'b>(input: Position<'a, 'b>) -> PosResult<'a, 'b, Position<
 /// - The expression parser is expected to handle all the way including the `!` terminator
 /// # Returns
 /// (var_decl_pos, identifier, life_time, expression_parser_output)
-pub fn var_decl<'a, 'b, P, O: Debug>(
+pub fn var_decl<'a, P, O: Debug>(
     mut expression_parser: P,
-) -> impl FnMut(
-    Position<'a, 'b>,
-) -> PosResult<'a, 'b, (Position<'a, 'b>, Position<'a, 'b>, Option<LifeTime>, O)>
+) -> impl FnMut(Position<'a>) -> PosResult<'a, (Position<'a>, Position<'a>, Option<LifeTime>, O)>
 where
-    P: Parser<Position<'a, 'b>, O, nom::error::Error<Position<'a, 'b>>>,
+    P: Parser<Position<'a>, O, nom::error::Error<Position<'a>>>,
 {
     move |input_original: Position| {
         let var = || tag("var");
@@ -98,9 +96,9 @@ where
 /// # Returns
 /// - Arguments of the function with their identifiers
 /// - Position of where the statement starts
-pub fn function_expression<'a, 'b>(
-    input: Position<'a, 'b>,
-) -> PosResult<'a, 'b, (Vec<Position<'a, 'b>>, Position<'a, 'b>)> {
+pub fn function_expression<'a>(
+    input: Position<'a>,
+) -> PosResult<'a, (Vec<Position<'a>>, Position<'a>)> {
     let arrow = || tag("=>");
     let comma = || char(',');
     let arg = identifier(comma());

@@ -41,13 +41,13 @@ impl FunctionCall {
         interpreter.state.invoke_func(eval_args, &self.name, args)
     }
 
-    fn try_get_func<'a, 'b, 'c, P, PO>(
-        input: Position<'a, 'b, Interpreter<'c>>,
+    fn try_get_func<'a, 'b, P, PO>(
+        input: Position<'a, Interpreter<'b>>,
         identifier_term: P,
         fail_if_lower_identifier_order: bool,
-    ) -> IResult<Position<'a, 'b, Interpreter<'c>>, (&'a str, Function), ()>
+    ) -> IResult<Position<'a, Interpreter<'b>>, (&'a str, Function), ()>
     where
-        P: Parser<Position<'a, 'b, Interpreter<'c>>, PO, ()>,
+        P: Parser<Position<'a, Interpreter<'b>>, PO, ()>,
     {
         let mut identifier = identifier(identifier_term);
 
@@ -72,32 +72,32 @@ impl FunctionCall {
         Ok((input, (identifier, func)))
     }
 
-    pub fn parse_maybe_as_func<'a, 'b, 'c, P>(
-        input: Position<'a, 'b, Interpreter<'c>>,
+    pub fn parse_maybe_as_func<'a, 'b, P>(
+        input: Position<'a, Interpreter<'b>>,
         identifier_term: Option<P>,
-    ) -> AstParseResult<'a, 'b, 'c, Self>
+    ) -> AstParseResult<'a, 'b, Self>
     where
-        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+        P: Parser<Position<'a, Interpreter<'b>>, (), ()> + Clone,
     {
         Self::parse(input, identifier_term, true)
     }
 
     pub fn parse_as_func<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
-        Self::parse::<fn(Position<'_, '_, Interpreter<'_>>) -> _>(input, None, false)
+        input: Position<'a, Interpreter<'b>>,
+    ) -> AstParseResult<'a, 'b, Self> {
+        Self::parse::<fn(Position<'_, Interpreter<'_>>) -> _>(input, None, false)
     }
 
     /// Parses a function call
     /// # Arguments
     /// - `fail_if_lower_identifier_order`: if true, this will fail the parser if an identifier is found that is a variable too
-    fn parse<'a, 'b, 'c, P>(
-        input: Position<'a, 'b, Interpreter<'c>>,
+    fn parse<'a, 'b, P>(
+        input: Position<'a, Interpreter<'b>>,
         identifier_term: Option<P>,
         fail_if_lower_identifier_order: bool,
-    ) -> AstParseResult<'a, 'b, 'c, Self>
+    ) -> AstParseResult<'a, 'b, Self>
     where
-        P: Parser<Position<'a, 'b, Interpreter<'c>>, (), ()> + Clone,
+        P: Parser<Position<'a, Interpreter<'b>>, (), ()> + Clone,
     {
         // function call syntax
         // - `func_name!`
@@ -177,9 +177,7 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b, 'c>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);
@@ -312,9 +310,7 @@ impl From<&FunctionDef> for Function {
 pub struct Return(Option<Expression>);
 
 impl Return {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b, 'c>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         let ret = tag("return");
         let empty_return = end_of_statement.map(|_| None);
         let expr_return = tuple((Expression::parse, end_of_statement)).map(|(expr, _)| Some(expr));

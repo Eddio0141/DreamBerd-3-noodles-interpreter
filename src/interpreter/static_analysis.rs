@@ -36,7 +36,7 @@ pub struct FunctionInfo<'a> {
 impl<'a> Analysis<'a> {
     /// Does a static analysis of code
     pub fn analyze(input: &'a str) -> Self {
-        let var_decl_func = |input: Position<'a, 'a>| -> PosResult<'a, 'a, FunctionInfo> {
+        let var_decl_func = |input: Position<'a>| -> PosResult<'a, FunctionInfo> {
             var_decl(function_expression)
                 .map(|(var_decl_pos, identifier, life_time, (args, expr_pos))| {
                     FunctionInfo {

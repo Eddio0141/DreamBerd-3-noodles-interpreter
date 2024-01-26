@@ -13,9 +13,7 @@ pub struct ScopeStart {
 }
 
 impl ScopeStart {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         let scope_start = char('{');
         let line = input.line;
 
@@ -36,9 +34,7 @@ pub struct ScopeEnd {
 }
 
 impl ScopeEnd {
-    pub fn parse<'a, 'b, 'c>(
-        input: Position<'a, 'b, Interpreter<'c>>,
-    ) -> AstParseResult<'a, 'b, 'c, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         let scope_end = char('}');
         let line = input.line;
 

@@ -14,9 +14,9 @@ macro_rules! impl_parser {
 macro_rules! impl_parse {
     ($impl_target:ty, $parse_arg:ident, $parse_body:block) => {
         impl $impl_target {
-            pub fn parse<'a, 'b, 'c>(
-                $parse_arg: $crate::interpreter::Position<'a, 'b, $crate::Interpreter<'c>>,
-            ) -> $crate::interpreter::evaluators::parsers::AstParseResult<'a, 'b, 'c, Self> $parse_body
+            pub fn parse<'input, 'b>(
+                $parse_arg: $crate::interpreter::Position<'input, $crate::Interpreter<'b>>,
+            ) -> $crate::interpreter::evaluators::parsers::AstParseResult<'input, 'b, Self> $parse_body
         }
     };
 }
