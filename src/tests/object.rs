@@ -49,3 +49,15 @@ assert(foo.b == 2)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn obj_initialiser_bracket_notation() {
+    let code = r#"
+var var foo = { a : 1, b : 2 }!
+assert(foo["a"] == 1)!
+assert(foo["b"] == 2)!
+assert(foo[a] == 1)!
+assert(foo[b] == 2)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}

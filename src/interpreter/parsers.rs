@@ -286,6 +286,42 @@ where
     }
 }
 
+/// Takes until terminator parser produces a result
+/// - Terminating parser's result is not included
+pub fn take_until_parser<'a, I, E, P, PO>(
+    mut terminating_parser: P,
+) -> impl FnMut(I) -> IResult<I, I, E>
+where
+    I: InputIter<Item = char> + InputTake + Copy + InputLength,
+    E: ParseError<I>,
+    P: Parser<I, PO, E>,
+{
+    move |input_original| {
+        let mut input = input_original;
+        let mut take_count = 0;
+        loop {
+            if input.input_len() == 0 {
+                break;
+            }
+
+            // is it terminating
+            // note: terminating parser can be the name of the identifier as well
+            if terminating_parser.parse(input).is_ok() {
+                // don't consume
+                break;
+            }
+
+            let (_, take_length) = take::<_, _, ()>(1usize)(input).unwrap();
+            let take_length = take_length.input_len();
+
+            take_count += take_length;
+            input = input.take_split(take_length).0;
+        }
+
+        Ok(input_original.take_split(take_count))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum LifeTime {
     Infinity,

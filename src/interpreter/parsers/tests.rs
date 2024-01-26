@@ -2,7 +2,7 @@ use nom::{bytes::complete::tag, character::complete::*, InputTake, InputTakeAtPo
 
 use crate::parsers::{types::Position, LifeTime};
 
-use super::{identifier, types::calc_line_column, ws_char};
+use super::{identifier, take_until_parser, types::calc_line_column, ws_char};
 
 #[test]
 fn split_at_position() {
@@ -227,4 +227,12 @@ fn life_time_infinity() {
     let input = Position::new("<Infinity>");
     let (_, life_time) = LifeTime::parse(input).unwrap();
     assert_eq!(life_time, LifeTime::Infinity);
+}
+
+#[test]
+fn take_until_parser_() {
+    let input = "foo bar";
+    let (input, res) = take_until_parser(tag::<_, _, ()>("bar"))(input).unwrap();
+    assert_eq!(res, "foo ");
+    assert_eq!(input, "bar");
 }
