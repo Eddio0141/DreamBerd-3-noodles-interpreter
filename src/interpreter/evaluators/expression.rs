@@ -398,13 +398,17 @@ impl AtomPostfix {
 impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
     match self {
         AtomPostfix::DotNotation(property) => {
-            let Value::Object(Some(obj)) = value.into_owned() else {
+            let Value::Object(obj) = value.into_owned() else {
                 todo!()
+            };
+
+            let Some(obj) = obj else {
+                return Err(Error::Type("Cannot read properties of null".to_string()));
             };
 
             let obj = obj.borrow();
 
-            match obj.properties.get(property) {
+            match obj.get_property(property) {
                 Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
                 None => todo!(),
             }
@@ -420,7 +424,7 @@ impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
             let value = value.0.as_ref();
 
             match value {
-                Value::String(str) => match obj.properties.get(str) {
+                Value::String(str) => match obj.get_property(str) {
                     Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
                     None => todo!(),
                 },

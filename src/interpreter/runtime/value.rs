@@ -574,9 +574,37 @@ impl<'a> Neg for Wrapper<Cow<'a, Value>> {
     }
 }
 
+const PROTO_PROP: &str = "__proto__";
+
 #[derive(Debug, Clone)]
 pub struct Object {
-    pub properties: HashMap<String, Value>,
+    properties: HashMap<String, Value>,
+}
+
+impl Object {
+    pub fn new(properties: HashMap<String, Value>) -> Self {
+        Self { properties }
+    }
+
+    pub fn get_property(&self, key: &str) -> Option<Value> {
+        if let Some(value) = self.properties.get(key) {
+            return Some(value.to_owned());
+        } else if key == PROTO_PROP {
+            return None;
+        } else {
+            // prototype chain
+            let Some(value) = self.properties.get(PROTO_PROP) else {
+                return None;
+            };
+
+            let Value::Object(Some(value)) = value else {
+                return None;
+            };
+
+            let obj = value.borrow();
+            obj.get_property(key)
+        }
+    }
 }
 
 impl Display for Object {

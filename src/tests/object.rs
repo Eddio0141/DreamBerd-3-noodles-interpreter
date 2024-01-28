@@ -1,4 +1,4 @@
-use crate::Interpreter;
+use crate::{interpreter, runtime, Interpreter};
 
 #[test]
 fn obj_initialiser() {
@@ -60,4 +60,35 @@ assert(foo[a] == 1)!
 assert(foo[b] == 2)!
 "#;
     Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn obj_protochain() {
+    let code = r#"
+var var foo = { __proto__: {a: 1} }!
+assert(foo.a === 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn obj_protochain2() {
+    let code = r#"
+var var foo = { __proto__: {a: 1}, a: 2 }!
+assert(foo.a === 2)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn obj_null_cant_read() {
+    let code = r#"
+var var foo = null!
+print foo.a!
+"#;
+    let err = Interpreter::new_eval(code).unwrap_err();
+    assert!(matches!(
+        err,
+        interpreter::error::Error::EvalError(runtime::Error::Type(_))
+    ));
 }
