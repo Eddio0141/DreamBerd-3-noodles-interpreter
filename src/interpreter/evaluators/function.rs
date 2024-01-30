@@ -60,12 +60,10 @@ impl FunctionCall {
             } else {
                 return Err(nom::Err::Error(()));
             }
+        } else if let Some(func) = input.extra.state.get_func_info(identifier) {
+            func
         } else {
-            if let Some(func) = input.extra.state.get_func_info(identifier) {
-                func
-            } else {
-                return Err(nom::Err::Error(()));
-            }
+            return Err(nom::Err::Error(()));
         };
 
         // does the function exist
@@ -139,10 +137,10 @@ impl FunctionCall {
         }
 
         // has args
-        let (input, _) = ((not(end_of_statement), ws)).parse(input)?;
+        let (input, _) = tuple((not(end_of_statement), ws))(input)?;
 
         let (mut input, mut args) = {
-            let (input, (first_arg, _)) = ((Expression::parse, ws)).parse(input)?;
+            let (input, (first_arg, _)) = tuple((Expression::parse, ws))(input)?;
             (input, vec![first_arg])
         };
 
@@ -177,7 +175,7 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse<'a, 'b, 'c>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);
@@ -264,14 +262,13 @@ impl FunctionDef {
         let expression =
             tuple((recognize(Expression::parse), end_of_statement)).map(|(expr, _)| expr);
 
-        let (body, (_, identifier, _, args, _)) = ((
+        let (body, (_, identifier, _, args, _)) = tuple((
             ws,
             identifier,
             ws,
             alt((arrow().map(|_| Vec::new()), args)),
             ws,
-        ))
-            .parse(input)?;
+        ))(input)?;
 
         let body_line = body.line;
 
@@ -310,7 +307,7 @@ impl From<&FunctionDef> for Function {
 pub struct Return(Option<Expression>);
 
 impl Return {
-    pub fn parse<'a, 'b, 'c>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
         let ret = tag("return");
         let empty_return = end_of_statement.map(|_| None);
         let expr_return = tuple((Expression::parse, end_of_statement)).map(|(expr, _)| Some(expr));

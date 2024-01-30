@@ -288,7 +288,7 @@ where
 
 /// Takes until terminator parser produces a result
 /// - Terminating parser's result is not included
-pub fn take_until_parser<'a, I, E, P, PO>(
+pub fn take_until_parser<I, E, P, PO>(
     mut terminating_parser: P,
 ) -> impl FnMut(I) -> IResult<I, I, E>
 where
@@ -330,7 +330,7 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse<'a, T: Debug>(input: Position<'a, T>) -> PosResult<'a, Self, T> {
+    pub fn parse<T: Debug>(input: Position<'_, T>) -> PosResult<'_, Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
         let seconds = map_opt(terminated(double, char('s')), |s| {
             if s.is_sign_negative() {
@@ -346,7 +346,7 @@ impl LifeTime {
 
 /// Tries to parse an `isize` from the input
 /// - This properly handles the target pointer width depending on the platform
-pub fn parse_isize<'a, T: Debug>(input: Position<'a, T>) -> PosResult<'a, isize, T> {
+pub fn parse_isize<T: Debug>(input: Position<T>) -> PosResult<isize, T> {
     let negative = char::<Position<_>, _>('-');
     tuple((opt(negative).map(|v| v.is_some()), digit1))
         .map(|(neg, digits)| {

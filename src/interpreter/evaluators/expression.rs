@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take_until};
 use nom::combinator::{map_opt, rest, value};
 use nom::error::ErrorKind;
 use nom::multi::{many0, many1};
-use nom::sequence::{tuple, Tuple};
+use nom::sequence::tuple;
 use nom::IResult;
 use nom::{character::complete::*, Parser};
 
@@ -70,14 +70,13 @@ impl Expression {
             let op_chunk =
                 tuple((ws_count, Operator::parse, ws_count)).map(|(ws1, op, ws2)| (op, ws1 + ws2));
 
-            let (input, (first_atom, priorities)) = ((
+            let (input, (first_atom, priorities)) = tuple((
                 Expression::atom_to_expression(implicit_string_term),
                 many0(tuple((
                     op_chunk,
                     Expression::atom_to_expression(implicit_string_term),
                 ))),
-            ))
-                .parse(input)?;
+            ))(input)?;
 
             // work on expression
             let (mut left, mut pending_unary) = first_atom;
@@ -224,11 +223,10 @@ impl Expression {
         P: Parser<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> + Copy,
     {
         move |input| {
-            let (input, (unaries, expr)) = ((
+            let (input, (unaries, expr)) = tuple((
                 many0(tuple((many1(UnaryOperator::parse), ws_count))),
                 Atom::parser(implicit_string_term),
-            ))
-                .parse(input)?;
+            ))(input)?;
 
             // 1. unaries must be reversed
             // 2. split by whitespace (its already done in the parser)
@@ -533,10 +531,10 @@ impl AtomValue {
             return Ok((input, AtomValue::Value(var.value.clone())));
         }
 
-        return Err(nom::Err::Error(nom::error::Error::new(
+        Err(nom::Err::Error(nom::error::Error::new(
             input,
             ErrorKind::Verify,
-        )));
+        )))
     }
 
     /// Parsing last resort

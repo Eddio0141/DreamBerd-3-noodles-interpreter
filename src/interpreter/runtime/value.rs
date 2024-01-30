@@ -168,7 +168,7 @@ impl Value {
         let string_take_check = value(1, verify(take(1usize), |s: &str| s != "'" && s != "\""));
         let string_inner = alt((escape_char, string_take_check));
         let string_inner = fold_many0(string_inner, || 0, |acc, count| acc + count);
-        let (s_new, (start_quotes, string_inner)) = ((start_quote, string_inner)).parse(input)?;
+        let (s_new, (start_quotes, string_inner)) = tuple((start_quote, string_inner))(input)?;
         let start_quotes_len = start_quotes.input.len();
         let string_inner = &input.input[start_quotes_len..start_quotes_len + string_inner];
         // check ending quotes match
@@ -588,9 +588,9 @@ impl Object {
 
     pub fn get_property(&self, key: &str) -> Option<Value> {
         if let Some(value) = self.properties.get(key) {
-            return Some(value.to_owned());
+            Some(value.to_owned())
         } else if key == PROTO_PROP {
-            return None;
+            None
         } else {
             // prototype chain
             let Some(value) = self.properties.get(PROTO_PROP) else {

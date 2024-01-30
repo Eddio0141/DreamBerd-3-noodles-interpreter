@@ -69,7 +69,7 @@ where
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr "!"
         //
         // var var func<-5> = arg1, arg2, ... => (expression or something)!
-        let (input, (_, _, _, _, identifier, life_time, _, _, _)) = ((
+        let (input, (_, _, _, _, identifier, life_time, _, _, _)) = tuple((
             var(),
             ws1,
             var(),
@@ -79,8 +79,7 @@ where
             ws,
             eq,
             ws,
-        ))
-            .parse(input_original)?;
+        ))(input_original)?;
 
         let (input, expr) = expression_parser.parse(input)?;
 
@@ -96,9 +95,7 @@ where
 /// # Returns
 /// - Arguments of the function with their identifiers
 /// - Position of where the statement starts
-pub fn function_expression<'a>(
-    input: Position<'a>,
-) -> PosResult<'a, (Vec<Position<'a>>, Position<'a>)> {
+pub fn function_expression(input: Position) -> PosResult<(Vec<Position>, Position)> {
     let arrow = || tag("=>");
     let comma = || char(',');
     let arg = identifier(comma());
