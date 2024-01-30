@@ -82,7 +82,7 @@ impl FunctionCall {
         Self::parse(input, identifier_term, true)
     }
 
-    pub fn parse_as_func<'a, 'b, 'c>(
+    pub fn parse_as_func<'a, 'b>(
         input: Position<'a, Interpreter<'b>>,
     ) -> AstParseResult<'a, 'b, Self> {
         Self::parse::<fn(Position<'_, Interpreter<'_>>) -> _>(input, None, false)

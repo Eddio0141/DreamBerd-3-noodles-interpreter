@@ -15,7 +15,7 @@ use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::state::DefineType;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, identifier, take_until_parser, terminated_chunk, ws_count};
+use crate::parsers::{chunk, identifier, take_until_parser, terminated_chunk, ws, ws_count};
 use crate::prelude::Wrapper;
 use crate::{impl_eval, Interpreter};
 
@@ -362,10 +362,15 @@ impl AtomPostfix {
         // object postfix can recurse
         // obj.postfix.postfix
         let obj_property = tuple((
+            ws,
             char('.'),
-            alt((identifier(AtomPostfix::parse), terminated_chunk)),
+            ws,
+            alt((
+                identifier(alt((char('!').map(|_| ()), AtomPostfix::parse.map(|_| ())))),
+                terminated_chunk,
+            )),
         ))
-        .map(|(_, property)| AtomPostfix::DotNotation(property.to_string()));
+        .map(|(_, _, _, property)| AtomPostfix::DotNotation(property.to_string()));
 
         fn right_bracket<'a, 'b>(
             input: Position<'a, Interpreter<'b>>,
@@ -376,11 +381,14 @@ impl AtomPostfix {
         // bracket notation https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Objects/Basics#bracket_notation
         // obj["postfix"]
         let obj_property_bracket = tuple((
+            ws,
             char('['),
+            ws,
             Expression::parser(Some(right_bracket)),
+            ws,
             char(']'),
         ))
-        .map(|(_, expr, _)| AtomPostfix::BracketNotation(expr));
+        .map(|(_, _, _, expr, _, _)| AtomPostfix::BracketNotation(expr));
 
         alt((obj_property, obj_property_bracket))(input)
     }
@@ -396,39 +404,33 @@ impl AtomPostfix {
 }
 
 impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
+    let Value::Object(obj) = value.into_owned() else {
+        return Err(Error::Type("Cannot read properties".to_string()));
+    };
+
+    let Some(obj) = obj else {
+        return Err(Error::Type("Cannot read properties of null".to_string()));
+    };
+
+    let obj = obj.borrow();
+
     match self {
         AtomPostfix::DotNotation(property) => {
-            let Value::Object(obj) = value.into_owned() else {
-                todo!()
-            };
-
-            let Some(obj) = obj else {
-                return Err(Error::Type("Cannot read properties of null".to_string()));
-            };
-
-            let obj = obj.borrow();
-
             match obj.get_property(property) {
                 Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
-                None => todo!(),
+                None => Ok(Wrapper(Cow::Owned(Value::Undefined))),
             }
         }
         AtomPostfix::BracketNotation(expr) => {
-            let Value::Object(Some(obj)) = value.into_owned() else {
-                todo!()
-            };
-
-            let obj = obj.borrow();
-
             let value = expr.eval(args)?;
             let value = value.0.as_ref();
 
             match value {
                 Value::String(str) => match obj.get_property(str) {
                     Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
-                    None => todo!(),
+                    None => Ok(Wrapper(Cow::Owned(Value::Undefined))),
                 },
-                _ => todo!(),
+                _ => Ok(Wrapper(Cow::Owned(Value::Undefined))),
             }
         }
     }
