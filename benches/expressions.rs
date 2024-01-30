@@ -87,11 +87,39 @@ pub fn obj_initialiser(c: &mut Criterion) {
             interpreter
                 .eval(black_box(
                     r#"
-var foo = { 
+var var foo = { 
     a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
     j: 10, k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17, r: 18,
     s: 19, t: 20, u: 21, v: 22, w: 23, x: 24, y: 25, z: 26
 }!
+            "#,
+                ))
+                .unwrap();
+        });
+    });
+}
+
+pub fn obj_property_access(c: &mut Criterion) {
+    let mut stdout = std::io::sink();
+    let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+    c.bench_function("obj_property_access", |b| {
+        b.iter(|| {
+            interpreter
+                .eval(black_box(
+                    r#"
+var var foo = { 
+    a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+    j: 10, k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17, r: 18,
+    s: 19, t: 20, u: 21, v: 22, w: 23, x: 24, y: 25, z: 26,
+    __proto__: { __proto__: { __proto__: { __proto__: { __proto__: { inner: 27 } } } } }
+}!
+
+assert foo.a === 1!
+assert foo.b === 2!
+assert foo.c === 3!
+assert foo.d === 4!
+assert foo.e === 5!
+assert foo.inner === 27!
             "#,
                 ))
                 .unwrap();

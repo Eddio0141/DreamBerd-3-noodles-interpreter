@@ -12,6 +12,7 @@ criterion_group!(
     expressions::unary_chain,
     expressions::unary_chain_spaced,
     expressions::obj_initialiser,
+    expressions::obj_property_access,
     function::many_args
 );
 criterion_main!(benches);
