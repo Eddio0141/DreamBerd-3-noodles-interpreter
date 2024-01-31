@@ -590,7 +590,7 @@ impl Object {
 
         // unwrap shouldn't fail as variables can't be deleted
         let obj = interpreter.state.get_var("Object").unwrap();
-        if let Value::Object(Some(obj)) = &obj.value {
+        if let Value::Object(Some(obj)) = obj.get_value() {
             if let Some(proto) = obj.borrow().get_property("prototype") {
                 properties.insert(PROTO_PROP.to_string(), proto.clone());
             }
@@ -621,6 +621,10 @@ impl Object {
             let obj = value.borrow();
             obj.get_property(key)
         }
+    }
+
+    pub fn set_property(&mut self, key: &str, value: Value) {
+        self.properties.insert(key.to_string(), value);
     }
 
     /// Tries to execute the object as a function

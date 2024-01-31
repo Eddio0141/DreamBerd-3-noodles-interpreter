@@ -529,7 +529,7 @@ impl AtomValue {
         };
         if let Ok((input, var)) = variable_parse_result {
             // TODO function call
-            return Ok((input, AtomValue::Value(var.value.clone())));
+            return Ok((input, AtomValue::Value(var.get_value().clone())));
         }
 
         Err(nom::Err::Error(nom::error::Error::new(
