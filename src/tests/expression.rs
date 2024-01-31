@@ -5,8 +5,8 @@ use super::interpreter_test_output;
 #[test]
 fn int_comparisons() {
     let code = r#"
-assert(1 == 1)!
-assert(1 ;= 2)!
+assert(1 === 1)!
+assert(1 ;== 2)!
 assert(1 < 2)!
 assert(1 <= 1)!
 assert(2 > 1)!
@@ -20,10 +20,10 @@ fn int_comparisons_variable() {
     let code = r#"
 var var 3 = 2!
 var var 4 = 1!
-assert(3 == 2)!
+assert(3 === 2)!
 "#;
-    // assert(4 == 1)!
-    // assert(3 ;= 4)!
+    // assert(4 === 1)!
+    // assert(3 ;== 4)!
     // assert(4 < 3)!
     // assert(3 <= 2)!
     // assert(3 > 4)!
@@ -35,12 +35,12 @@ assert(3 == 2)!
 fn comparisons_chain() {
     // the first comparison converts it into a boolean
     let code = r#"
-assert(1 == 1 == true)!
-assert(1 ;= 2 == true)!
-assert(1 > 2 == false)!
-assert(1 <= 1 == true)!
-assert(2 > 1 == true)!
-assert(1 >= 2 == false)!
+assert(1 === 1 === true)!
+assert(1 ;== 2 === true)!
+assert(1 > 2 === false)!
+assert(1 <= 1 === true)!
+assert(2 > 1 === true)!
+assert(1 >= 2 === false)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -48,9 +48,9 @@ assert(1 >= 2 == false)!
 #[test]
 fn comparison_order() {
     let code = r#"
-assert(false || true&&false  == false)!
-assert(false == 1==2)!
-assert(true == 1;=2)!
+assert(false || true&&false  === false)!
+assert(false === 1===2)!
+assert(true === 1;==2)!
     "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -58,12 +58,12 @@ assert(true == 1;=2)!
 #[test]
 fn comparison_no_ws() {
     let code = r#"
-assert(1==1==true)!
-assert(1;=2==true)!
-assert(1>2==false)!
-assert(1<=1==true)!
-assert(2>1==true)!
-assert(1>=2==false)!
+assert(1===1===true)!
+assert(1;==2===true)!
+assert(1>2===false)!
+assert(1<=1===true)!
+assert(2>1===true)!
+assert(1>=2===false)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -137,7 +137,7 @@ assert(2 * - 3+4    ===    -14)!
 
 #[test]
 fn divide_by_zero() {
-    let code = "assert(1/0 == undefined)!";
+    let code = "assert(1/0 === undefined)!";
     Interpreter::new_eval(code).unwrap();
 }
 
@@ -180,23 +180,24 @@ fn comp_less_than() {
     let code = r#"
 assert true < 2!
 assert false < 1!
-assert undefined < 1 == false!
+assert undefined < 1 === false!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
 
 #[test]
 fn comp_strict() {
-    // TODO null and null comparison
     // TODO null and undefined comparison
     // TODO test NaN comparison
-    // TODO float comparison
-    // TODO string comparison
+    // TODO implicit string compare with string
     let code = r#"
+assert null === null!
 assert(1 === 1)!
-assert(true === 1 == false)!
-assert(false === 0 == false)!
+assert(true ;== 1)!
+assert(false ;== 0)!
+assert 1.5 === 1.5!
 assert(undefined === undefined)!
+assert "hello" === "hello"!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -209,10 +210,10 @@ fn comp_strict_neg() {
     // TODO float comparison
     // TODO string comparison
     let code = r#"
-assert(1 ;== 1 == false)!
+assert(1 ;== 1 === false)!
 assert(true ;== 1)!
 assert(false ;== 0)!
-assert(undefined ;== undefined == false)!
+assert(undefined ;== undefined === false)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }

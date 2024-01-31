@@ -29,8 +29,7 @@ fn get_typeof() {
     interpreter_test_output("print typeof undefined!", "undefined\n");
     // TODO
     // interpreter_test_output("print typeof Symbol()!", "symbol\n");
-    // TODO
-    // interpreter_test_output("print typeof {}!", "object\n");
+    interpreter_test_output("print typeof {}!", "object\n");
     // TODO
     // interpreter_test_output("print typeof []!", "object\n");
     interpreter_test_output("print typeof null!", "object\n");

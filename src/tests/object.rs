@@ -4,7 +4,8 @@ use crate::{interpreter, runtime, Interpreter};
 fn obj_initialiser_empty() {
     let code = r#"
 var var foo = {}!
-assert typeof foo === "object"!
+var var foo_type = typeof foo!
+assert foo_type === "object"!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
@@ -100,4 +101,37 @@ print foo.a!
         err,
         interpreter::error::Error::EvalError(runtime::Error::Type(_))
     ));
+}
+
+#[test]
+fn obj_prop_set() {
+    let code = r#"
+var var foo = {}!
+foo.bar = 1!
+assert foo.bar === 1!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn obj_prop_set_double() {
+    let code = r#"
+var var foo = { bar: {} }!
+foo.bar.baz = 123!
+assert foo.bar.baz === 123!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn obj_referencing() {
+    let code = r#"
+var var foo = { bar: 123 }!
+var var baz = { test: foo }!
+baz.test.bar = 456!
+assert foo.bar === 456!
+assert baz.test.bar === 456!
+assert foo === baz.test!
+"#;
+    Interpreter::new_eval(code).unwrap();
 }
