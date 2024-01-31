@@ -33,8 +33,6 @@ pub fn load(interpreter: &Interpreter) {
     }
 
     // Object.Prototype
-    // TODO prototype chain tests
-    // TODO you should be able to assign to obj properties
     let obj_proto = Object::new_raw(HashMap::from([(
         PROTO_PROP.to_string(),
         Value::Object(None),
