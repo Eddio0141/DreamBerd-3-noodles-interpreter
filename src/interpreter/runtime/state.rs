@@ -1,8 +1,17 @@
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    borrow::{Borrow, Cow},
+    cell::RefCell,
+    collections::HashMap,
+    rc::Rc,
+};
 
 use crate::{
     interpreter::{
-        evaluators::{expression::Expression, statement::Statement, EvalArgs},
+        evaluators::{
+            expression::{AtomPostfix, Expression},
+            statement::Statement,
+            EvalArgs,
+        },
         static_analysis::{Analysis, FunctionInfo},
     },
     parsers::types::Position,
@@ -49,7 +58,7 @@ impl Default for InterpreterState {
 impl InterpreterState {
     /// Gets function info
     pub fn get_func_info(&self, name: &str) -> Option<Function> {
-        let funcs = self.funcs.borrow();
+        let funcs = (*self.funcs).borrow();
         funcs
             .iter()
             .find_map(|funcs| funcs.iter().find_map(|funcs| funcs.0.get(name)))
@@ -157,21 +166,28 @@ impl InterpreterState {
     }
 
     pub fn get_var(&self, name: &str) -> Option<Variable> {
-        self.vars.borrow().iter().find_map(|vars| {
+        (*self.vars).borrow().iter().find_map(|vars| {
             vars.iter()
                 .rev()
                 .find_map(|vars| vars.get_var(name).cloned())
         })
     }
 
-    pub fn set_var(&self, name: &str, value: Value, line: usize) {
+    pub fn set_var(
+        &self,
+        name: &str,
+        args: EvalArgs,
+        postfix: &Vec<AtomPostfix>,
+        value: Value,
+        line: usize,
+    ) -> Result<(), Error> {
         let mut vars = self.vars.borrow_mut();
         for vars in vars.iter_mut() {
             let vars_iter = vars.iter_mut().rev();
 
             for vars in vars_iter {
-                if vars.set_var(name, &value).is_some() {
-                    return;
+                if vars.set_var(name, args, postfix, &value)? {
+                    return Ok(());
                 }
             }
         }
@@ -182,6 +198,8 @@ impl InterpreterState {
             .first_mut()
             .unwrap()
             .declare_var(name, value, line);
+
+        Ok(())
     }
 
     pub fn add_func(&self, name: &str, func: Function) {
@@ -241,20 +259,77 @@ impl VariableState {
         self.0.get(name)
     }
 
-    pub fn set_var(&mut self, name: &str, value: &Value) -> Option<()> {
+    pub fn set_var(
+        &mut self,
+        name: &str,
+        args: EvalArgs,
+        postfix: &Vec<AtomPostfix>,
+        value: &Value,
+    ) -> Result<bool, Error> {
         if let Some(var) = self.0.get_mut(name) {
+            var.set_value(args, value.clone(), postfix)?;
             var.value = value.clone();
-            Some(())
+            Ok(true)
         } else {
-            None
+            Ok(false)
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    pub value: Value,
+    value: Value,
     line: usize,
+}
+
+impl Variable {
+    pub fn get_value(&self) -> &Value {
+        &self.value
+    }
+
+    pub fn set_value(
+        &mut self,
+        args: EvalArgs,
+        value: Value,
+        postfix: &Vec<AtomPostfix>,
+    ) -> Result<(), Error> {
+        if postfix.is_empty() {
+            self.value = value;
+            return Ok(());
+        }
+
+        let mut var = Cow::Borrowed(&self.value);
+        let postfix_last = postfix.last().unwrap();
+        for i in 0..postfix.len() - 1 {
+            let postfix = &postfix[i];
+            var = postfix.eval(var, args)?.0;
+        }
+
+        let Value::Object(var) = var.into_owned() else {
+            return Ok(());
+        };
+
+        // TODO concrete error
+        let Some(var) = var else {
+            return Err(Error::Type("Cannot read propertoes of null".to_string()));
+        };
+
+        // TODO reuse code from postfix
+        match postfix_last {
+            AtomPostfix::DotNotation(identifier) => {
+                (*var).borrow_mut().set_property(identifier, value)
+            }
+            AtomPostfix::BracketNotation(expr) => {
+                if let Value::String(key) = expr.eval(args)?.0.borrow() {
+                    (*var).borrow_mut().set_property(key, value)
+                } else {
+                    todo!()
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default)]
