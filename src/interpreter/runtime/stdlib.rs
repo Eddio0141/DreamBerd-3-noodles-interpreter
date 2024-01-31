@@ -1,8 +1,13 @@
 //! Module containing the standard library functions
 
+use std::collections::HashMap;
+
 use crate::{interpreter::runtime::state::FunctionVariant, Interpreter};
 
-use super::state::{Function, NativeFunc};
+use super::{
+    state::{Function, NativeFunc},
+    value::{Object, Value, PROTO_PROP},
+};
 
 mod debug;
 mod info;
@@ -26,4 +31,17 @@ pub fn load(interpreter: &Interpreter) {
             },
         );
     }
+
+    // Object.Prototype
+    // TODO prototype chain tests
+    // TODO you should be able to assign to obj properties
+    let obj_proto = Object::new_raw(HashMap::from([(
+        PROTO_PROP.to_string(),
+        Value::Object(None),
+    )]));
+
+    // Object
+    let obj = Object::new_raw(HashMap::from([("prototype".to_string(), obj_proto.into())]));
+
+    interpreter.state.add_var("Object", obj.into(), 0)
 }

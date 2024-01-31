@@ -156,7 +156,7 @@ impl InterpreterState {
             .declare_var(name, value, line);
     }
 
-    fn get_var(&self, name: &str) -> Option<Variable> {
+    pub fn get_var(&self, name: &str) -> Option<Variable> {
         self.vars.borrow().iter().find_map(|vars| {
             vars.iter()
                 .rev()

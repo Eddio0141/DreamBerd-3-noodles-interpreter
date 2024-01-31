@@ -26,15 +26,11 @@ impl_parser!(
         let colon = || char(':');
         let identifier = identifier(colon()).map(|id: Position<'_, _, _>| id.to_string());
         let comma = char(',');
-        let property = tuple((ws, identifier, ws, colon(), ws, Expression::parse))
+        let property = tuple((ws, identifier, ws, colon(), ws, cut(Expression::parse)))
             .map(|(_, id, _, _, _, expr)| (id, expr));
 
-        let (input, (_, properties, _, _)) = tuple((
-            brace_start,
-            separated_list0(comma, cut(property)),
-            ws,
-            brace_end,
-        ))(input)?;
+        let (input, (_, properties, _, _)) =
+            tuple((brace_start, separated_list0(comma, property), ws, brace_end))(input)?;
 
         // unique properties, if duplicate, last one is used
         let properties = properties.into_iter().collect();
@@ -48,7 +44,7 @@ impl_parser!(
         for (key, value) in self.0.iter() {
             obj.insert(key.to_string(), value.eval(eval_args)?.0.into_owned());
         }
-        let obj = Object::new(obj);
+        let obj = Object::new(eval_args.1.extra, obj);
 
         Ok(obj.into())
     },

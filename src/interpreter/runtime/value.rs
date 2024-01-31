@@ -574,7 +574,7 @@ impl<'a> Neg for Wrapper<Cow<'a, Value>> {
     }
 }
 
-const PROTO_PROP: &str = "__proto__";
+pub const PROTO_PROP: &str = "__proto__";
 
 #[derive(Debug, Clone)]
 pub struct Object {
@@ -582,7 +582,24 @@ pub struct Object {
 }
 
 impl Object {
-    pub fn new(properties: HashMap<String, Value>) -> Self {
+    /// Creates a new object with the default prototype
+    pub fn new(interpreter: &Interpreter, mut properties: HashMap<String, Value>) -> Self {
+        if properties.contains_key(PROTO_PROP) {
+            return Self { properties };
+        }
+
+        // unwrap shouldn't fail as variables can't be deleted
+        let obj = interpreter.state.get_var("Object").unwrap();
+        if let Value::Object(Some(obj)) = &obj.value {
+            if let Some(proto) = obj.borrow().get_property("prototype") {
+                properties.insert(PROTO_PROP.to_string(), proto.clone());
+            }
+        }
+
+        Self { properties }
+    }
+
+    pub fn new_raw(properties: HashMap<String, Value>) -> Self {
         Self { properties }
     }
 
@@ -604,6 +621,12 @@ impl Object {
             let obj = value.borrow();
             obj.get_property(key)
         }
+    }
+
+    /// Tries to execute the object as a function
+    /// - Only evaluates the function and returns `Some` if the object is a function
+    pub fn try_exec_func(&self) -> Option<Value> {
+        todo!()
     }
 }
 
