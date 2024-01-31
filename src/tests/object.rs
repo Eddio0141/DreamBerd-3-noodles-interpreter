@@ -1,6 +1,15 @@
 use crate::{interpreter, runtime, Interpreter};
 
 #[test]
+fn obj_initialiser_empty() {
+    let code = r#"
+var var foo = {}!
+assert typeof foo === "object"!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
 fn obj_initialiser() {
     let code = r#"
 var var foo = { a: 1, b: 2 }!

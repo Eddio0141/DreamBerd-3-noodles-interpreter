@@ -528,6 +528,7 @@ impl AtomValue {
             ))(input),
         };
         if let Ok((input, var)) = variable_parse_result {
+            // TODO function call
             return Ok((input, AtomValue::Value(var.value.clone())));
         }
 
