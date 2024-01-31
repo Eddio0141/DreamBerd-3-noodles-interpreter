@@ -177,7 +177,7 @@ impl InterpreterState {
         &self,
         name: &str,
         args: EvalArgs,
-        postfix: &Vec<AtomPostfix>,
+        postfix: &[AtomPostfix],
         value: Value,
         line: usize,
     ) -> Result<(), Error> {
@@ -263,12 +263,11 @@ impl VariableState {
         &mut self,
         name: &str,
         args: EvalArgs,
-        postfix: &Vec<AtomPostfix>,
+        postfix: &[AtomPostfix],
         value: &Value,
     ) -> Result<bool, Error> {
         if let Some(var) = self.0.get_mut(name) {
             var.set_value(args, value.clone(), postfix)?;
-            var.value = value.clone();
             Ok(true)
         } else {
             Ok(false)
@@ -291,7 +290,7 @@ impl Variable {
         &mut self,
         args: EvalArgs,
         value: Value,
-        postfix: &Vec<AtomPostfix>,
+        postfix: &[AtomPostfix],
     ) -> Result<(), Error> {
         if postfix.is_empty() {
             self.value = value;

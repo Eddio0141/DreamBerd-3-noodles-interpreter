@@ -110,11 +110,11 @@ impl VarSet {
                 LifeTime::parse.map(|_| ()),
             )))(input_orig)
             {
-                // has postfix
-                var_identifier = identifier_postfix;
-                let (input_, postfix_) = many1(AtomPostfix::parse)(input_).unwrap();
-                input = input_;
-                postfix = Some(postfix_);
+                if let Ok((input_, postfix_)) = many1(AtomPostfix::parse)(input_) {
+                    var_identifier = identifier_postfix;
+                    input = input_;
+                    postfix = Some(postfix_);
+                }
             }
         }
         let (input, (_, _, _, expression, _)) =
