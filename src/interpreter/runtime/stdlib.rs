@@ -32,7 +32,7 @@ pub fn load(interpreter: &Interpreter) {
         );
     }
 
-    // Object.Prototype
+    // Object.prototype
     let obj_proto = Object::new_raw(HashMap::from([(
         PROTO_PROP.to_string(),
         Value::Object(None),
@@ -41,5 +41,16 @@ pub fn load(interpreter: &Interpreter) {
     // Object
     let obj = Object::new_raw(HashMap::from([("prototype".to_string(), obj_proto.into())]));
 
-    interpreter.state.add_var("Object", obj.into(), 0)
+    interpreter.state.add_var("Object", obj.into(), 0);
+
+    // Array.Prototype
+    let array_proto = Object::new_raw(HashMap::new());
+
+    // Array
+    let array = Object::new_raw(HashMap::from([(
+        "prototype".to_string(),
+        array_proto.into(),
+    )]));
+
+    interpreter.state.add_var("Array", array.into(), 0);
 }

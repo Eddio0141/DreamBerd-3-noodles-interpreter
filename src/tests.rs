@@ -1,6 +1,7 @@
 use crate::InterpreterBuilder;
 use pretty_assertions::assert_eq;
 
+mod array;
 mod expression;
 mod function;
 mod object;

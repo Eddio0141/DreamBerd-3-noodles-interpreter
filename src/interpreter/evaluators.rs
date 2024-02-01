@@ -1,5 +1,6 @@
 use crate::{parsers::types::Position, Interpreter};
 
+pub mod array;
 pub mod expression;
 pub mod function;
 mod object;

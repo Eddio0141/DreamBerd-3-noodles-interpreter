@@ -40,6 +40,7 @@ impl_parser!(
     self,
     eval_args,
     {
+        // TODO: implement constructor
         let mut obj = HashMap::new();
         for (key, value) in self.0.iter() {
             obj.insert(key.to_string(), value.eval(eval_args)?.0.into_owned());

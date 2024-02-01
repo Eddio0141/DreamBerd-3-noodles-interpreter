@@ -19,6 +19,7 @@ use crate::parsers::{chunk, identifier, take_until_parser, terminated_chunk, ws,
 use crate::prelude::Wrapper;
 use crate::{impl_eval, Interpreter};
 
+use super::array::ArrayInitialiser;
 use super::function::FunctionCall;
 use super::object::ObjectInitialiser;
 use super::parsers::AstParseResult;
@@ -347,6 +348,7 @@ pub enum AtomValue {
     Value(Value),
     FunctionCall(FunctionCall),
     ObjectInitialiser(ObjectInitialiser),
+    ArrayInitialiser(ArrayInitialiser),
 }
 
 #[derive(Debug, Clone)]
@@ -414,9 +416,8 @@ impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
 
     match self {
         AtomPostfix::DotNotation(property) => {
-            match obj.get_property(property) {
-                Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
-                None => Ok(Wrapper(Cow::Owned(Value::Undefined))),
+            if let Some(value) =obj.get_property(property) {
+                 return Ok(Wrapper(Cow::Owned(value.clone())));
             }
         }
         AtomPostfix::BracketNotation(expr) => {
@@ -424,14 +425,22 @@ impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
             let value = value.0.as_ref();
 
             match value {
-                Value::String(str) => match obj.get_property(str) {
-                    Some(value) => Ok(Wrapper(Cow::Owned(value.clone()))),
-                    None => Ok(Wrapper(Cow::Owned(Value::Undefined))),
+                Value::String(str) => if let Some(value) = obj.get_property(str) {
+                     return Ok(Wrapper(Cow::Owned(value.clone())));
                 },
-                _ => Ok(Wrapper(Cow::Owned(Value::Undefined))),
+                Value::Number(num) => {
+                    // TODO: eventually handle floats, for now convert to int
+                    let num = *num as i64;
+                    if let Some(value) = obj.get_property(&num.to_string()) {
+                        return Ok(Wrapper(Cow::Owned(value.clone())));
+                    }
+                }
+                _ => (),
             }
         }
     }
+
+    Ok(Wrapper(Cow::Owned(Value::Undefined)))
 }, Wrapper<Cow<Value>>);
 
 impl Atom {
@@ -440,6 +449,7 @@ impl Atom {
             AtomValue::Value(value) => Cow::Borrowed(value),
             AtomValue::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
+            AtomValue::ArrayInitialiser(expr) => Cow::Owned(expr.eval(args)?),
         };
 
         for postfix in &self.postfix {
@@ -555,6 +565,11 @@ impl AtomValue {
             // this isn't merged with `Value::parse` because object initialiser contains expressions, not values
             if let Ok((input, value)) = ObjectInitialiser::parse(input) {
                 return (input, AtomValue::ObjectInitialiser(value));
+            }
+
+            // array initialiser
+            if let Ok((input, value)) = ArrayInitialiser::parse(input) {
+                return (input, AtomValue::ArrayInitialiser(value));
             }
 
             // implicit string
