@@ -599,7 +599,7 @@ impl Object {
         Self { properties }
     }
 
-    pub fn new_raw(properties: HashMap<String, Value>) -> Self {
+    pub fn new_empty(properties: HashMap<String, Value>) -> Self {
         Self { properties }
     }
 

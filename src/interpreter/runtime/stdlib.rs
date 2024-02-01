@@ -33,21 +33,21 @@ pub fn load(interpreter: &Interpreter) {
     }
 
     // Object.prototype
-    let obj_proto = Object::new_raw(HashMap::from([(
+    let obj_proto = Object::new_empty(HashMap::from([(
         PROTO_PROP.to_string(),
         Value::Object(None),
     )]));
 
     // Object
-    let obj = Object::new_raw(HashMap::from([("prototype".to_string(), obj_proto.into())]));
+    let obj = Object::new_empty(HashMap::from([("prototype".to_string(), obj_proto.into())]));
 
     interpreter.state.add_var("Object", obj.into(), 0);
 
     // Array.Prototype
-    let array_proto = Object::new_raw(HashMap::new());
+    let array_proto = Object::new_empty(HashMap::new());
 
     // Array
-    let array = Object::new_raw(HashMap::from([(
+    let array = Object::new_empty(HashMap::from([(
         "prototype".to_string(),
         array_proto.into(),
     )]));
