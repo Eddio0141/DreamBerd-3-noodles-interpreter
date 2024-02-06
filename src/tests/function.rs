@@ -144,3 +144,13 @@ var var a = 1!
 
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn func_var() {
+    let code = r#"
+var var func = => 1!
+var var result = func!
+assert(result === 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}

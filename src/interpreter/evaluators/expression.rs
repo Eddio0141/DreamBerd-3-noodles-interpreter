@@ -412,7 +412,7 @@ impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
         return Err(Error::Type("Cannot read properties of null".to_string()));
     };
 
-    let obj = obj.borrow();
+    let obj = obj.lock().unwrap();
 
     match self {
         AtomPostfix::DotNotation(property) => {
@@ -446,7 +446,17 @@ impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
 impl Atom {
     pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
         let mut value = match &self.value {
-            AtomValue::Value(value) => Cow::Borrowed(value),
+            AtomValue::Value(value) => {
+                if let Value::Object(Some(value_)) = value {
+                    let value_ = value_.lock().unwrap();
+                    match value_.try_exec_func(args) {
+                        Some(res) => Cow::Owned(res?),
+                        None => Cow::Borrowed(value),
+                    }
+                } else {
+                    Cow::Borrowed(value)
+                }
+            }
             AtomValue::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ArrayInitialiser(expr) => Cow::Owned(expr.eval(args)?),

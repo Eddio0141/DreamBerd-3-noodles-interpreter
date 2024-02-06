@@ -1,16 +1,21 @@
 use std::{
     borrow::Cow,
-    cell::RefCell,
     collections::HashMap,
     fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
-    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
-    interpreter::{evaluators::parsers::AstParseResult, runtime},
+    interpreter::{
+        evaluators::{
+            expression::Expression, parsers::AstParseResult, statement::Statement, EvalArgs,
+        },
+        runtime,
+    },
     parsers::{types::Position, *},
     prelude::Wrapper,
+    runtime::state::{Functions, VariableState},
     Interpreter,
 };
 use num_bigint::BigInt;
@@ -20,6 +25,8 @@ use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*,
     number::complete::*, sequence::*, Parser,
 };
+
+use super::stdlib::object;
 
 #[derive(Debug, Clone)]
 /// A value that corresponds to a ECMAScript value
@@ -31,15 +38,21 @@ pub enum Value {
     String(String),
     Undefined,
     Symbol(Symbol),
-    /// - Objects are copied by reference, so cloning this will share the same object via `Rc`
-    /// - Objects can be mutated via `RefCell`
+    /// - Objects are copied by reference, so cloning this will share the same object via `Arc`
+    /// - Objects can be mutated via `Mutex`
     /// - Option is due to the fact that it can be `null`
-    Object(Option<Rc<RefCell<Object>>>),
+    Object(Option<Arc<Mutex<Object>>>),
 }
 
 impl From<Object> for Value {
     fn from(value: Object) -> Self {
-        Value::Object(Some(Rc::new(RefCell::new(value))))
+        Value::Object(Some(Arc::new(Mutex::new(value))))
+    }
+}
+
+impl From<Arc<Mutex<Object>>> for Value {
+    fn from(value: Arc<Mutex<Object>>) -> Self {
+        Value::Object(Some(value))
     }
 }
 
@@ -78,7 +91,7 @@ impl Value {
 
                 match value {
                     Some(value) => match other {
-                        Some(other) => Rc::ptr_eq(value, other), // check reference
+                        Some(other) => Arc::ptr_eq(value, other), // check reference
                         None => false,
                     },
                     None => other.is_none(),
@@ -110,7 +123,7 @@ impl Value {
 
                 match value {
                     Some(value) => match other {
-                        Some(other) => Rc::ptr_eq(value, other), // check reference
+                        Some(other) => Arc::ptr_eq(value, other), // check reference
                         None => false,
                     },
                     None => other.is_none(),
@@ -355,7 +368,7 @@ impl Display for Value {
                 f,
                 "{}",
                 match value {
-                    Some(value) => format!("{}", value.borrow()),
+                    Some(value) => format!("{}", value.lock().unwrap()),
                     None => "null".to_string(),
                 }
             ),
@@ -583,18 +596,17 @@ pub struct Object {
 
 impl Object {
     /// Creates a new object with the default prototype
-    pub fn new(interpreter: &Interpreter, mut properties: HashMap<String, Value>) -> Self {
+    pub fn new(mut properties: HashMap<String, Value>) -> Self {
         if properties.contains_key(PROTO_PROP) {
             return Self { properties };
         }
 
         // unwrap shouldn't fail as variables can't be deleted
-        let obj = interpreter.state.get_var("Object").unwrap();
-        if let Value::Object(Some(obj)) = obj.get_value() {
-            if let Some(proto) = obj.borrow().get_property("prototype") {
-                properties.insert(PROTO_PROP.to_string(), proto.clone());
-            }
-        }
+        // TODO: prototype should be const when that's implemented, or somehow be readonly
+        properties.insert(
+            PROTO_PROP.to_string(),
+            Arc::clone(&object::PROTOTYPE).into(),
+        );
 
         Self { properties }
     }
@@ -618,7 +630,7 @@ impl Object {
                 return None;
             };
 
-            let obj = value.borrow();
+            let obj = value.lock().unwrap();
             obj.get_property(key)
         }
     }
@@ -629,8 +641,124 @@ impl Object {
 
     /// Tries to execute the object as a function
     /// - Only evaluates the function and returns `Some` if the object is a function
-    pub fn try_exec_func(&self) -> Option<Value> {
-        todo!()
+    pub fn try_exec_func(&self, eval_args: EvalArgs) -> Option<Result<Value, runtime::Error>> {
+        let Some(Value::String(body)) = self.get_property("body") else {
+            return None;
+        };
+
+        let Some(Value::Object(Some(arg_names))) = self.get_property("arg_names") else {
+            return None;
+        };
+
+        let Some(Value::Object(Some(args))) = self.get_property("args") else {
+            return None;
+        };
+
+        let arg_names = arg_names.lock().unwrap();
+        let arg_names = arg_names.array_obj_iter();
+        let args = args.lock().unwrap();
+        let args = args.array_obj_iter();
+
+        let interpreter = eval_args.1.extra;
+        let state = &interpreter.state;
+
+        state.funcs.lock().unwrap().push(vec![Functions::default()]);
+        state
+            .vars
+            .lock()
+            .unwrap()
+            .push(vec![VariableState::default()]);
+
+        // declare arguments
+        for (arg_name, arg_value) in arg_names.zip(args) {
+            state.add_var(&arg_name.to_string(), arg_value, 0);
+        }
+
+        let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
+        let eval_args = (eval_args.0, code_with_pos);
+
+        let pop_call_stack = || {
+            state.funcs.lock().unwrap().pop();
+            state.vars.lock().unwrap().pop();
+        };
+
+        // check if block
+        if let Ok((mut code_with_pos, Statement::ScopeStart(_))) = Statement::parse(code_with_pos) {
+            let mut scope_count = 1usize;
+
+            // its a block
+            while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
+                match statement {
+                    Statement::ScopeStart(_) => {
+                        scope_count = scope_count.checked_add(1).expect("scope count overflow")
+                    }
+                    Statement::ScopeEnd(_) => {
+                        scope_count -= 1;
+                        if scope_count == 0 {
+                            break;
+                        }
+                    }
+                    _ => (),
+                }
+
+                code_with_pos = code_after;
+                let ret = match statement.eval(eval_args) {
+                    Ok(ret) => ret,
+                    Err(err) => return Some(Err(err)),
+                };
+                let ret = ret.return_value;
+                if let Some(ret) = ret {
+                    pop_call_stack();
+                    return Some(Ok(ret));
+                }
+            }
+
+            pop_call_stack();
+            return Some(Ok(Value::Undefined));
+        }
+
+        // expression (this won't fail because implicit strings)
+        if let Ok((_, expression)) = Expression::parse(code_with_pos) {
+            let value = match expression.eval(eval_args) {
+                Ok(value) => value,
+                Err(err) => return Some(Err(err)),
+            };
+            pop_call_stack();
+            return Some(Ok(value.0.into_owned()));
+        }
+
+        unreachable!("function body is not a block or expression, which should be impossible because of implicit strings");
+    }
+
+    pub fn array_obj_iter(&self) -> ArrayObjIter {
+        ArrayObjIter {
+            obj: self,
+            index: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ArrayObjIter<'a> {
+    obj: &'a Object,
+    index: usize,
+}
+
+impl Iterator for ArrayObjIter<'_> {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let index = if self.index == 0 {
+            "-1".to_string()
+        } else {
+            (self.index - 1).to_string()
+        };
+
+        let prop = self.obj.get_property(&index);
+
+        self.index += 1;
+
+        prop
     }
 }
 

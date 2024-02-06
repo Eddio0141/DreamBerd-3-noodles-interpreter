@@ -54,7 +54,7 @@ impl_parser!(
             props.insert((i - 1).to_string(), item.eval(eval_args)?.0.into_owned());
         }
 
-        let obj = Object::new(eval_args.1.extra, props);
+        let obj = Object::new(props);
 
         Ok(obj.into())
     },

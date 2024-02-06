@@ -8,7 +8,8 @@ use self::{
     runtime::{state::InterpreterState, stdlib},
     static_analysis::Analysis,
 };
-use std::{cell::RefCell, fmt::Debug, io::Write};
+use std::sync::Mutex;
+use std::{fmt::Debug, io::Write};
 
 pub mod error;
 mod evaluators;
@@ -19,7 +20,7 @@ mod static_analysis;
 /// The DreamBerd interpreter
 pub struct Interpreter<'a> {
     state: InterpreterState,
-    stdout: RefCell<&'a mut dyn Write>,
+    stdout: Mutex<&'a mut dyn Write>,
 }
 
 impl Debug for Interpreter<'_> {
@@ -129,7 +130,7 @@ impl<'a> InterpreterBuilder<'a> {
     /// Build the interpreter
     pub fn build(self) -> Interpreter<'a> {
         let interpreter = Interpreter {
-            stdout: RefCell::new(self.stdout),
+            stdout: Mutex::new(self.stdout),
             state: InterpreterState::default(),
         };
         stdlib::load(&interpreter);

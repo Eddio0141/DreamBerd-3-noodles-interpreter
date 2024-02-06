@@ -45,7 +45,7 @@ impl_parser!(
         for (key, value) in self.0.iter() {
             obj.insert(key.to_string(), value.eval(eval_args)?.0.into_owned());
         }
-        let obj = Object::new(eval_args.1.extra, obj);
+        let obj = Object::new(obj);
 
         Ok(obj.into())
     },

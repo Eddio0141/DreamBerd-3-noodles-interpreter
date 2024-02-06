@@ -1,8 +1,7 @@
 use std::{
     borrow::{Borrow, Cow},
-    cell::RefCell,
     collections::HashMap,
-    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -16,10 +15,15 @@ use crate::{
     },
     parsers::types::Position,
     prelude::Wrapper,
+    runtime::value::PROTO_PROP,
     Interpreter,
 };
 
-use super::{error::Error, value::Value};
+use super::{
+    error::Error,
+    stdlib::function,
+    value::{Object, Value},
+};
 
 type Scope<T> = Vec<T>;
 type CallStack<T> = Vec<T>;
@@ -32,15 +36,15 @@ pub struct InterpreterState {
      * without keeping track of how many scopes were opened which the `return` statement
      * will have to pop on early return
      */
-    vars: Rc<RefCell<CallStack<Scope<VariableState>>>>,
+    pub vars: Arc<Mutex<CallStack<Scope<VariableState>>>>,
     // functions are either global or declared as a variable
-    funcs: Rc<RefCell<CallStack<Scope<FunctionState>>>>,
+    pub funcs: Arc<Mutex<CallStack<Scope<Functions>>>>,
 }
 
 impl Default for InterpreterState {
     fn default() -> Self {
         let var_state = VariableState::default();
-        let func_state = FunctionState::default();
+        let func_state = Functions::default();
 
         let vars = vec![var_state];
         let funcs = vec![func_state];
@@ -49,17 +53,18 @@ impl Default for InterpreterState {
         let funcs = vec![funcs];
 
         Self {
-            vars: Rc::new(RefCell::new(vars)),
-            funcs: Rc::new(RefCell::new(funcs)),
+            vars: Arc::new(Mutex::new(vars)),
+            funcs: Arc::new(Mutex::new(funcs)),
         }
     }
 }
 
 impl InterpreterState {
     /// Gets function info
-    pub fn get_func_info(&self, name: &str) -> Option<Function> {
-        let funcs = (*self.funcs).borrow();
-        funcs
+    pub fn get_func_info(&self, name: &str) -> Option<FunctionState> {
+        self.funcs
+            .lock()
+            .unwrap()
             .iter()
             .find_map(|funcs| funcs.iter().find_map(|funcs| funcs.0.get(name)))
             .cloned()
@@ -74,22 +79,23 @@ impl InterpreterState {
                 hoisted_line,
                 body_location,
             } = func;
-            self.add_func(
+            let func = self.add_func(
                 identifier,
-                Function {
+                FunctionState {
                     arg_count: args.len(),
                     variant: FunctionVariant::FunctionDefined {
                         defined_line: hoisted_line,
-                        body: Rc::new(code[body_location..].to_string()),
-                        args: Rc::new(args.iter().map(|s| s.to_string()).collect()),
+                        body: Arc::new(code[body_location..].to_string()),
+                        args: Arc::new(args.iter().map(|s| s.to_string()).collect()),
                     },
                 },
-            )
+            );
+            self.add_var(identifier, func.into(), hoisted_line);
         }
     }
 
     pub fn push_scope(&self, line: Option<usize>) {
-        let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
+        let (mut vars, mut funcs) = (self.vars.lock().unwrap(), self.funcs.lock().unwrap());
         let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
 
         vars.push(Default::default());
@@ -100,7 +106,7 @@ impl InterpreterState {
 
         match line {
             Some(line) => last_scope.retain(|name, func| {
-                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
+                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.func.variant {
                     if *defined_line > line {
                         new_scope.insert(name.to_string(), func.clone());
                     }
@@ -112,11 +118,11 @@ impl InterpreterState {
             None => new_scope.extend(last_scope.drain()),
         }
 
-        funcs.push(FunctionState(new_scope));
+        funcs.push(Functions(new_scope));
     }
 
     pub fn pop_scope(&self, line: Option<usize>) {
-        let (mut vars, mut funcs) = (self.vars.borrow_mut(), self.funcs.borrow_mut());
+        let (mut vars, mut funcs) = (self.vars.lock().unwrap(), self.funcs.lock().unwrap());
         let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
 
         if vars.len() == 1 {
@@ -131,7 +137,9 @@ impl InterpreterState {
         match line {
             Some(line) => {
                 for (name, func) in remove_scope {
-                    if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
+                    if let FunctionVariant::FunctionDefined { defined_line, .. } =
+                        &func.func.variant
+                    {
                         if *defined_line > line {
                             last_scope.insert(name, func);
                         }
@@ -149,7 +157,7 @@ impl InterpreterState {
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.get_func_info(name) {
-            return func.eval(eval_args, args);
+            return func.func.eval(eval_args, args);
         }
 
         Err(Error::FunctionNotFound(name.to_string()))
@@ -157,7 +165,8 @@ impl InterpreterState {
 
     pub fn add_var(&self, name: &str, value: Value, line: usize) {
         self.vars
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .last_mut()
             .unwrap()
             .last_mut()
@@ -166,7 +175,7 @@ impl InterpreterState {
     }
 
     pub fn get_var(&self, name: &str) -> Option<Variable> {
-        (*self.vars).borrow().iter().find_map(|vars| {
+        self.vars.lock().unwrap().iter().find_map(|vars| {
             vars.iter()
                 .rev()
                 .find_map(|vars| vars.get_var(name).cloned())
@@ -181,7 +190,7 @@ impl InterpreterState {
         value: Value,
         line: usize,
     ) -> Result<(), Error> {
-        let mut vars = self.vars.borrow_mut();
+        let mut vars = self.vars.lock().unwrap();
         for vars in vars.iter_mut() {
             let vars_iter = vars.iter_mut().rev();
 
@@ -202,15 +211,32 @@ impl InterpreterState {
         Ok(())
     }
 
-    pub fn add_func(&self, name: &str, func: Function) {
+    /// Part of the function constructor
+    /// - This declares a function and binds it to an object
+    pub fn add_func(&self, name: &str, func: FunctionState) -> Arc<Mutex<Object>> {
+        let mut properties = HashMap::new();
+        properties.insert(
+            PROTO_PROP.to_string(),
+            Arc::clone(&function::PROTOTYPE).into(),
+        );
+        let obj = Object::new(properties);
+        let obj = Arc::new(Mutex::new(obj));
+
+        let state = FunctionState {
+            func,
+            obj: Arc::clone(&obj),
+        };
         self.funcs
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .last_mut()
             .unwrap()
             .last_mut()
             .unwrap()
             .0
-            .insert(name.to_string(), func);
+            .insert(name.to_string(), state);
+
+        obj
     }
 
     /// Tries to get the latest defined variable or function with the given name
@@ -227,7 +253,7 @@ impl InterpreterState {
             return Some(DefineType::Func(func));
         };
 
-        let ret = match func.variant {
+        let ret = match func.func.variant {
             FunctionVariant::FunctionDefined { defined_line, .. } => {
                 if var.line > defined_line {
                     DefineType::Var(var)
@@ -244,7 +270,7 @@ impl InterpreterState {
 
 pub enum DefineType {
     Var(Variable),
-    Func(Function),
+    Func(FunctionState),
 }
 
 #[derive(Debug, Default)]
@@ -313,14 +339,14 @@ impl Variable {
             return Err(Error::Type("Cannot read propertoes of null".to_string()));
         };
 
+        let mut var = var.lock().unwrap();
+
         // TODO reuse code from postfix
         match postfix_last {
-            AtomPostfix::DotNotation(identifier) => {
-                (*var).borrow_mut().set_property(identifier, value)
-            }
+            AtomPostfix::DotNotation(identifier) => var.set_property(identifier, value),
             AtomPostfix::BracketNotation(expr) => {
                 if let Value::String(key) = expr.eval(args)?.0.borrow() {
-                    (*var).borrow_mut().set_property(key, value)
+                    var.set_property(key, value)
                 } else {
                     todo!()
                 }
@@ -332,35 +358,66 @@ impl Variable {
 }
 
 #[derive(Debug, Default)]
-pub struct FunctionState(pub HashMap<String, Function>);
+/// A stack of function states
+pub struct Functions(pub HashMap<String, FunctionState>);
 
 #[derive(Debug, Clone)]
-pub struct Function {
+/// Function state
+/// - A function is either
+///   - binded to an object, which is the object that the function is called on
+///   - it is a native function
+pub struct FunctionState {
     pub arg_count: usize,
     pub variant: FunctionVariant,
 }
 
-impl Function {
+impl FunctionState {
     fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
         let interpreter = eval_args.1.extra;
         let state = &interpreter.state;
 
-        let pop_call_stack = || {
-            state.funcs.borrow_mut().pop();
-            state.vars.borrow_mut().pop();
-        };
+        state.funcs.lock().unwrap().push(vec![Functions::default()]);
+        state
+            .vars
+            .lock()
+            .unwrap()
+            .push(vec![VariableState::default()]);
 
         match &self.variant {
             FunctionVariant::FunctionDefined {
                 body,
                 args: arg_names,
                 defined_line: _,
+                obj,
             } => {
+                let Some(Value::String(body)) = self.get_property("body") else {
+                    return None;
+                };
+
+                let Some(Value::Object(Some(arg_names))) = self.get_property("arg_names") else {
+                    return None;
+                };
+
+                let Some(Value::Object(Some(args))) = self.get_property("args") else {
+                    return None;
+                };
+
+                let arg_names = arg_names.lock().unwrap();
+                let arg_names = arg_names.array_obj_iter();
+                let args = args.lock().unwrap();
+                let args = args.array_obj_iter();
+
+                let pop_call_stack = || {
+                    state.funcs.lock().unwrap().pop();
+                    state.vars.lock().unwrap().pop();
+                };
+
+                state.funcs.lock().unwrap().push(vec![Functions::default()]);
                 state
-                    .funcs
-                    .borrow_mut()
-                    .push(vec![FunctionState::default()]);
-                state.vars.borrow_mut().push(vec![VariableState::default()]);
+                    .vars
+                    .lock()
+                    .unwrap()
+                    .push(vec![VariableState::default()]);
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args) {
@@ -424,9 +481,10 @@ pub enum FunctionVariant {
         /// The line where the function is usable from
         defined_line: usize,
         /// Where the expression / scope is located as an index
-        body: Rc<String>,
+        body: Arc<String>,
         /// The arguments of the function
-        args: Rc<Vec<String>>,
+        args: Arc<Vec<String>>,
+        obj: Arc<Mutex<Object>>,
     },
     Native(NativeFunc),
 }

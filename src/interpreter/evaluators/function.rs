@@ -1,6 +1,6 @@
 //! Contains function related structures
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 use nom::{
     branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
@@ -12,11 +12,12 @@ use crate::{
         evaluators::statement::Statement,
         runtime::{
             error::Error,
-            state::{DefineType, Function, FunctionVariant},
+            state::{DefineType, FunctionVariant},
             value::Value,
         },
     },
     parsers::types::Position,
+    runtime::state::FunctionState,
 };
 use crate::{parsers::*, Interpreter};
 
@@ -45,7 +46,7 @@ impl FunctionCall {
         input: Position<'a, Interpreter<'b>>,
         identifier_term: P,
         fail_if_lower_identifier_order: bool,
-    ) -> IResult<Position<'a, Interpreter<'b>>, (&'a str, Function), ()>
+    ) -> IResult<Position<'a, Interpreter<'b>>, (&'a str, FunctionState), ()>
     where
         P: Parser<Position<'a, Interpreter<'b>>, PO, ()>,
     {
@@ -125,7 +126,7 @@ impl FunctionCall {
         };
 
         // no args?
-        if func.arg_count == 0 {
+        if func.func.arg_count == 0 {
             // no args
             return Ok((
                 input,
@@ -145,7 +146,7 @@ impl FunctionCall {
         };
 
         // grab arguments
-        for _ in 0..func.arg_count - 1 {
+        for _ in 0..func.func.arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
             let (input_new, (_, _, expr, _)) =
                 tuple((char(','), ws, Expression::parse, ws))(input)?;
@@ -296,8 +297,8 @@ impl From<&FunctionDef> for Function {
             arg_count: func.args.len(),
             variant: FunctionVariant::FunctionDefined {
                 defined_line: func.body_line,
-                body: Rc::new(func.body.clone()),
-                args: Rc::new(func.args.clone()),
+                body: Arc::new(func.body.clone()),
+                args: Arc::new(func.args.clone()),
             },
         }
     }

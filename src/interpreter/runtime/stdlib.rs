@@ -1,16 +1,14 @@
 //! Module containing the standard library functions
 
-use std::collections::HashMap;
-
 use crate::{interpreter::runtime::state::FunctionVariant, Interpreter};
 
-use super::{
-    state::{Function, NativeFunc},
-    value::{Object, Value, PROTO_PROP},
-};
+use super::state::{Function, NativeFunc};
 
+pub mod array;
 mod debug;
+pub mod function;
 mod info;
+pub mod object;
 mod stdio;
 
 pub fn load(interpreter: &Interpreter) {
@@ -32,25 +30,7 @@ pub fn load(interpreter: &Interpreter) {
         );
     }
 
-    // Object.prototype
-    let obj_proto = Object::new_empty(HashMap::from([(
-        PROTO_PROP.to_string(),
-        Value::Object(None),
-    )]));
-
-    // Object
-    let obj = Object::new_empty(HashMap::from([("prototype".to_string(), obj_proto.into())]));
-
-    interpreter.state.add_var("Object", obj.into(), 0);
-
-    // Array.Prototype
-    let array_proto = Object::new_empty(HashMap::new());
-
-    // Array
-    let array = Object::new_empty(HashMap::from([(
-        "prototype".to_string(),
-        array_proto.into(),
-    )]));
-
-    interpreter.state.add_var("Array", array.into(), 0);
+    object::load(interpreter);
+    function::load(interpreter);
+    array::load(interpreter);
 }
