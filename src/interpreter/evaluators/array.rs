@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use nom::{
     branch::alt, bytes::complete::tag, character::complete, multi::separated_list0,
     sequence::tuple, IResult, Parser,
@@ -8,7 +6,7 @@ use nom::{
 use crate::{
     impl_parser,
     parsers::{types::Position, ws},
-    runtime::value::{Object, Value},
+    runtime::{stdlib::array, value::Value},
     Interpreter,
 };
 
@@ -43,20 +41,12 @@ impl_parser!(
     self,
     eval_args,
     {
-        // TODO: implement constructors and fix this
-        let mut props = HashMap::new();
-
-        if let Some(first) = self.0.first() {
-            props.insert("-1".to_string(), first.eval(eval_args)?.0.into_owned());
-        }
-        for i in 1..self.0.len() {
-            let item = &self.0[i];
-            props.insert((i - 1).to_string(), item.eval(eval_args)?.0.into_owned());
-        }
-
-        let obj = Object::new(props);
-
-        Ok(obj.into())
+        let args = self
+            .0
+            .iter()
+            .map(|expr| expr.eval(eval_args))
+            .collect::<Result<Vec<_>, _>>()?;
+        array::constructor(eval_args.1.extra, args)
     },
     Value
 );

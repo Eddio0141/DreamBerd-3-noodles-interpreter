@@ -1,16 +1,57 @@
-use std::collections::HashMap;
+use lazy_static::lazy_static;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use crate::{runtime::value::Object, Interpreter};
+use crate::{
+    prelude::Wrapper,
+    runtime::{
+        state::FunctionVariant,
+        value::{Object, Value, PROTO_PROP},
+        Error,
+    },
+    Interpreter,
+};
+
+lazy_static! {
+    pub static ref PROTOTYPE: Arc<Mutex<Object>> = {
+        let array_proto = Object::new(HashMap::new());
+
+        Arc::new(Mutex::new(array_proto))
+    };
+}
+
+pub fn constructor(
+    _interpreter: &Interpreter,
+    args: Vec<Wrapper<Cow<Value>>>,
+) -> Result<Value, Error> {
+    let mut props = HashMap::from([(PROTO_PROP.to_string(), Arc::clone(&PROTOTYPE).into())]);
+
+    if let Some(first) = args.first() {
+        let first = first.as_ref();
+        props.insert("-1".to_string(), first.clone());
+    }
+    for (i, item) in args.iter().enumerate().skip(1) {
+        let item = item.as_ref().clone();
+        props.insert((i - 1).to_string(), item);
+    }
+
+    let obj = Object::new(props);
+
+    Ok(obj.into())
+}
 
 pub fn load(interpreter: &Interpreter) {
-    // Array.prototype
-    let array_proto = Object::new_empty(HashMap::new());
-
     // Array
     let array = Object::new_empty(HashMap::from([(
         "prototype".to_string(),
-        array_proto.into(),
+        Arc::clone(&PROTOTYPE).into(),
     )]));
 
     interpreter.state.add_var("Array", array.into(), 0);
+    interpreter
+        .state
+        .add_func("Array", FunctionVariant::Native(constructor), None);
 }
