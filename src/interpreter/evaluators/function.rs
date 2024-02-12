@@ -126,7 +126,8 @@ impl FunctionCall {
         };
 
         // no args?
-        if func.func.arg_count == 0 {
+        let arg_count = func.arg_count.unwrap_or_default();
+        if arg_count == 0 {
             // no args
             return Ok((
                 input,
@@ -146,7 +147,7 @@ impl FunctionCall {
         };
 
         // grab arguments
-        for _ in 0..func.func.arg_count - 1 {
+        for _ in 0..arg_count - 1 {
             // TODO for expression, implement some way to either make the expression parse until the end of the statement or stringify the expression
             let (input_new, (_, _, expr, _)) =
                 tuple((char(','), ws, Expression::parse, ws))(input)?;
@@ -168,7 +169,7 @@ impl FunctionCall {
 /// A function definition
 pub struct FunctionDef {
     pub name: String,
-    pub args: Vec<String>,
+    pub arg_names: Vec<String>,
     pub body: String,
     pub body_line: usize,
 }
@@ -277,7 +278,7 @@ impl FunctionDef {
 
         let instance = Self {
             name: identifier.input.to_string(),
-            args,
+            arg_names: args,
             body: body.to_string(),
             body_line,
         };
@@ -286,20 +287,19 @@ impl FunctionDef {
     }
 
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        interpreter.state.add_func(&self.name, self.into());
+        interpreter
+            .state
+            .add_func(&self.name, self.into(), Some(self.arg_names.len()));
         Ok(())
     }
 }
 
-impl From<&FunctionDef> for Function {
+impl From<&FunctionDef> for FunctionVariant {
     fn from(func: &FunctionDef) -> Self {
-        Self {
-            arg_count: func.args.len(),
-            variant: FunctionVariant::FunctionDefined {
-                defined_line: func.body_line,
-                body: Arc::new(func.body.clone()),
-                args: Arc::new(func.args.clone()),
-            },
+        Self::FunctionDefined {
+            defined_line: func.body_line,
+            body: Arc::new(func.body.clone()),
+            arg_names: Arc::new(func.arg_names.clone()),
         }
     }
 }

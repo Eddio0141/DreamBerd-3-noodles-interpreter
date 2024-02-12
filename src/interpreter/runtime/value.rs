@@ -739,7 +739,7 @@ impl Object {
 }
 
 #[derive(Debug)]
-struct ArrayObjIter<'a> {
+pub struct ArrayObjIter<'a> {
     obj: &'a Object,
     index: usize,
 }

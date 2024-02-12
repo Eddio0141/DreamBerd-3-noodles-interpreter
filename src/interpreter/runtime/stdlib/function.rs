@@ -5,12 +5,15 @@ use std::{
 
 use lazy_static::lazy_static;
 
-use crate::{runtime::value::Object, Interpreter};
+use crate::{
+    runtime::value::{Object, Value},
+    Interpreter,
+};
 
 lazy_static! {
     pub static ref PROTOTYPE: Arc<Mutex<Object>> = {
         // Function.prototype
-        let func_proto = Object::new(HashMap::new());
+        let func_proto = Object::new(HashMap::from([("arguments".to_string(), Value::Object(None))]));
 
         Arc::new(Mutex::new(func_proto))
     };

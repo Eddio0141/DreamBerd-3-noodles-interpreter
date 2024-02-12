@@ -15,7 +15,7 @@ use crate::{
     },
     parsers::types::Position,
     prelude::Wrapper,
-    runtime::value::PROTO_PROP,
+    runtime::{stdlib::array, value::PROTO_PROP},
     Interpreter,
 };
 
@@ -81,14 +81,12 @@ impl InterpreterState {
             } = func;
             let func = self.add_func(
                 identifier,
-                FunctionState {
-                    arg_count: args.len(),
-                    variant: FunctionVariant::FunctionDefined {
-                        defined_line: hoisted_line,
-                        body: Arc::new(code[body_location..].to_string()),
-                        args: Arc::new(args.iter().map(|s| s.to_string()).collect()),
-                    },
+                FunctionVariant::FunctionDefined {
+                    defined_line: hoisted_line,
+                    body: Arc::new(code[body_location..].to_string()),
+                    arg_names: Arc::new(args.iter().map(|s| s.to_string()).collect()),
                 },
+                Some(args.len()),
             );
             self.add_var(identifier, func.into(), hoisted_line);
         }
@@ -106,7 +104,7 @@ impl InterpreterState {
 
         match line {
             Some(line) => last_scope.retain(|name, func| {
-                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.func.variant {
+                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
                     if *defined_line > line {
                         new_scope.insert(name.to_string(), func.clone());
                     }
@@ -137,9 +135,7 @@ impl InterpreterState {
         match line {
             Some(line) => {
                 for (name, func) in remove_scope {
-                    if let FunctionVariant::FunctionDefined { defined_line, .. } =
-                        &func.func.variant
-                    {
+                    if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
                         if *defined_line > line {
                             last_scope.insert(name, func);
                         }
@@ -157,7 +153,7 @@ impl InterpreterState {
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
         if let Some(func) = self.get_func_info(name) {
-            return func.func.eval(eval_args, args);
+            return func.eval(eval_args, args);
         }
 
         Err(Error::FunctionNotFound(name.to_string()))
@@ -213,7 +209,14 @@ impl InterpreterState {
 
     /// Part of the function constructor
     /// - This declares a function and binds it to an object
-    pub fn add_func(&self, name: &str, func: FunctionState) -> Arc<Mutex<Object>> {
+    /// # Arg count
+    /// - If you pass `None`, it can accept any number of arguments
+    pub fn add_func(
+        &self,
+        name: &str,
+        func: FunctionVariant,
+        arg_count: Option<usize>,
+    ) -> Arc<Mutex<Object>> {
         let mut properties = HashMap::new();
         properties.insert(
             PROTO_PROP.to_string(),
@@ -223,7 +226,8 @@ impl InterpreterState {
         let obj = Arc::new(Mutex::new(obj));
 
         let state = FunctionState {
-            func,
+            arg_count,
+            variant: func,
             obj: Arc::clone(&obj),
         };
         self.funcs
@@ -253,7 +257,7 @@ impl InterpreterState {
             return Some(DefineType::Func(func));
         };
 
-        let ret = match func.func.variant {
+        let ret = match func.variant {
             FunctionVariant::FunctionDefined { defined_line, .. } => {
                 if var.line > defined_line {
                     DefineType::Var(var)
@@ -367,8 +371,9 @@ pub struct Functions(pub HashMap<String, FunctionState>);
 ///   - binded to an object, which is the object that the function is called on
 ///   - it is a native function
 pub struct FunctionState {
-    pub arg_count: usize,
-    pub variant: FunctionVariant,
+    pub arg_count: Option<usize>,
+    variant: FunctionVariant,
+    obj: Arc<Mutex<Object>>,
 }
 
 impl FunctionState {
@@ -386,26 +391,16 @@ impl FunctionState {
         match &self.variant {
             FunctionVariant::FunctionDefined {
                 body,
-                args: arg_names,
+                arg_names,
                 defined_line: _,
-                obj,
             } => {
-                let Some(Value::String(body)) = self.get_property("body") else {
-                    return None;
-                };
+                let mut obj = self.obj.lock().unwrap();
 
-                let Some(Value::Object(Some(arg_names))) = self.get_property("arg_names") else {
-                    return None;
+                obj.set_property("arguments", array::constructor(interpreter, args)?);
+                let Value::Object(Some(args)) = obj.get_property("arguments").unwrap() else {
+                    unreachable!();
                 };
-
-                let Some(Value::Object(Some(args))) = self.get_property("args") else {
-                    return None;
-                };
-
-                let arg_names = arg_names.lock().unwrap();
-                let arg_names = arg_names.array_obj_iter();
                 let args = args.lock().unwrap();
-                let args = args.array_obj_iter();
 
                 let pop_call_stack = || {
                     state.funcs.lock().unwrap().pop();
@@ -420,8 +415,8 @@ impl FunctionState {
                     .push(vec![VariableState::default()]);
 
                 // declare arguments
-                for (arg_name, arg_value) in arg_names.iter().zip(args) {
-                    state.add_var(arg_name, arg_value.0.into_owned(), 0);
+                for (arg_name, arg_value) in arg_names.iter().zip(args.array_obj_iter()) {
+                    state.add_var(&arg_name.to_string(), arg_value, 0);
                 }
 
                 let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
@@ -450,7 +445,10 @@ impl FunctionState {
                         }
 
                         code_with_pos = code_after;
-                        let ret = statement.eval(eval_args)?.return_value;
+                        let ret = match statement.eval(eval_args) {
+                            Ok(ret) => ret.return_value,
+                            Err(err) => return Err(err),
+                        };
                         if let Some(ret) = ret {
                             pop_call_stack();
                             return Ok(ret);
@@ -482,9 +480,8 @@ pub enum FunctionVariant {
         defined_line: usize,
         /// Where the expression / scope is located as an index
         body: Arc<String>,
-        /// The arguments of the function
-        args: Arc<Vec<String>>,
-        obj: Arc<Mutex<Object>>,
+        /// Argument names
+        arg_names: Arc<Vec<String>>,
     },
     Native(NativeFunc),
 }

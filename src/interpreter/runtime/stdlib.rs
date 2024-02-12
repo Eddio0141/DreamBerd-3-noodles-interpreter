@@ -2,7 +2,7 @@
 
 use crate::{interpreter::runtime::state::FunctionVariant, Interpreter};
 
-use super::state::{Function, NativeFunc};
+use super::state::NativeFunc;
 
 pub mod array;
 mod debug;
@@ -21,13 +21,9 @@ pub fn load(interpreter: &Interpreter) {
 
     for func in funcs {
         let (name, arg_count, func) = func;
-        interpreter.state.add_func(
-            name,
-            Function {
-                arg_count,
-                variant: FunctionVariant::Native(func),
-            },
-        );
+        interpreter
+            .state
+            .add_func(name, FunctionVariant::Native(func), Some(arg_count));
     }
 
     object::load(interpreter);
