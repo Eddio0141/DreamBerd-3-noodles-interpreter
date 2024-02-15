@@ -105,7 +105,6 @@ impl InterpreterState {
     pub fn pop_scope(&self, line: usize) {
         let mut vars = self.vars.lock().unwrap();
         let vars = vars.last_mut().unwrap();
-
         if vars.len() == 1 {
             return;
         }
@@ -134,10 +133,6 @@ impl InterpreterState {
     }
 
     pub fn add_var(&self, name: &str, value: Value, line: usize) {
-        dbg!(
-            self.vars.lock().unwrap().last().unwrap().last().unwrap(),
-            &value
-        );
         self.vars
             .lock()
             .unwrap()
@@ -350,12 +345,6 @@ impl FunctionState {
     fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
         let interpreter = eval_args.1.extra;
         let state = &interpreter.state;
-
-        state
-            .vars
-            .lock()
-            .unwrap()
-            .push(vec![VariableState::default()]);
 
         match &self.variant {
             FunctionVariant::FunctionDefined {
