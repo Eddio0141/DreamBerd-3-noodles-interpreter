@@ -6,12 +6,12 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
-    runtime::value::{Object, Value},
+    runtime::value::{Object, ObjectRef, Value},
     Interpreter,
 };
 
 lazy_static! {
-    pub static ref PROTOTYPE: Arc<Mutex<Object>> = {
+    pub static ref PROTOTYPE: ObjectRef = {
         // Function.prototype
         let func_proto = Object::new(HashMap::from([("arguments".to_string(), Value::Object(None))]));
 

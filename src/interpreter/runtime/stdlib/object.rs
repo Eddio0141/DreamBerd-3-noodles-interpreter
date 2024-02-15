@@ -4,14 +4,14 @@ use std::{
 };
 
 use crate::{
-    runtime::value::{Object, Value, PROTO_PROP},
+    runtime::value::{Object, ObjectRef, Value, PROTO_PROP},
     Interpreter,
 };
 
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref PROTOTYPE: Arc<Mutex<Object>> = {
+    pub static ref PROTOTYPE: ObjectRef = {
         let obj = Object::new_empty(HashMap::from([(
             PROTO_PROP.to_string(),
             Value::Object(None),

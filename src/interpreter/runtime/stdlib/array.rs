@@ -9,14 +9,14 @@ use crate::{
     prelude::Wrapper,
     runtime::{
         state::FunctionVariant,
-        value::{Object, Value, PROTO_PROP},
+        value::{Object, ObjectRef, Value, PROTO_PROP},
         Error,
     },
     Interpreter,
 };
 
 lazy_static! {
-    pub static ref PROTOTYPE: Arc<Mutex<Object>> = {
+    pub static ref PROTOTYPE: ObjectRef = {
         let array_proto = Object::new(HashMap::new());
 
         Arc::new(Mutex::new(array_proto))

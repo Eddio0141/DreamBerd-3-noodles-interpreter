@@ -22,7 +22,7 @@ use crate::{
 use super::{
     error::Error,
     stdlib::function,
-    value::{Object, Value},
+    value::{Object, ObjectRef, Value},
 };
 
 type Scope<T> = Vec<T>;
@@ -216,7 +216,7 @@ impl InterpreterState {
         name: &str,
         func: FunctionVariant,
         arg_count: Option<usize>,
-    ) -> Arc<Mutex<Object>> {
+    ) -> ObjectRef {
         let mut properties = HashMap::new();
         properties.insert(
             PROTO_PROP.to_string(),
@@ -373,7 +373,7 @@ pub struct Functions(pub HashMap<String, FunctionState>);
 pub struct FunctionState {
     pub arg_count: Option<usize>,
     variant: FunctionVariant,
-    obj: Arc<Mutex<Object>>,
+    obj: ObjectRef,
 }
 
 impl FunctionState {

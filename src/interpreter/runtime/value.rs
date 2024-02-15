@@ -1,9 +1,8 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
     fmt::Display,
     ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use crate::{
@@ -20,7 +19,14 @@ use nom::{
     number::complete::*, sequence::*, Parser,
 };
 
-use super::stdlib::object;
+mod bigint;
+mod bool;
+mod f64;
+pub mod object;
+mod symbol;
+
+pub use object::*;
+use symbol::*;
 
 #[derive(Debug, Clone)]
 /// A value that corresponds to a ECMAScript value
@@ -35,19 +41,7 @@ pub enum Value {
     /// - Objects are copied by reference, so cloning this will share the same object via `Arc`
     /// - Objects can be mutated via `Mutex`
     /// - Option is due to the fact that it can be `null`
-    Object(Option<Arc<Mutex<Object>>>),
-}
-
-impl From<Object> for Value {
-    fn from(value: Object) -> Self {
-        Value::Object(Some(Arc::new(Mutex::new(value))))
-    }
-}
-
-impl From<Arc<Mutex<Object>>> for Value {
-    fn from(value: Arc<Mutex<Object>>) -> Self {
-        Value::Object(Some(value))
-    }
+    Object(Option<ObjectRef>),
 }
 
 impl Value {
@@ -130,7 +124,7 @@ impl Value {
                     unreachable!()
                 };
 
-                value.id == other.id
+                value == other
             }
         }
     }
@@ -389,127 +383,6 @@ impl<'a> Not for Wrapper<Cow<'a, Value>> {
     }
 }
 
-impl<'a> From<Wrapper<Cow<'a, Value>>> for bool {
-    fn from(value: Wrapper<Cow<'a, Value>>) -> Self {
-        match value.0.as_ref() {
-            Value::Number(num) => *num != 0.0,
-            Value::Boolean(value) => *value,
-            Value::Undefined => false,
-            Value::BigInt(value) => *value != BigInt::from(0),
-            Value::String(value) => !value.is_empty(),
-            Value::Object(_) => true,
-            Value::Symbol(_) => true,
-        }
-    }
-}
-
-impl From<Value> for bool {
-    fn from(value: Value) -> Self {
-        bool::from(Wrapper(Cow::Owned(value)))
-    }
-}
-
-impl From<&Value> for bool {
-    fn from(value: &Value) -> Self {
-        bool::from(Wrapper(Cow::Borrowed(value)))
-    }
-}
-
-impl<'a> TryFrom<Wrapper<Cow<'a, Value>>> for f64 {
-    type Error = runtime::Error;
-
-    fn try_from(value: Wrapper<Cow<'a, Value>>) -> Result<Self, Self::Error> {
-        let num = match value.0.as_ref() {
-            Value::Number(num) => *num,
-            Value::Boolean(value) => {
-                if *value {
-                    1.0
-                } else {
-                    0.0
-                }
-            }
-            Value::Undefined => f64::NAN,
-            Value::BigInt(_) => {
-                return Err(runtime::Error::Type(
-                    "Cannot convert BigInt to Number".to_string(),
-                ))
-            }
-            Value::String(value) => value.parse().unwrap_or(f64::NAN),
-            Value::Object(value) => match value {
-                Some(_) => {
-                    return Err(runtime::Error::Type(
-                        "Not implemented object to number coercion".to_string(), // TODO this isn't right
-                    ));
-                }
-                None => 0.0,
-            },
-            Value::Symbol(_) => {
-                return Err(runtime::Error::Type(
-                    "Cannot convert Symbol to Number".to_string(),
-                ))
-            }
-        };
-
-        Ok(num)
-    }
-}
-
-impl TryFrom<Value> for f64 {
-    type Error = runtime::Error;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        f64::try_from(Wrapper(Cow::Owned(value)))
-    }
-}
-
-impl TryFrom<&Value> for f64 {
-    type Error = runtime::Error;
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        f64::try_from(Wrapper(Cow::Borrowed(value)))
-    }
-}
-
-impl TryFrom<&Value> for BigInt {
-    type Error = runtime::Error;
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        let num = match value {
-            Value::Number(num) => BigInt::from_f64(*num).unwrap(),
-            Value::Boolean(value) => {
-                if *value {
-                    BigInt::from(1)
-                } else {
-                    BigInt::from(0)
-                }
-            }
-            Value::Undefined => {
-                return Err(runtime::Error::Type(
-                    "Cannot convert undefined to BigInt".to_string(),
-                ))
-            }
-            Value::BigInt(value) => value.clone(),
-            Value::String(value) => value
-                .parse()
-                .map_err(|_| runtime::Error::Type("Cannot convert string to BigInt".to_string()))?,
-            Value::Object(value) => {
-                let err = match value {
-                    Some(_) => runtime::Error::Type("Cannot convert object to BigInt".to_string()), // TODO this isn't right
-                    None => runtime::Error::Type("Cannot convert null to BigInt".to_string()),
-                };
-                return Err(err);
-            }
-            Value::Symbol(_) => {
-                return Err(runtime::Error::Type(
-                    "Cannot convert Symbol to BigInt".to_string(),
-                ))
-            }
-        };
-
-        Ok(num)
-    }
-}
-
 impl<'a> Add for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
@@ -578,163 +451,5 @@ impl<'a> Neg for Wrapper<Cow<'a, Value>> {
         let value = f64::try_from(self)?;
 
         Ok(Wrapper(Cow::Owned(Value::Number(-value))))
-    }
-}
-
-pub const PROTO_PROP: &str = "__proto__";
-
-#[derive(Debug, Clone)]
-pub struct Object {
-    properties: HashMap<String, Value>,
-}
-
-impl Object {
-    /// Creates a new object with the default prototype
-    pub fn new(mut properties: HashMap<String, Value>) -> Self {
-        if properties.contains_key(PROTO_PROP) {
-            return Self { properties };
-        }
-
-        // unwrap shouldn't fail as variables can't be deleted
-        // TODO: prototype should be const when that's implemented, or somehow be readonly
-        properties.insert(
-            PROTO_PROP.to_string(),
-            Arc::clone(&object::PROTOTYPE).into(),
-        );
-
-        Self { properties }
-    }
-
-    pub fn new_empty(properties: HashMap<String, Value>) -> Self {
-        Self { properties }
-    }
-
-    pub fn get_property(&self, key: &str) -> Option<Value> {
-        if let Some(value) = self.properties.get(key) {
-            Some(value.to_owned())
-        } else if key == PROTO_PROP {
-            None
-        } else {
-            // prototype chain
-            let Some(value) = self.properties.get(PROTO_PROP) else {
-                return None;
-            };
-
-            let Value::Object(Some(value)) = value else {
-                return None;
-            };
-
-            let obj = value.lock().unwrap();
-            obj.get_property(key)
-        }
-    }
-
-    pub fn set_property(&mut self, key: &str, value: Value) {
-        self.properties.insert(key.to_string(), value);
-    }
-
-    pub fn array_obj_iter(&self) -> ArrayObjIter {
-        ArrayObjIter {
-            obj: self,
-            index: 0,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ArrayObjIter<'a> {
-    obj: &'a Object,
-    index: usize,
-}
-
-impl Iterator for ArrayObjIter<'_> {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let index = if self.index == 0 {
-            "-1".to_string()
-        } else {
-            (self.index - 1).to_string()
-        };
-
-        let prop = self.obj.get_property(&index);
-
-        self.index += 1;
-
-        prop
-    }
-}
-
-impl Display for Object {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.properties.is_empty() {
-            return write!(f, "{{}}");
-        }
-
-        let properties = self
-            .properties
-            .iter()
-            .map(|(key, value)| {
-                let value = if let Value::String(value) = value {
-                    let value = value.replace('\n', "\\n");
-                    format!("\'{value}\'")
-                } else {
-                    let value = value.to_string();
-
-                    // for the value, each newline after the first should be indented
-                    let mut value = value.split('\n');
-
-                    let mut lines = Vec::new();
-                    if let Some(value) = value.next() {
-                        lines.push(value.to_string());
-                    }
-
-                    for value in value {
-                        lines.push(format!("  {}", value));
-                    }
-
-                    lines.join("\n")
-                };
-
-                format!("  {key}: {value}")
-            })
-            .collect::<Vec<_>>();
-
-        write!(f, "{{\n{}\n}}", properties.join(",\n"))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Symbol {
-    description: Option<String>,
-    id: usize,
-}
-
-impl Display for Symbol {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Symbol({})",
-            match &self.description {
-                Some(description) => description,
-                None => "",
-            }
-        )
-    }
-}
-
-impl PartialEq for Symbol {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<'a> From<&'a Value> for &'a Symbol {
-    fn from(value: &'a Value) -> Self {
-        if let Value::Symbol(value) = value {
-            value
-        } else {
-            unreachable!()
-        }
     }
 }
