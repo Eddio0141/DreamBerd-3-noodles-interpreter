@@ -10,10 +10,15 @@
 
   outputs = { flake-parts, ... } @ inputs:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
+      systems = [
+        "x86_64-linux"
+      ];
       perSystem = { self', inputs', system, pkgs, ... }:
       let
-        fenix = inputs'.fenix.packages.complete.withComponents [
+        # check https://github.com/nix-community/fenix for what toolchains are available
+        toolchain = inputs'.fenix.packages.complete;
+
+        fenix = toolchain.withComponents [
           "rustc"
           "cargo"
           "rustfmt"
@@ -25,7 +30,7 @@
         rust-doc = pkgs.writeShellApplication {
           name = "rust-doc";
           text = ''
-            xdg-open "${inputs'.fenix.packages.complete.rust-docs}/share/doc/rust/html/index.html"
+            xdg-open "${toolchain.rust-docs}/share/doc/rust/html/index.html"
           '';
         };
       in {
