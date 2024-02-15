@@ -38,23 +38,18 @@ pub struct InterpreterState {
      */
     pub vars: Arc<Mutex<CallStack<Scope<VariableState>>>>,
     // function status. extra information that objects don't have
-    pub funcs: Arc<Mutex<CallStack<Scope<Functions>>>>,
+    pub funcs: Arc<Mutex<Functions>>,
 }
 
 impl Default for InterpreterState {
     fn default() -> Self {
         let var_state = VariableState::default();
-        let func_state = Functions::default();
-
         let vars = vec![var_state];
-        let funcs = vec![func_state];
-
         let vars = vec![vars];
-        let funcs = vec![funcs];
 
         Self {
             vars: Arc::new(Mutex::new(vars)),
-            funcs: Arc::new(Mutex::new(funcs)),
+            funcs: Arc::new(Mutex::new(Functions::default())),
         }
     }
 }
@@ -62,12 +57,7 @@ impl Default for InterpreterState {
 impl InterpreterState {
     /// Gets function info
     pub fn get_func_info(&self, name: &str) -> Option<FunctionState> {
-        self.funcs
-            .lock()
-            .unwrap()
-            .iter()
-            .find_map(|funcs| funcs.iter().find_map(|funcs| funcs.0.get(name)))
-            .cloned()
+        self.funcs.lock().unwrap().0.get(name).cloned()
     }
 
     /// Adds the analysis information to the state
@@ -92,57 +82,41 @@ impl InterpreterState {
         }
     }
 
-    pub fn push_scope(&self, line: Option<usize>) {
-        let (mut vars, mut funcs) = (self.vars.lock().unwrap(), self.funcs.lock().unwrap());
-        let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
+    pub fn push_scope(&self, line: usize) {
+        let mut vars = self.vars.lock().unwrap();
+        let vars = vars.last_mut().unwrap();
 
-        vars.push(Default::default());
-
-        // when pushing scope, the hoisted functions that's defined after the push position will be pushed up to the new scope
-        let last_scope = &mut funcs.last_mut().unwrap().0;
+        // when pushing scope, the hoisted vars that's defined after the push position will be pushed up to the new scope
+        let last_scope = &mut vars.last_mut().unwrap().0;
         let mut new_scope = HashMap::new();
 
-        match line {
-            Some(line) => last_scope.retain(|name, func| {
-                if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
-                    if *defined_line > line {
-                        new_scope.insert(name.to_string(), func.clone());
-                    }
-                    return false;
-                }
-
+        last_scope.retain(|name, var| {
+            if var.line > line {
+                new_scope.insert(name.to_string(), var.clone());
+                false
+            } else {
                 true
-            }),
-            None => new_scope.extend(last_scope.drain()),
-        }
+            }
+        });
 
-        funcs.push(Functions(new_scope));
+        vars.push(VariableState(new_scope));
     }
 
-    pub fn pop_scope(&self, line: Option<usize>) {
-        let (mut vars, mut funcs) = (self.vars.lock().unwrap(), self.funcs.lock().unwrap());
-        let (vars, funcs) = (vars.last_mut().unwrap(), funcs.last_mut().unwrap());
+    pub fn pop_scope(&self, line: usize) {
+        let mut vars = self.vars.lock().unwrap();
+        let vars = vars.last_mut().unwrap();
 
         if vars.len() == 1 {
             return;
         }
 
-        vars.pop();
-
-        // opposite to push_scope with hoisted functions
-        let remove_scope = funcs.pop().unwrap().0;
-        let last_scope = &mut funcs.last_mut().unwrap().0;
-        match line {
-            Some(line) => {
-                for (name, func) in remove_scope {
-                    if let FunctionVariant::FunctionDefined { defined_line, .. } = &func.variant {
-                        if *defined_line > line {
-                            last_scope.insert(name, func);
-                        }
-                    }
-                }
+        // opposite to push_scope with hoisted vars
+        let remove_scope = vars.pop().unwrap().0;
+        let last_scope = &mut vars.last_mut().unwrap().0;
+        for (name, var) in remove_scope {
+            if var.line > line {
+                last_scope.insert(name, var);
             }
-            None => last_scope.extend(remove_scope),
         }
     }
 
@@ -160,6 +134,10 @@ impl InterpreterState {
     }
 
     pub fn add_var(&self, name: &str, value: Value, line: usize) {
+        dbg!(
+            self.vars.lock().unwrap().last().unwrap().last().unwrap(),
+            &value
+        );
         self.vars
             .lock()
             .unwrap()
@@ -230,15 +208,7 @@ impl InterpreterState {
             variant: func,
             obj: Arc::clone(&obj),
         };
-        self.funcs
-            .lock()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .0
-            .insert(name.to_string(), state);
+        self.funcs.lock().unwrap().0.insert(name.to_string(), state);
 
         obj
     }
@@ -381,7 +351,6 @@ impl FunctionState {
         let interpreter = eval_args.1.extra;
         let state = &interpreter.state;
 
-        state.funcs.lock().unwrap().push(vec![Functions::default()]);
         state
             .vars
             .lock()
@@ -403,11 +372,9 @@ impl FunctionState {
                 let args = args.lock().unwrap();
 
                 let pop_call_stack = || {
-                    state.funcs.lock().unwrap().pop();
                     state.vars.lock().unwrap().pop();
                 };
 
-                state.funcs.lock().unwrap().push(vec![Functions::default()]);
                 state
                     .vars
                     .lock()
