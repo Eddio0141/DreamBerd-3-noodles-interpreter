@@ -1,6 +1,6 @@
-pub mod error;
-pub mod state;
-pub mod stdlib;
+pub(crate) mod error;
+pub(crate) mod state;
+pub(crate) mod stdlib;
 pub mod value;
 
-pub use error::Error;
+pub(crate) use error::Error;

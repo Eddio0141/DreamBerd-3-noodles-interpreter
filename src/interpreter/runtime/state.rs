@@ -37,7 +37,7 @@ pub struct InterpreterState {
      * will have to pop on early return
      */
     pub vars: Arc<Mutex<CallStack<Scope<VariableState>>>>,
-    // functions are either global or declared as a variable
+    // function status. extra information that objects don't have
     pub funcs: Arc<Mutex<CallStack<Scope<Functions>>>>,
 }
 

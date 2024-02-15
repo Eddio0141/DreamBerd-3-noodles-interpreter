@@ -13,7 +13,7 @@ use std::{fmt::Debug, io::Write};
 
 pub mod error;
 mod evaluators;
-pub mod parsers;
+pub(crate) mod parsers;
 pub mod runtime;
 mod static_analysis;
 

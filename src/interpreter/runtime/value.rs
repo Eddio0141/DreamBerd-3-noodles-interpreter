@@ -7,15 +7,9 @@ use std::{
 };
 
 use crate::{
-    interpreter::{
-        evaluators::{
-            expression::Expression, parsers::AstParseResult, statement::Statement, EvalArgs,
-        },
-        runtime,
-    },
+    interpreter::{evaluators::parsers::AstParseResult, runtime},
     parsers::{types::Position, *},
     prelude::Wrapper,
-    runtime::state::{Functions, VariableState},
     Interpreter,
 };
 use num_bigint::BigInt;
@@ -637,97 +631,6 @@ impl Object {
 
     pub fn set_property(&mut self, key: &str, value: Value) {
         self.properties.insert(key.to_string(), value);
-    }
-
-    /// Tries to execute the object as a function
-    /// - Only evaluates the function and returns `Some` if the object is a function
-    pub fn try_exec_func(&self, eval_args: EvalArgs) -> Option<Result<Value, runtime::Error>> {
-        let Some(Value::String(body)) = self.get_property("body") else {
-            return None;
-        };
-
-        let Some(Value::Object(Some(arg_names))) = self.get_property("arg_names") else {
-            return None;
-        };
-
-        let Some(Value::Object(Some(args))) = self.get_property("args") else {
-            return None;
-        };
-
-        let arg_names = arg_names.lock().unwrap();
-        let arg_names = arg_names.array_obj_iter();
-        let args = args.lock().unwrap();
-        let args = args.array_obj_iter();
-
-        let interpreter = eval_args.1.extra;
-        let state = &interpreter.state;
-
-        state.funcs.lock().unwrap().push(vec![Functions::default()]);
-        state
-            .vars
-            .lock()
-            .unwrap()
-            .push(vec![VariableState::default()]);
-
-        // declare arguments
-        for (arg_name, arg_value) in arg_names.zip(args) {
-            state.add_var(&arg_name.to_string(), arg_value, 0);
-        }
-
-        let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
-        let eval_args = (eval_args.0, code_with_pos);
-
-        let pop_call_stack = || {
-            state.funcs.lock().unwrap().pop();
-            state.vars.lock().unwrap().pop();
-        };
-
-        // check if block
-        if let Ok((mut code_with_pos, Statement::ScopeStart(_))) = Statement::parse(code_with_pos) {
-            let mut scope_count = 1usize;
-
-            // its a block
-            while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
-                match statement {
-                    Statement::ScopeStart(_) => {
-                        scope_count = scope_count.checked_add(1).expect("scope count overflow")
-                    }
-                    Statement::ScopeEnd(_) => {
-                        scope_count -= 1;
-                        if scope_count == 0 {
-                            break;
-                        }
-                    }
-                    _ => (),
-                }
-
-                code_with_pos = code_after;
-                let ret = match statement.eval(eval_args) {
-                    Ok(ret) => ret,
-                    Err(err) => return Some(Err(err)),
-                };
-                let ret = ret.return_value;
-                if let Some(ret) = ret {
-                    pop_call_stack();
-                    return Some(Ok(ret));
-                }
-            }
-
-            pop_call_stack();
-            return Some(Ok(Value::Undefined));
-        }
-
-        // expression (this won't fail because implicit strings)
-        if let Ok((_, expression)) = Expression::parse(code_with_pos) {
-            let value = match expression.eval(eval_args) {
-                Ok(value) => value,
-                Err(err) => return Some(Err(err)),
-            };
-            pop_call_stack();
-            return Some(Ok(value.0.into_owned()));
-        }
-
-        unreachable!("function body is not a block or expression, which should be impossible because of implicit strings");
     }
 
     pub fn array_obj_iter(&self) -> ArrayObjIter {
