@@ -154,3 +154,39 @@ assert(result === 1)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn func_var_args() {
+    let code = r#"
+var var add = left, right => left + right!
+var var result = add 1, 2!
+assert(result === 3)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn func_var_scope() {
+    let code = r#"
+var var func = => {
+    return 1!
+}!
+var var result = func!
+assert(result === 1)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn func_var_scope_args() {
+    let code = r#"
+var var add = left, right => {
+    var var added = left + right!
+    return added!
+}!
+var var result = add 1, 2!
+assert(result === 3)!
+assert(added === undefined)!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
