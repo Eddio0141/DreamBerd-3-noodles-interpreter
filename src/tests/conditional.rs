@@ -127,3 +127,25 @@ assert x === 4!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn elseif_mass() {
+    let code = r#"
+var var x = 5!
+if x === 1 {
+    x = 2!
+} else if x === 2 {
+    x = 3!
+} else if x === 3 {
+    x = 4!
+} else if x === 4 {
+    x = 5!
+} else if x === 5 {
+    x = 6!
+} else {
+    x = 7!
+}
+assert x === 6!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
