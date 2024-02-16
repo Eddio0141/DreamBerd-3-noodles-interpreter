@@ -38,16 +38,21 @@ impl Interpreter {
         self.state.add_analysis_info(code, analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
-        let args = (code, code_with_pos);
 
         let mut values = Vec::new();
 
         while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
             code_with_pos = code_after;
+            // TODO: merge with below
             let StatementReturn {
                 value,
                 return_value,
-            } = statement.eval(args)?;
+            } = statement.eval((code, code_with_pos))?;
+
+            // TODO: remove this later maybe too
+            // if let Some(new_pos) = new_pos {
+            //     code_with_pos = new_pos;
+            // }
 
             if let Statement::Return(_) = statement {
                 if let Some(return_value) = return_value {
@@ -71,11 +76,10 @@ impl Interpreter {
         self.state.add_analysis_info(code, analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
-        let args = (code, code_with_pos);
 
         let mut expr = tuple((Expression::parse, eof)).map(|(expr, _)| expr);
         if let Ok((_, expr)) = expr.parse(code_with_pos) {
-            let res: Value = expr.eval(args)?.0.into_owned();
+            let res: Value = expr.eval((code, code_with_pos))?.0.into_owned();
             return Ok(vec![res]);
         }
 
@@ -86,7 +90,7 @@ impl Interpreter {
             let StatementReturn {
                 value,
                 return_value,
-            } = statement.eval(args)?;
+            } = statement.eval((code, code_with_pos))?;
 
             if let Statement::Return(_) = statement {
                 if let Some(return_value) = return_value {

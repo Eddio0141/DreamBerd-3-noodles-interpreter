@@ -10,6 +10,7 @@ use crate::{
 };
 
 use super::{
+    conditional::If,
     function::{FunctionDef, Return},
     parsers::AstParseResult,
     scope::*,
@@ -27,6 +28,7 @@ pub enum Statement {
     ScopeStart(ScopeStart),
     ScopeEnd(ScopeEnd),
     Return(Return),
+    If(If),
 }
 
 impl Statement {
@@ -49,12 +51,14 @@ impl Statement {
         let scope_start = ScopeStart::parse.map(Statement::ScopeStart);
         let scope_end = ScopeEnd::parse.map(Statement::ScopeEnd);
         let ret = Return::parse.map(Statement::Return);
+        let if_ = If::parse.map(Statement::If);
 
         if let Ok((input, statement)) = alt((
             function_call,
             function_def,
             variable_decl,
             var_set,
+            if_,
             scope_start,
             scope_end,
             ret,
@@ -79,7 +83,7 @@ impl Statement {
         }
     }
 
-    pub fn eval(&self, args: EvalArgs) -> Result<StatementReturn, runtime::error::Error> {
+    pub fn eval(&self, args: EvalArgs<'_>) -> Result<StatementReturn, runtime::error::Error> {
         let interpreter = args.1.extra;
         let value = match self {
             Statement::FunctionCall(statement) => statement.eval(args)?,
@@ -99,8 +103,9 @@ impl Statement {
                 return statement.eval(args).map(|return_value| StatementReturn {
                     value: None,
                     return_value,
-                })
+                });
             }
+            Statement::If(if_) => return if_.eval(args).map(|_| Default::default()),
         };
 
         Ok(StatementReturn {
@@ -116,4 +121,8 @@ pub struct StatementReturn {
     pub value: Option<Value>,
     /// For return statements, this is the value that is returned
     pub return_value: Option<Value>,
+    // /// New position in the input
+    // TODO: not sure if this needed, ever.
+    // if it is ever used again, make sure `eval` uses a lifetime that binds arg and return
+    // pub new_pos: Option<Position<'a, Interpreter>>,
 }

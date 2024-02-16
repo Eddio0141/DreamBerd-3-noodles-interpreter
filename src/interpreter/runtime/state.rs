@@ -376,7 +376,6 @@ impl FunctionState {
                 }
 
                 let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
-                let eval_args = (eval_args.0, code_with_pos);
 
                 // check if block
                 if let Ok((mut code_with_pos, Statement::ScopeStart(_))) =
@@ -401,7 +400,7 @@ impl FunctionState {
                         }
 
                         code_with_pos = code_after;
-                        let ret = match statement.eval(eval_args) {
+                        let ret = match statement.eval((eval_args.0, code_with_pos)) {
                             Ok(ret) => ret.return_value,
                             Err(err) => return Err(err),
                         };

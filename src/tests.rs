@@ -1,4 +1,5 @@
 mod array;
+mod conditional;
 mod expression;
 mod function;
 mod object;
