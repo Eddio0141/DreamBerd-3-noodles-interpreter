@@ -330,7 +330,7 @@ pub enum LifeTime {
 }
 
 impl LifeTime {
-    pub fn parse<T: Debug>(input: Position<'_, T>) -> PosResult<'_, Self, T> {
+    pub fn parse<T: Debug>(input: Position<T>) -> PosResult<'_, Self, T> {
         let infinity = tag("Infinity").map(|_| LifeTime::Infinity);
         let seconds = map_opt(terminated(double, char('s')), |s| {
             if s.is_sign_negative() {

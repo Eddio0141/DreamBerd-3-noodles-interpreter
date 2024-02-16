@@ -442,4 +442,4 @@ pub enum FunctionVariant {
     Native(NativeFunc),
 }
 
-pub type NativeFunc = fn(&Interpreter<'_>, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>;
+pub type NativeFunc = fn(&Interpreter, Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error>;

@@ -1,7 +1,5 @@
 use crate::Interpreter;
 
-use super::interpreter_test_output;
-
 #[test]
 fn int_comparisons() {
     let code = r#"
@@ -104,12 +102,14 @@ assert(- 1+2 +- 3+4 ===-10)!
 #[test]
 fn math_expr_unary2() {
     let code = r#"
-print - -1!
-print - - -1!
-print - - - -1!
+var var a = - -1!
+assert a === 1!
+a = - - -1!
+assert a === -1!
+a = - - - -1!
+assert a === 1!
 "#;
-
-    interpreter_test_output(code, "1\n-1\n1\n");
+    Interpreter::new_eval(code).unwrap();
 }
 
 #[test]

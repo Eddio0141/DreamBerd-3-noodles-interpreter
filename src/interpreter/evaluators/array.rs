@@ -21,9 +21,9 @@ impl_parser!(
     ArrayInitialiser,
     input,
     {
-        fn expr_term<'a, 'b>(
-            input: Position<'a, Interpreter<'b>>,
-        ) -> IResult<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> {
+        fn expr_term(
+            input: Position<Interpreter>,
+        ) -> IResult<Position<Interpreter>, Position<Interpreter>, ()> {
             alt((tag(","), tag("]")))(input)
         }
 

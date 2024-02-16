@@ -1,9 +1,8 @@
 use criterion::{black_box, Criterion};
-use dreamberd_noodles_interpreter::InterpreterBuilder;
+use dreamberd_noodles_interpreter::Interpreter;
 
 pub fn declare_many(c: &mut Criterion) {
-    let mut stdout = std::io::sink();
-    let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+    let interpreter = Interpreter::default();
 
     c.bench_function("declare_many", |b| {
         b.iter(|| {

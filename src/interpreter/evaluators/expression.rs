@@ -40,8 +40,8 @@ pub enum Expression {
     },
 }
 
-type AtomToExpressionResult<'a, 'b> =
-    AstParseResult<'a, 'b, (Expression, Vec<(Vec<UnaryOperator>, usize)>)>;
+type AtomToExpressionResult<'a> =
+    AstParseResult<'a, (Expression, Vec<(Vec<UnaryOperator>, usize)>)>;
 
 type NextExprOperation<'a> = Option<&'a (
     (Operator, usize),
@@ -49,15 +49,15 @@ type NextExprOperation<'a> = Option<&'a (
 )>;
 
 impl Expression {
-    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
-        Self::parser::<fn(Position<'_, Interpreter<'_>>) -> _>(None)(input)
+    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+        Self::parser::<fn(Position<Interpreter>) -> _>(None)(input)
     }
 
-    pub fn parser<'a, 'b: 'a, P>(
+    pub fn parser<'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self>
+    ) -> impl Fn(Position<'a, Interpreter>) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> + Copy,
+        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
     {
         move |input| {
             // ws on the left and right of op needs to be added, and each op needs to have that info
@@ -217,11 +217,11 @@ impl Expression {
     ///     - Each item in the vector is a vector of unary operators
     ///     - Outer vector is meaning there's a ws between the unary operator groups
     /// - Order of the unary operators is from left to right
-    fn atom_to_expression<'a, 'b: 'a, P>(
+    fn atom_to_expression<'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter<'b>>) -> AtomToExpressionResult<'a, 'b>
+    ) -> impl Fn(Position<'a, Interpreter>) -> AtomToExpressionResult<'a>
     where
-        P: Parser<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> + Copy,
+        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
     {
         move |input| {
             let (input, (unaries, expr)) = tuple((
@@ -358,7 +358,7 @@ pub enum AtomPostfix {
 }
 
 impl AtomPostfix {
-    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         // object postfix can recurse
         // obj.postfix.postfix
         let obj_property = tuple((
@@ -372,9 +372,9 @@ impl AtomPostfix {
         ))
         .map(|(_, _, _, property)| AtomPostfix::DotNotation(property.to_string()));
 
-        fn right_bracket<'a, 'b>(
-            input: Position<'a, Interpreter<'b>>,
-        ) -> IResult<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> {
+        fn right_bracket(
+            input: Position<Interpreter>,
+        ) -> IResult<Position<Interpreter>, Position<Interpreter>, ()> {
             tag("]")(input)
         }
 
@@ -393,9 +393,7 @@ impl AtomPostfix {
         alt((obj_property, obj_property_bracket))(input)
     }
 
-    pub fn parse_empty<'a, 'b>(
-        input: Position<'a, Interpreter<'b>>,
-    ) -> IResult<Position<'a, Interpreter<'b>>, (), ()> {
+    pub fn parse_empty(input: Position<Interpreter>) -> IResult<Position<Interpreter>, (), ()> {
         match Self::parse(input) {
             Ok((input, _)) => Ok((input, ())),
             Err(_) => Err(nom::Err::Error(())),
@@ -461,14 +459,14 @@ impl Atom {
 
     fn parser<'a, 'b: 'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self>
+    ) -> impl Fn(Position<'a, Interpreter>) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> + Copy,
+        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
     {
         move |input| {
             // try parse without postfix and assume the whole thing is an identifier
             if let Ok((input, value)) =
-                AtomValue::parse::<fn(Position<'_, Interpreter<'_>>) -> _>(input, None)
+                AtomValue::parse::<fn(Position<Interpreter>) -> _>(input, None)
             {
                 return Ok((
                     input,
@@ -499,11 +497,11 @@ impl Atom {
 
 impl AtomValue {
     fn parse<'a, 'b, P>(
-        input: Position<'a, Interpreter<'b>>,
+        input: Position<'a, Interpreter>,
         postfix_separator: Option<P>,
-    ) -> AstParseResult<'a, 'b, Self>
+    ) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter<'b>>, (), ()> + Clone,
+        P: Parser<Position<'a, Interpreter>, (), ()> + Clone,
     {
         if let Ok((input, value)) =
             FunctionCall::parse_maybe_as_func(input, postfix_separator.clone())
@@ -551,9 +549,9 @@ impl AtomValue {
     /// Parsing last resort
     fn parser_last_resort<'a, 'b: 'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl FnMut(Position<'a, Interpreter<'b>>) -> (Position<'a, Interpreter<'b>>, Self)
+    ) -> impl FnMut(Position<'a, Interpreter>) -> (Position<'a, Interpreter>, Self)
     where
-        P: Parser<Position<'a, Interpreter<'b>>, Position<'a, Interpreter<'b>>, ()> + Copy,
+        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
     {
         move |input| {
             // actual value?
@@ -612,7 +610,7 @@ impl UnaryOperator {
         Ok(value)
     }
 
-    fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         alt((
             value(UnaryOperator::Not, char(';')),
             value(UnaryOperator::Minus, char('-')),
@@ -644,7 +642,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         alt((
             value(Operator::StrictEqual, tag("===")),
             value(Operator::Equal, tag("==")),

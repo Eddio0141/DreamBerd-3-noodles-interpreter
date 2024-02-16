@@ -1,7 +1,5 @@
 use crate::Interpreter;
 
-use super::interpreter_test_output;
-
 #[test]
 fn assert_success() {
     let code = "assert true!";
@@ -14,23 +12,35 @@ fn assert_fail() {
     assert!(Interpreter::new_eval(code).is_err());
 }
 
-#[test]
-fn print() {
-    interpreter_test_output("print 1!", "1\n");
-}
+// TODO: implmenet
+// #[test]
+// fn print() {
+//     interpreter_test_output("print 1!", "1\n");
+// }
 
 #[test]
 fn get_typeof() {
-    interpreter_test_output("print typeof 1!", "number\n");
-    interpreter_test_output("print typeof true!", "boolean\n");
-    interpreter_test_output("print typeof false!", "boolean\n");
-    interpreter_test_output("print typeof 1n!", "bigint\n");
-    interpreter_test_output("print typeof \"\"!", "string\n");
-    interpreter_test_output("print typeof undefined!", "undefined\n");
+    let code = r#"
+var var type = typeof 1!
+assert type === "number"!
+var var type = typeof true!
+assert type === "boolean"!
+var var type = typeof false!
+assert type === "boolean"!
+var var type = typeof 1n!
+assert type === "bigint"!
+var var type = typeof \"\"!
+assert type === "string"!
+var var type = typeof undefined!
+assert type === "undefined"!
+var var type = typeof {}!
+assert type === "object"!
+var var type = typeof null!
+assert type === "object"!
+"#;
     // TODO
     // interpreter_test_output("print typeof Symbol()!", "symbol\n");
-    interpreter_test_output("print typeof {}!", "object\n");
     // TODO
     // interpreter_test_output("print typeof []!", "object\n");
-    interpreter_test_output("print typeof null!", "object\n");
+    Interpreter::new_eval(code).unwrap();
 }

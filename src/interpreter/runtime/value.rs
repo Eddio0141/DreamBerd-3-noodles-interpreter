@@ -129,7 +129,7 @@ impl Value {
         }
     }
 
-    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         let value_true = value(Value::Boolean(true), tag::<_, _, ()>("true"));
         let value_false = value(Value::Boolean(false), tag("false"));
         let value_undefined = value(Value::Undefined, tag("undefined"));

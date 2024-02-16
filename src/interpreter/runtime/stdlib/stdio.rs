@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, io::Write};
 
 use crate::{
     interpreter::runtime::{error::Error, value::Value},
@@ -6,10 +6,11 @@ use crate::{
     Interpreter,
 };
 
-pub fn print(interpreter: &Interpreter, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
-    let mut stdout = interpreter.stdout.lock().unwrap();
+pub fn print(_interpreter: &Interpreter, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
+    let mut stdout = std::io::stdout();
     for arg in args {
-        writeln!(stdout, "{}", arg.as_ref())
+        stdout
+            .write_fmt(format_args!("{}", arg.as_ref()))
             .map_err(|err| Error::RuntimeException(err.to_string()))?;
     }
     stdout

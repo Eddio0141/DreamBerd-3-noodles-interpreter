@@ -10,10 +10,10 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = {version = "1.0.79", optional = true}
-clap = {version = "4.4.16", features = ["derive"], optional = true}
+anyhow = { version = "1.0.79", optional = true }
+clap = { version = "4.4.16", features = ["derive"], optional = true }
 lazy_static = "1.4.0"
-mimalloc = {version="0.1.39", optional = true}
+mimalloc = { version = "0.1.39", optional = true }
 nom = "7.1.3"
 num-bigint = "0.4.4"
 num-traits = "0.2.17"
@@ -31,8 +31,7 @@ name = "dreamberd_noodles_interpreter"
 required-features = ["bin"]
 
 [dev-dependencies]
-criterion = {version = "0.5.1", features = ["html_reports"]}
-pretty_assertions = "1.4.0"
+criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [[bench]]
 harness = false
@@ -42,10 +41,9 @@ name = "bench"
 unsafe_code = "forbid"
 
 [profile.release]
-lto = "fat" # https://doc.rust-lang.org/cargo/reference/profiles.html#lto
+lto = "fat"       # https://doc.rust-lang.org/cargo/reference/profiles.html#lto
 codegen-units = 1 # https://nnethercote.github.io/perf-book/build-configuration.html#codegen-units
 
 [profile.bench]
 lto = "fat"
 codegen-units = 1
-

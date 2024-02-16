@@ -37,7 +37,7 @@ impl VariableDecl {
         Ok(())
     }
 
-    pub fn parse<'a, 'b>(input: Position<'a, Interpreter<'b>>) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         let var = || tag("var");
         let eq = char('=');
         let identifier = identifier(LifeTime::parse);
@@ -89,9 +89,7 @@ impl VarSet {
         Ok(())
     }
 
-    pub fn parse<'a, 'b>(
-        input_orig: Position<'a, Interpreter<'b>>,
-    ) -> AstParseResult<'a, 'b, Self> {
+    pub fn parse(input_orig: Position<'_, Interpreter>) -> AstParseResult<Self> {
         // ident ws* "=" ws* expr ws* !
         let eq = char('=');
         let mut identifier_full = identifier(LifeTime::parse);

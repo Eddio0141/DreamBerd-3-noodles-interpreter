@@ -24,7 +24,7 @@ impl_parser!(
         let brace_start = char('{');
         let brace_end = char('}');
         let colon = || char(':');
-        let identifier = identifier(colon()).map(|id: Position<'_, _, _>| id.to_string());
+        let identifier = identifier(colon()).map(|id: Position<_, _>| id.to_string());
         let comma = char(',');
         let property = tuple((ws, identifier, ws, colon(), ws, cut(Expression::parse)))
             .map(|(_, id, _, _, _, expr)| (id, expr));

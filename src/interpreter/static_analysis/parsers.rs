@@ -15,6 +15,8 @@ use crate::{
     parsers::types::{PosResult, Position},
 };
 
+// TODO: wait for fix, or make issue if not
+#[allow(clippy::let_and_return)]
 pub fn till_term<'a>(input: Position<'a>) -> PosResult<'a, Position<'a>> {
     let str = |input: Position<'a>| -> PosResult<'a, Position> {
         let quote = alt((char('"'), char('\'')));

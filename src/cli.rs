@@ -2,10 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use dreamberd_noodles_interpreter::{
-    interpreter::{runtime::value::Value, Interpreter},
-    InterpreterBuilder,
-};
+use dreamberd_noodles_interpreter::interpreter::{runtime::value::Value, Interpreter};
 use rustyline::{error::ReadlineError, DefaultEditor};
 
 #[derive(Parser)]
@@ -25,8 +22,7 @@ impl Cli {
             Ok(())
         } else {
             // repl mode
-            let mut stdout = std::io::stdout().lock();
-            let interpreter = InterpreterBuilder::with_stdout(&mut stdout).build();
+            let interpreter = Interpreter::default();
 
             let mut editor = DefaultEditor::new().context("Failed to start repl with history")?;
 
