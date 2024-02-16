@@ -9,4 +9,5 @@ mod scope;
 pub mod statement;
 mod variable;
 
-pub type EvalArgs<'a, 'b, 'c> = (&'a str, Position<'b, Interpreter<'c>>);
+pub type EvalArgs<'a, 'b> = (&'a str, Position<'a, Interpreter<'b>>);
+
