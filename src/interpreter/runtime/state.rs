@@ -222,9 +222,9 @@ impl InterpreterState {
         self.vars
             .lock()
             .unwrap()
-            .first_mut()
+            .last_mut()
             .unwrap()
-            .first_mut()
+            .last_mut()
             .unwrap()
             .declare_var(name, Value::Object(Some(Arc::clone(&obj))), 0);
         obj
@@ -244,6 +244,13 @@ impl InterpreterState {
             return Some(DefineType::Func(func));
         };
 
+        // is the variable a function binding?
+        if let Value::Object(Some(var)) = var.get_value() {
+            if Arc::ptr_eq(&func.obj, var) {
+                return Some(DefineType::Func(func));
+            }
+        }
+
         let ret = match func.variant {
             FunctionVariant::FunctionDefined { defined_line, .. } => {
                 if var.line > defined_line {
@@ -259,6 +266,7 @@ impl InterpreterState {
     }
 }
 
+#[derive(Debug)]
 pub enum DefineType {
     Var(Variable),
     Func(FunctionState),
