@@ -57,7 +57,22 @@ impl Default for InterpreterState {
 impl InterpreterState {
     /// Gets function info
     pub fn get_func_info(&self, name: &str) -> Option<FunctionState> {
-        self.funcs.lock().unwrap().0.get(name).cloned()
+        let funcs = &self.funcs.lock().unwrap().0;
+        self.vars.lock().unwrap().iter().rev().find_map(|vars| {
+            vars.iter().rev().find_map(|vars| {
+                let Some(vars) = vars.get_var(name) else {
+                    return None;
+                };
+                let Value::Object(Some(value)) = vars.get_value() else {
+                    return None;
+                };
+                // find the function
+                funcs
+                    .iter()
+                    .find(|func| Arc::ptr_eq(&func.obj, value))
+                    .cloned()
+            })
+        })
     }
 
     /// Adds the analysis information to the state
@@ -203,8 +218,15 @@ impl InterpreterState {
             variant: func,
             obj: Arc::clone(&obj),
         };
-        self.funcs.lock().unwrap().0.insert(name.to_string(), state);
-
+        self.funcs.lock().unwrap().0.push(state);
+        self.vars
+            .lock()
+            .unwrap()
+            .first_mut()
+            .unwrap()
+            .first_mut()
+            .unwrap()
+            .declare_var(name, Value::Object(Some(Arc::clone(&obj))), 0);
         obj
     }
 
@@ -305,7 +327,7 @@ impl Variable {
 
         // TODO concrete error
         let Some(var) = var else {
-            return Err(Error::Type("Cannot read propertoes of null".to_string()));
+            return Err(Error::Type("Cannot read properties of null".to_string()));
         };
 
         let mut var = var.lock().unwrap();
@@ -328,7 +350,7 @@ impl Variable {
 
 #[derive(Debug, Default)]
 /// A stack of function states
-pub struct Functions(pub HashMap<String, FunctionState>);
+pub struct Functions(pub Vec<FunctionState>);
 
 #[derive(Debug, Clone)]
 /// Function state
