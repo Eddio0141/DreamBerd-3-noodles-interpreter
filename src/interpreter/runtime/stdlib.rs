@@ -21,9 +21,11 @@ pub fn load(interpreter: &Interpreter) {
 
     for func in funcs {
         let (name, arg_count, func) = func;
-        interpreter
-            .state
-            .add_func(name, FunctionVariant::Native(func), Some(arg_count));
+        interpreter.state.add_func_declare_var(
+            name,
+            FunctionVariant::Native(func),
+            Some(arg_count),
+        );
     }
 
     object::load(interpreter);

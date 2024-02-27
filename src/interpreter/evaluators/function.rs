@@ -1,28 +1,19 @@
 //! Contains function related structures
 
-use std::sync::Arc;
-
 use nom::{
     branch::alt, bytes::complete::*, character::complete::*, combinator::*, error::ErrorKind,
-    multi::*, sequence::*, *,
+    sequence::*, *,
 };
 
 use crate::{
-    interpreter::{
-        evaluators::statement::Statement,
-        runtime::{
-            error::Error,
-            state::{DefineType, FunctionVariant},
-            value::Value,
-        },
-    },
+    interpreter::runtime::{error::Error, state::DefineType, value::Value},
     parsers::types::Position,
     runtime::state::FunctionState,
 };
 use crate::{parsers::*, Interpreter};
 
-use super::parsers::AstParseResult;
 use super::{expression::Expression, EvalArgs};
+use super::{expression::FunctionExpr, parsers::AstParseResult};
 
 #[derive(Debug, Clone)]
 /// A function call that is 100% certain its a function call
@@ -167,9 +158,7 @@ impl FunctionCall {
 /// A function definition
 pub struct FunctionDef {
     pub name: String,
-    pub arg_names: Vec<String>,
-    pub body: String,
-    pub body_line: usize,
+    func: FunctionExpr,
 }
 
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
@@ -197,108 +186,26 @@ impl FunctionDef {
                 }
             }
         }
-
-        // past header
-        // func_args = { identifier ~ (comma ~ identifier)* }
-        // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
-        let comma = || char::<Position<_, _>, _>(',');
-        let arg_identifier = || identifier(comma());
-        let args = tuple((
-            arg_identifier(),
-            many0(
-                tuple((ws, comma(), ws, arg_identifier())).map(|(_, _, _, identifier)| identifier),
-            ),
-        ))
-        .map(|(first, mut rest)| {
-            rest.insert(0, first);
-            rest
-        });
         let arrow = || tag("=>");
-        let args = tuple((ws, args, ws, arrow())).map(|(_, args, _, _)| {
-            args.into_iter()
-                .map(|s| s.input.to_string())
-                .collect::<Vec<_>>()
-        });
         let identifier = identifier(arrow());
 
-        // this parses the function body
-        // properly checks scope balance
-        let scope = |input| {
-            let scope_start = char('{');
-            let (mut input, _) = scope_start(input)?;
-            let scope_start = || tuple((ws, char('{'))).map(|_| Some(true));
+        let (input, (_, identifier, _)) = tuple((ws, identifier, ws))(input)?;
 
-            let scope_end = || tuple((ws, char('}'))).map(|_| Some(false));
-            let mut statements_in_scope = many_till(
-                Statement::parse,
-                alt((scope_start(), scope_end(), eof.map(|_| None))),
-            );
-
-            let mut scope_track = 1usize;
-            loop {
-                if let Ok((i, (_, open_scope))) = statements_in_scope.parse(input) {
-                    input = i;
-
-                    if let Some(open_scope) = open_scope {
-                        if open_scope {
-                            scope_track = scope_track.checked_add(1).expect("scope overflow");
-                        } else {
-                            scope_track -= 1;
-                            if scope_track == 0 {
-                                return Ok((input, ()));
-                            }
-                        }
-
-                        continue;
-                    }
-                }
-
-                // this basically parses the rest of the code as this function's body, and this is fine
-                // TODO do we parse the function as implicit string if it doesn't end with a scope?
-                return Ok((input, ()));
-            }
-        };
-
-        let expression =
-            tuple((recognize(Expression::parse), end_of_statement)).map(|(expr, _)| expr);
-
-        let (body, (_, identifier, _, args, _)) = tuple((
-            ws,
-            identifier,
-            ws,
-            alt((arrow().map(|_| Vec::new()), args)),
-            ws,
-        ))(input)?;
-
-        let body_line = body.line;
-
-        let (input, body) = alt((recognize(scope), expression))(body)?;
+        let (input, expr) = FunctionExpr::parse(input)?;
 
         let instance = Self {
             name: identifier.input.to_string(),
-            arg_names: args,
-            body: body.to_string(),
-            body_line,
+            func: expr,
         };
 
         Ok((input, instance))
     }
 
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
-        interpreter
-            .state
-            .add_func(&self.name, self.into(), Some(self.arg_names.len()));
+        let obj = self.func.eval(interpreter);
+        let line = self.func.body_line;
+        interpreter.state.add_var(&self.name, obj.into(), line);
         Ok(())
-    }
-}
-
-impl From<&FunctionDef> for FunctionVariant {
-    fn from(func: &FunctionDef) -> Self {
-        Self::FunctionDefined {
-            defined_line: func.body_line,
-            body: Arc::new(func.body.clone()),
-            arg_names: Arc::new(func.arg_names.clone()),
-        }
     }
 }
 

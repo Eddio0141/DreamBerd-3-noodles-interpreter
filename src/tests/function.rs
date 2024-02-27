@@ -186,7 +186,10 @@ var var add = left, right => {
 }!
 var var result = add 1, 2!
 assert(result === 3)!
-assert(added === undefined)!
+var var added_type = typeof added!
+assert(added_type === "string")!
 "#;
+    // TODO: doing `added === "added"` fails because implicit string doesnt terminate on operator,
+    // implement it
     Interpreter::new_eval(code).unwrap();
 }

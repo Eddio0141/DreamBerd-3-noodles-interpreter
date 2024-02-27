@@ -1,23 +1,29 @@
 //! Contains expression related structures
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until};
-use nom::combinator::{map_opt, rest, value};
+use nom::combinator::{eof, map_opt, recognize, rest, value};
 use nom::error::ErrorKind;
-use nom::multi::{many0, many1};
+use nom::multi::{many0, many1, many_till};
 use nom::sequence::tuple;
 use nom::IResult;
 use nom::{character::complete::*, Parser};
 
+use crate::interpreter::evaluators::statement::Statement;
 use crate::interpreter::runtime::error::Error;
 use crate::interpreter::runtime::state::DefineType;
 use crate::interpreter::runtime::value::Value;
 use crate::parsers::types::Position;
-use crate::parsers::{chunk, identifier, take_until_parser, terminated_chunk, ws, ws_count};
+use crate::parsers::{
+    chunk, end_of_statement, identifier, take_until_parser, terminated_chunk, ws, ws_count,
+};
 use crate::prelude::Wrapper;
-use crate::{impl_eval, Interpreter};
+use crate::runtime::state::FunctionVariant;
+use crate::runtime::value::ObjectRef;
+use crate::{impl_eval, impl_parse, Interpreter};
 
 use super::array::ArrayInitialiser;
 use super::function::FunctionCall;
@@ -349,6 +355,112 @@ pub enum AtomValue {
     FunctionCall(FunctionCall),
     ObjectInitialiser(ObjectInitialiser),
     ArrayInitialiser(ArrayInitialiser),
+    FunctionDef(FunctionExpr),
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionExpr {
+    arg_names: Vec<String>,
+    body: String,
+    pub body_line: usize,
+}
+
+impl From<&FunctionExpr> for FunctionVariant {
+    fn from(func: &FunctionExpr) -> Self {
+        Self::FunctionDefined {
+            body_line: func.body_line,
+            body: Arc::new(func.body.clone()),
+            arg_names: Arc::new(func.arg_names.clone()),
+        }
+    }
+}
+
+impl FunctionExpr {
+    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+        // past header
+        // func_args = { identifier ~ (comma ~ identifier)* }
+        // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
+        let comma = || char::<Position<_, _>, _>(',');
+        let arg_identifier = || identifier(comma());
+        let args = tuple((
+            arg_identifier(),
+            many0(
+                tuple((ws, comma(), ws, arg_identifier())).map(|(_, _, _, identifier)| identifier),
+            ),
+        ))
+        .map(|(first, mut rest)| {
+            rest.insert(0, first);
+            rest
+        });
+        let arrow = || tag("=>");
+        let args = tuple((ws, args, ws, arrow())).map(|(_, args, _, _)| {
+            args.into_iter()
+                .map(|s| s.input.to_string())
+                .collect::<Vec<_>>()
+        });
+
+        // this parses the function body
+        // properly checks scope balance
+        let scope = |input| {
+            let scope_start = char('{');
+            let (mut input, _) = scope_start(input)?;
+            let scope_start = || tuple((ws, char('{'))).map(|_| Some(true));
+
+            let scope_end = || tuple((ws, char('}'))).map(|_| Some(false));
+            let mut statements_in_scope = many_till(
+                Statement::parse,
+                alt((scope_start(), scope_end(), eof.map(|_| None))),
+            );
+
+            let mut scope_track = 1usize;
+            loop {
+                if let Ok((i, (_, open_scope))) = statements_in_scope.parse(input) {
+                    input = i;
+
+                    if let Some(open_scope) = open_scope {
+                        if open_scope {
+                            scope_track = scope_track.checked_add(1).expect("scope overflow");
+                        } else {
+                            scope_track -= 1;
+                            if scope_track == 0 {
+                                return Ok((input, ()));
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+
+                // this basically parses the rest of the code as this function's body, and this is fine
+                // TODO do we parse the function as implicit string if it doesn't end with a scope?
+                return Ok((input, ()));
+            }
+        };
+
+        let expression =
+            tuple((recognize(Expression::parse), end_of_statement)).map(|(expr, _)| expr);
+
+        let (body, (args, _)) = tuple((alt((arrow().map(|_| Vec::new()), args)), ws))(input)?;
+
+        let body_line = body.line;
+
+        let (input, body) = alt((recognize(scope), expression))(body)?;
+
+        Ok((
+            input,
+            FunctionExpr {
+                arg_names: args,
+                body: body.to_string(),
+                body_line,
+            },
+        ))
+    }
+
+    pub fn eval(&self, interpreter: &Interpreter) -> ObjectRef {
+        interpreter
+            .state
+            .add_func(self.into(), Some(self.arg_names.len()))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -448,6 +560,7 @@ impl Atom {
             AtomValue::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ArrayInitialiser(expr) => Cow::Owned(expr.eval(args)?),
+            AtomValue::FunctionDef(expr) => Cow::Owned(expr.eval(args.1.extra).into()),
         };
 
         for postfix in &self.postfix {
@@ -538,6 +651,11 @@ impl AtomValue {
         if let Ok((input, var)) = variable_parse_result {
             // TODO function call
             return Ok((input, AtomValue::Value(var.get_value().clone())));
+        }
+
+        // func def
+        if let Ok((input, expr)) = FunctionExpr::parse(input) {
+            return Ok((input, AtomValue::FunctionDef(expr)));
         }
 
         Err(nom::Err::Error(nom::error::Error::new(

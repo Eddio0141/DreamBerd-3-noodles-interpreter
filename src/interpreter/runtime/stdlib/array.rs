@@ -53,5 +53,5 @@ pub fn load(interpreter: &Interpreter) {
     interpreter.state.add_var("Array", array.into(), 0);
     interpreter
         .state
-        .add_func("Array", FunctionVariant::Native(constructor), None);
+        .add_func_declare_var("Array", FunctionVariant::Native(constructor), None);
 }

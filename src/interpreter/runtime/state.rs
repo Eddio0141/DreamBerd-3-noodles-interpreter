@@ -84,16 +84,15 @@ impl InterpreterState {
                 hoisted_line,
                 body_location,
             } = func;
-            let func = self.add_func(
+            self.add_func_declare_var(
                 identifier,
                 FunctionVariant::FunctionDefined {
-                    defined_line: hoisted_line,
+                    body_line: hoisted_line,
                     body: Arc::new(code[body_location..].to_string()),
                     arg_names: Arc::new(args.iter().map(|s| s.to_string()).collect()),
                 },
                 Some(args.len()),
             );
-            self.add_var(identifier, func.into(), hoisted_line);
         }
     }
 
@@ -199,12 +198,7 @@ impl InterpreterState {
     /// - This declares a function and binds it to an object
     /// # Arg count
     /// - If you pass `None`, it can accept any number of arguments
-    pub fn add_func(
-        &self,
-        name: &str,
-        func: FunctionVariant,
-        arg_count: Option<usize>,
-    ) -> ObjectRef {
+    pub fn add_func(&self, func: FunctionVariant, arg_count: Option<usize>) -> ObjectRef {
         let mut properties = HashMap::new();
         properties.insert(
             PROTO_PROP.to_string(),
@@ -219,15 +213,22 @@ impl InterpreterState {
             obj: Arc::clone(&obj),
         };
         self.funcs.lock().unwrap().0.push(state);
-        self.vars
-            .lock()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .declare_var(name, Value::Object(Some(Arc::clone(&obj))), 0);
         obj
+    }
+
+    pub fn add_func_declare_var(
+        &self,
+        name: &str,
+        func: FunctionVariant,
+        arg_count: Option<usize>,
+    ) {
+        let line = if let FunctionVariant::FunctionDefined { body_line, .. } = func {
+            body_line
+        } else {
+            0
+        };
+        let obj = self.add_func(func, arg_count);
+        self.add_var(name, obj.into(), line);
     }
 
     /// Tries to get the latest defined variable or function with the given name
@@ -252,7 +253,10 @@ impl InterpreterState {
         }
 
         let ret = match func.variant {
-            FunctionVariant::FunctionDefined { defined_line, .. } => {
+            FunctionVariant::FunctionDefined {
+                body_line: defined_line,
+                ..
+            } => {
                 if var.line > defined_line {
                     DefineType::Var(var)
                 } else {
@@ -380,7 +384,7 @@ impl FunctionState {
             FunctionVariant::FunctionDefined {
                 body,
                 arg_names,
-                defined_line: _,
+                body_line: _,
             } => {
                 let mut obj = self.obj.lock().unwrap();
 
@@ -462,7 +466,7 @@ impl FunctionState {
 pub enum FunctionVariant {
     FunctionDefined {
         /// The line where the function is usable from
-        defined_line: usize,
+        body_line: usize,
         /// Where the expression / scope is located as an index
         body: Arc<String>,
         /// Argument names
