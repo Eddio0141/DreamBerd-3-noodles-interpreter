@@ -186,7 +186,7 @@ impl AsChars for &[u8] {
     }
 }
 
-impl<T: Debug> InputTakeAtPosition for Position<'_, T> {
+impl<T> InputTakeAtPosition for Position<'_, T> {
     type Item = char;
 
     fn split_at_position<P, E: ParseError<Self>>(&self, predicate: P) -> IResult<Self, Self, E>
