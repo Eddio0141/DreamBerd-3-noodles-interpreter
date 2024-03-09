@@ -23,7 +23,7 @@ use crate::parsers::{
 use crate::prelude::Wrapper;
 use crate::runtime::state::FunctionVariant;
 use crate::runtime::value::ObjectRef;
-use crate::{impl_eval, impl_parse, Interpreter};
+use crate::{impl_eval, Interpreter};
 
 use super::array::ArrayInitialiser;
 use super::function::FunctionCall;

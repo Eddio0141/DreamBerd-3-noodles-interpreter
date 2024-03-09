@@ -35,7 +35,7 @@ impl Interpreter {
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<Vec<Value>, self::error::Error> {
         let analysis = Analysis::analyze(code);
-        self.state.add_analysis_info(code, analysis);
+        self.state.add_analysis_info(analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
 
@@ -73,7 +73,7 @@ impl Interpreter {
     /// This will first try to parse the code as an expression first
     pub fn eval_repl(&self, code: &str) -> Result<Vec<Value>, self::error::Error> {
         let analysis = Analysis::analyze(code);
-        self.state.add_analysis_info(code, analysis);
+        self.state.add_analysis_info(analysis);
 
         let mut code_with_pos = Position::new_with_extra(code, self);
 

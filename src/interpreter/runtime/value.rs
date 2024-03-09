@@ -1,22 +1,16 @@
-use std::{
-    borrow::Cow,
-    fmt::Display,
-    ops::{Add, Div, Mul, Neg, Not, Rem, Sub},
-    sync::Arc,
-};
+use std::{borrow::Cow, fmt::Display, ops::*, sync::Arc};
 
 use crate::{
-    interpreter::{evaluators::parsers::AstParseResult, runtime},
+    interpreter::runtime,
     parsers::{types::Position, *},
     prelude::Wrapper,
-    Interpreter,
 };
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*,
-    number::complete::*, sequence::*, Parser,
+    number::complete::*, sequence::*, IResult, Parser,
 };
 
 mod bigint;
@@ -129,13 +123,13 @@ impl Value {
         }
     }
 
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse<T>(input: Position<T>) -> IResult<Position<T>, Self> {
         let value_true = value(Value::Boolean(true), tag::<_, _, ()>("true"));
         let value_false = value(Value::Boolean(false), tag("false"));
         let value_undefined = value(Value::Undefined, tag("undefined"));
         let value_null = value(Value::Object(None), tag("null"));
         let value_bigint = tuple((
-            map_res(take_till(|c| c == 'n'), |s: Position<_>| {
+            map_res(take_till(|c| c == 'n'), |s: Position<_, _>| {
                 s.input.parse::<BigInt>()
             }),
             char('n'),

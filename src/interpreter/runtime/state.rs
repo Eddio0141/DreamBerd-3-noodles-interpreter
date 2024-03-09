@@ -11,7 +11,7 @@ use crate::{
             statement::Statement,
             EvalArgs,
         },
-        static_analysis::{Analysis, FunctionInfo},
+        static_analysis::{Analysis, HoistedVarInfo},
     },
     parsers::types::Position,
     prelude::Wrapper,
@@ -39,6 +39,8 @@ pub struct InterpreterState {
     pub vars: Arc<Mutex<CallStack<Scope<VariableState>>>>,
     // function status. extra information that objects don't have
     pub funcs: Arc<Mutex<Functions>>,
+    // hoisted variable info
+    hoisted_vars: Arc<Mutex<Vec<HoistedVarInfo>>>,
 }
 
 impl Default for InterpreterState {
@@ -50,6 +52,7 @@ impl Default for InterpreterState {
         Self {
             vars: Arc::new(Mutex::new(vars)),
             funcs: Arc::new(Mutex::new(Functions::default())),
+            hoisted_vars: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -76,24 +79,8 @@ impl InterpreterState {
     }
 
     /// Adds the analysis information to the state
-    pub fn add_analysis_info(&self, code: &str, analysis: Analysis) {
-        for func in analysis.hoisted_funcs {
-            let FunctionInfo {
-                identifier,
-                args,
-                hoisted_line,
-                body_location,
-            } = func;
-            self.add_func_declare_var(
-                identifier,
-                FunctionVariant::FunctionDefined {
-                    body_line: hoisted_line,
-                    body: Arc::new(code[body_location..].to_string()),
-                    arg_names: Arc::new(args.iter().map(|s| s.to_string()).collect()),
-                },
-                Some(args.len()),
-            );
-        }
+    pub fn add_analysis_info(&self, analysis: Analysis) {
+        *self.hoisted_vars.lock().unwrap() = analysis.hoisted_vars;
     }
 
     pub fn push_scope(&self, line: usize) {
