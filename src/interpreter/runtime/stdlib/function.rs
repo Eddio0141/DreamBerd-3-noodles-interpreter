@@ -29,5 +29,5 @@ pub fn load(interpreter: &Interpreter) {
 
     interpreter
         .state
-        .add_var("Function", func.into(), 0, VarType::VarVar);
+        .add_var("Function", func.into(), 0, VarType::VarVar, None);
 }

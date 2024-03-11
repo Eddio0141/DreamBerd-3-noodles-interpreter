@@ -322,7 +322,7 @@ where
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LifeTime {
     Infinity,
     Seconds(f64),

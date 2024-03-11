@@ -53,7 +53,7 @@ pub fn load(interpreter: &Interpreter) {
 
     interpreter
         .state
-        .add_var("Array", array.into(), 0, VarType::VarVar);
+        .add_var("Array", array.into(), 0, VarType::VarVar, None);
     interpreter
         .state
         .add_func_declare_var("Array", FunctionVariant::Native(constructor), None);

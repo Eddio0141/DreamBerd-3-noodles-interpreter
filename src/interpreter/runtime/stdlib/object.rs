@@ -31,5 +31,5 @@ pub fn load(interpreter: &Interpreter) {
 
     interpreter
         .state
-        .add_var("Object", obj.into(), 0, VarType::VarVar);
+        .add_var("Object", obj.into(), 0, VarType::VarVar, None);
 }

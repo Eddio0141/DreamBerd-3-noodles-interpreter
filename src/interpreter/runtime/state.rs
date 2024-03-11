@@ -1,7 +1,8 @@
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
+    time::Instant,
 };
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
         },
         static_analysis::{Analysis, HoistedVarInfo},
     },
-    parsers::types::Position,
+    parsers::{types::Position, LifeTime},
     prelude::Wrapper,
     runtime::{stdlib::array, value::PROTO_PROP},
     Interpreter,
@@ -61,9 +62,12 @@ impl Default for InterpreterState {
 impl InterpreterState {
     /// Gets function info
     pub fn get_func_info(&self, name: &str) -> Option<FunctionState> {
+        self.clean_up_funcs();
         let funcs = &self.funcs.lock().unwrap().0;
-        self.vars.lock().unwrap().iter().rev().find_map(|vars| {
-            vars.iter().rev().find_map(|vars| {
+        self.vars.lock().unwrap().iter_mut().rev().find_map(|vars| {
+            vars.iter_mut().rev().find_map(|vars| {
+                vars.validate_lifetime();
+
                 let Some(vars) = vars.get_var(name) else {
                     return None;
                 };
@@ -73,10 +77,19 @@ impl InterpreterState {
                 // find the function
                 funcs
                     .iter()
-                    .find(|func| Arc::ptr_eq(&func.obj, value))
+                    .find(|func| Weak::ptr_eq(&func.obj, &Arc::downgrade(value)))
                     .cloned()
             })
         })
+    }
+
+    /// Clean up functions that can't be called anymore
+    fn clean_up_funcs(&self) {
+        self.funcs
+            .lock()
+            .unwrap()
+            .0
+            .retain(|f| f.obj.upgrade().is_some());
     }
 
     /// Adds the analysis information to the state
@@ -134,7 +147,14 @@ impl InterpreterState {
         Err(Error::FunctionNotFound(name.to_string()))
     }
 
-    pub fn add_var(&self, name: &str, value: Value, line: usize, type_: VarType) {
+    pub fn add_var(
+        &self,
+        name: &str,
+        value: Value,
+        line: usize,
+        type_: VarType,
+        life_time: Option<LifeTime>,
+    ) {
         self.vars
             .lock()
             .unwrap()
@@ -142,14 +162,15 @@ impl InterpreterState {
             .unwrap()
             .last_mut()
             .unwrap()
-            .declare_var(name, value, line, type_);
+            .declare_var(name, value, line, type_, life_time);
     }
 
     pub fn get_var(&self, name: &str) -> Option<Variable> {
-        self.vars.lock().unwrap().iter().find_map(|vars| {
-            vars.iter()
-                .rev()
-                .find_map(|vars| vars.get_var(name).cloned())
+        self.vars.lock().unwrap().iter_mut().find_map(|vars| {
+            vars.iter_mut().rev().find_map(|vars| {
+                vars.validate_lifetime();
+                vars.get_var(name).cloned()
+            })
         })
     }
 
@@ -178,6 +199,7 @@ impl InterpreterState {
             value,
             line,
             VarType::VarVar,
+            None,
         );
 
         Ok(())
@@ -199,7 +221,7 @@ impl InterpreterState {
         let state = FunctionState {
             arg_count,
             variant: func,
-            obj: Arc::clone(&obj),
+            obj: Arc::downgrade(&obj),
         };
         self.funcs.lock().unwrap().0.push(state);
         obj
@@ -217,7 +239,7 @@ impl InterpreterState {
             0
         };
         let obj = self.add_func(func, arg_count);
-        self.add_var(name, obj.into(), line, VarType::VarVar);
+        self.add_var(name, obj.into(), line, VarType::VarVar, None);
     }
 
     /// Tries to get the latest defined variable or function with the given name
@@ -236,7 +258,7 @@ impl InterpreterState {
 
         // is the variable a function binding?
         if let Value::Object(Some(var)) = var.get_value() {
-            if Arc::ptr_eq(&func.obj, var) {
+            if Weak::ptr_eq(&func.obj, &Arc::downgrade(var)) {
                 return Some(DefineType::Func(func));
             }
         }
@@ -269,9 +291,42 @@ pub enum DefineType {
 pub struct VariableState(pub HashMap<String, Variable>);
 
 impl VariableState {
-    pub fn declare_var(&mut self, name: &str, value: Value, line: usize, type_: VarType) {
-        self.0
-            .insert(name.to_string(), Variable { value, line, type_ });
+    pub fn declare_var(
+        &mut self,
+        name: &str,
+        value: Value,
+        line: usize,
+        type_: VarType,
+        life_time: Option<LifeTime>,
+    ) {
+        self.0.insert(
+            name.to_string(),
+            Variable {
+                value,
+                line,
+                type_,
+                life_time,
+                create_time: if matches!(life_time, Some(LifeTime::Seconds(_))) {
+                    Some(Instant::now())
+                } else {
+                    None
+                },
+            },
+        );
+    }
+
+    /// Checks and removes any variables that has expired
+    pub fn validate_lifetime(&mut self) {
+        self.0.retain(|_, var| {
+            let Some(LifeTime::Seconds(seconds)) = var.life_time else {
+                return true;
+            };
+
+            let create_time = var.create_time.unwrap();
+            let now = Instant::now();
+            let duration = now.duration_since(create_time).as_secs_f64();
+            duration < seconds
+        });
     }
 
     pub fn get_var(&self, name: &str) -> Option<&Variable> {
@@ -299,6 +354,8 @@ pub struct Variable {
     value: Value,
     line: usize,
     type_: VarType,
+    life_time: Option<LifeTime>,
+    create_time: Option<Instant>,
 }
 
 impl Variable {
@@ -372,7 +429,7 @@ pub struct Functions(pub Vec<FunctionState>);
 pub struct FunctionState {
     pub arg_count: Option<usize>,
     variant: FunctionVariant,
-    obj: ObjectRef,
+    obj: Weak<Mutex<Object>>,
 }
 
 impl FunctionState {
@@ -386,7 +443,9 @@ impl FunctionState {
                 arg_names,
                 body_line: _,
             } => {
-                let mut obj = self.obj.lock().unwrap();
+                // gc should be done up to this point, so it should be safe
+                let obj = self.obj.upgrade().unwrap();
+                let mut obj = obj.lock().unwrap();
 
                 obj.set_property("arguments", array::constructor(interpreter, args)?);
                 let Value::Object(Some(args)) = obj.get_property("arguments").unwrap() else {
@@ -406,7 +465,7 @@ impl FunctionState {
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args.array_obj_iter()) {
-                    state.add_var(&arg_name.to_string(), arg_value, 0, VarType::VarVar);
+                    state.add_var(&arg_name.to_string(), arg_value, 0, VarType::VarVar, None);
                 }
 
                 let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);

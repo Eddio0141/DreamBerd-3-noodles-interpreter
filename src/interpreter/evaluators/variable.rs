@@ -27,6 +27,7 @@ pub struct VariableDecl {
     expression: Expression,
     line: usize,
     type_: VarType,
+    life_time: Option<LifeTime>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -41,9 +42,13 @@ impl VariableDecl {
     pub fn eval(&self, args: EvalArgs) -> Result<(), Error> {
         let interpreter = args.1.extra;
         let value = self.expression.eval(args)?;
-        interpreter
-            .state
-            .add_var(&self.name, value.0.into_owned(), self.line, self.type_);
+        interpreter.state.add_var(
+            &self.name,
+            value.0.into_owned(),
+            self.line,
+            self.type_,
+            self.life_time,
+        );
 
         Ok(())
     }
@@ -80,6 +85,7 @@ impl VariableDecl {
             name: identifier.input.to_string(),
             line,
             type_,
+            life_time,
         };
 
         Ok((input, decl))

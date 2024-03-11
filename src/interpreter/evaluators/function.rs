@@ -206,7 +206,7 @@ impl FunctionDef {
         let line = self.func.body_line;
         interpreter
             .state
-            .add_var(&self.name, obj.into(), line, VarType::VarVar);
+            .add_var(&self.name, obj.into(), line, VarType::VarVar, None);
         Ok(())
     }
 }
