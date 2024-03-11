@@ -1,18 +1,20 @@
 //! Contains variable related structures
 
-use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::*;
-use nom::combinator::opt;
-use nom::multi::many1;
-use nom::sequence::Tuple;
-use nom::Parser;
+use nom::{
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::*,
+    combinator::opt,
+    multi::many1,
+    sequence::{tuple, Tuple},
+    Parser,
+};
 
-use crate::parsers::types::Position;
-use crate::parsers::{end_of_statement, identifier, ws, LifeTime};
-
-use crate::interpreter::runtime::error::Error;
-use crate::Interpreter;
+use crate::{
+    interpreter::runtime::error::Error,
+    parsers::{types::Position, *},
+    Interpreter,
+};
 
 use super::expression::{AtomPostfix, Expression};
 use super::parsers::AstParseResult;
@@ -24,6 +26,15 @@ pub struct VariableDecl {
     name: String,
     expression: Expression,
     line: usize,
+    type_: VarType,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum VarType {
+    VarVar,
+    ConstVar,
+    VarConst,
+    ConstConst,
 }
 
 impl VariableDecl {
@@ -32,21 +43,28 @@ impl VariableDecl {
         let value = self.expression.eval(args)?;
         interpreter
             .state
-            .add_var(&self.name, value.0.into_owned(), self.line);
+            .add_var(&self.name, value.0.into_owned(), self.line, self.type_);
 
         Ok(())
     }
 
     pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
         let var = || tag("var");
+        let const_ = || tag("const");
         let eq = char('=');
+        let const_const = tuple((const_(), ws1, const_())).map(|_| VarType::ConstConst);
+        let const_var = tuple((const_(), ws1, var())).map(|_| VarType::ConstVar);
+        let var_const = tuple((var(), ws1, const_())).map(|_| VarType::VarConst);
+        let var_var = tuple((var(), ws1, var())).map(|_| VarType::VarVar);
+        let type_ = alt((const_const, var_var, const_var, var_const));
         let identifier = identifier(LifeTime::parse);
+
+        let line = input.line;
+
         // var ws+ var ws+ identifier life_time? ws* "=" ws* expr
-        let (input, (start, _, _, _, identifier, _, _, _, _, expression, _)) = (
-            var(),
-            ws,
-            var(),
-            ws,
+        let (input, (type_, _, identifier, life_time, _, _, _, expression, _)) = (
+            type_,
+            ws1,
             identifier,
             opt(LifeTime::parse),
             ws,
@@ -60,7 +78,8 @@ impl VariableDecl {
         let decl = Self {
             expression,
             name: identifier.input.to_string(),
-            line: start.line,
+            line,
+            type_,
         };
 
         Ok((input, decl))

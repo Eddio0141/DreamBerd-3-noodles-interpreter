@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    interpreter::evaluators::variable::VarType,
     prelude::Wrapper,
     runtime::{
         state::FunctionVariant,
@@ -50,7 +51,9 @@ pub fn load(interpreter: &Interpreter) {
         Arc::clone(&PROTOTYPE).into(),
     )]));
 
-    interpreter.state.add_var("Array", array.into(), 0);
+    interpreter
+        .state
+        .add_var("Array", array.into(), 0, VarType::VarVar);
     interpreter
         .state
         .add_func_declare_var("Array", FunctionVariant::Native(constructor), None);

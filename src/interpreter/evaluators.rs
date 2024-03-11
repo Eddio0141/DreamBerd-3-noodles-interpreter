@@ -9,7 +9,7 @@ mod object;
 pub mod parsers;
 mod scope;
 pub mod statement;
-mod variable;
+pub mod variable;
 
 /// The arguments passed to the eval function
 /// # Parameters

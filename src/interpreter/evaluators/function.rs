@@ -12,7 +12,7 @@ use crate::{
 };
 use crate::{parsers::*, Interpreter};
 
-use super::{expression::Expression, EvalArgs};
+use super::{expression::Expression, variable::VarType, EvalArgs};
 use super::{expression::FunctionExpr, parsers::AstParseResult};
 
 #[derive(Debug, Clone)]
@@ -204,7 +204,9 @@ impl FunctionDef {
     pub fn eval(&self, interpreter: &Interpreter) -> Result<(), Error> {
         let obj = self.func.eval(interpreter);
         let line = self.func.body_line;
-        interpreter.state.add_var(&self.name, obj.into(), line);
+        interpreter
+            .state
+            .add_var(&self.name, obj.into(), line, VarType::VarVar);
         Ok(())
     }
 }

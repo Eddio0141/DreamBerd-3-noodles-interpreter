@@ -9,6 +9,7 @@ use crate::{
         evaluators::{
             expression::{AtomPostfix, Expression},
             statement::Statement,
+            variable::VarType,
             EvalArgs,
         },
         static_analysis::{Analysis, HoistedVarInfo},
@@ -133,7 +134,7 @@ impl InterpreterState {
         Err(Error::FunctionNotFound(name.to_string()))
     }
 
-    pub fn add_var(&self, name: &str, value: Value, line: usize) {
+    pub fn add_var(&self, name: &str, value: Value, line: usize, type_: VarType) {
         self.vars
             .lock()
             .unwrap()
@@ -141,7 +142,7 @@ impl InterpreterState {
             .unwrap()
             .last_mut()
             .unwrap()
-            .declare_var(name, value, line);
+            .declare_var(name, value, line, type_);
     }
 
     pub fn get_var(&self, name: &str) -> Option<Variable> {
@@ -172,11 +173,12 @@ impl InterpreterState {
         }
 
         // declare global
-        vars.first_mut()
-            .unwrap()
-            .first_mut()
-            .unwrap()
-            .declare_var(name, value, line);
+        vars.first_mut().unwrap().first_mut().unwrap().declare_var(
+            name,
+            value,
+            line,
+            VarType::VarVar,
+        );
 
         Ok(())
     }
@@ -215,7 +217,7 @@ impl InterpreterState {
             0
         };
         let obj = self.add_func(func, arg_count);
-        self.add_var(name, obj.into(), line);
+        self.add_var(name, obj.into(), line, VarType::VarVar);
     }
 
     /// Tries to get the latest defined variable or function with the given name
@@ -267,8 +269,9 @@ pub enum DefineType {
 pub struct VariableState(pub HashMap<String, Variable>);
 
 impl VariableState {
-    pub fn declare_var(&mut self, name: &str, value: Value, line: usize) {
-        self.0.insert(name.to_string(), Variable { value, line });
+    pub fn declare_var(&mut self, name: &str, value: Value, line: usize, type_: VarType) {
+        self.0
+            .insert(name.to_string(), Variable { value, line, type_ });
     }
 
     pub fn get_var(&self, name: &str) -> Option<&Variable> {
@@ -295,6 +298,7 @@ impl VariableState {
 pub struct Variable {
     value: Value,
     line: usize,
+    type_: VarType,
 }
 
 impl Variable {
@@ -309,7 +313,16 @@ impl Variable {
         postfix: &[AtomPostfix],
     ) -> Result<(), Error> {
         if postfix.is_empty() {
-            self.value = value;
+            // TODO: concrete error?
+            if matches!(self.type_, VarType::VarConst | VarType::VarVar) {
+                self.value = value;
+            }
+            return Ok(());
+        }
+
+        // below is for postfix operations, this only applies to const var and var var
+        if !matches!(self.type_, VarType::ConstVar | VarType::VarVar) {
+            // TODO: concrete error?
             return Ok(());
         }
 
@@ -393,7 +406,7 @@ impl FunctionState {
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args.array_obj_iter()) {
-                    state.add_var(&arg_name.to_string(), arg_value, 0);
+                    state.add_var(&arg_name.to_string(), arg_value, 0, VarType::VarVar);
                 }
 
                 let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);

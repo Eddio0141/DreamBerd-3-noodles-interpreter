@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    interpreter::evaluators::variable::VarType,
     runtime::value::{Object, ObjectRef, Value, PROTO_PROP},
     Interpreter,
 };
@@ -28,5 +29,7 @@ pub fn load(interpreter: &Interpreter) {
         Arc::clone(&PROTOTYPE).into(),
     )]));
 
-    interpreter.state.add_var("Object", obj.into(), 0);
+    interpreter
+        .state
+        .add_var("Object", obj.into(), 0, VarType::VarVar);
 }

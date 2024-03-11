@@ -6,6 +6,7 @@ use std::{
 use lazy_static::lazy_static;
 
 use crate::{
+    interpreter::evaluators::variable::VarType,
     runtime::value::{Object, ObjectRef, Value},
     Interpreter,
 };
@@ -26,5 +27,7 @@ pub fn load(interpreter: &Interpreter) {
         Arc::clone(&PROTOTYPE).into(),
     )]));
 
-    interpreter.state.add_var("Function", func.into(), 0);
+    interpreter
+        .state
+        .add_var("Function", func.into(), 0, VarType::VarVar);
 }
