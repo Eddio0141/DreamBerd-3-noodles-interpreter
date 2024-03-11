@@ -25,18 +25,20 @@ fn function_expression_args_minimum() {
 fn till_term_statement() {
     let code = "statement!!statement2!";
     let (input, _) = till_term(Position::new(code)).unwrap();
-    assert_eq!(input.input, "statement2!");
+    assert_eq!(input.input, "!!statement2!");
+    let input = Position::new(&input.input[2..]);
 
     let (input, _) = till_term(input).unwrap();
-    assert!(input.input.is_empty());
+    assert_eq!(input.input, "!");
 }
 
 #[test]
 fn till_term_with_strings() {
     let code = "statement!foo\"statement2\"bar!";
     let (input, _) = till_term(Position::new(code)).unwrap();
-    assert_eq!(input.input, "foo\"statement2\"bar!");
+    assert_eq!(input.input, "!foo\"statement2\"bar!");
+    let input = Position::new(&input.input[1..]);
 
     let (input, _) = till_term(input).unwrap();
-    assert!(input.input.is_empty());
+    assert_eq!(input.input, "!");
 }
