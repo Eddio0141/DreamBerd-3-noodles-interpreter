@@ -5,7 +5,7 @@ mod parsers;
 mod tests;
 
 use nom::{
-    branch::*, character::complete::char, combinator::value, multi::many1, sequence::tuple, Parser,
+    branch::*, character::complete::char, combinator::value, multi::many0, sequence::tuple, Parser,
 };
 use parsers::*;
 
@@ -45,7 +45,7 @@ impl Analysis {
             let (input_new, var_decl) = alt((
                 value(None, ws_char),
                 var_decl.map(Some),
-                value(None, tuple((till_term, ws, many1(char('!'))))),
+                value(None, tuple((till_term, ws, many0(char('!'))))),
             ))(input)
             .unwrap();
 
