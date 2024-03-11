@@ -3,27 +3,28 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until};
-use nom::combinator::{eof, map_opt, peek, recognize, rest, value};
-use nom::error::ErrorKind;
-use nom::multi::{many0, many1, many_till};
-use nom::sequence::tuple;
-use nom::IResult;
-use nom::{character::complete::*, Parser};
-
-use crate::interpreter::evaluators::statement::Statement;
-use crate::interpreter::runtime::error::Error;
-use crate::interpreter::runtime::state::DefineType;
-use crate::interpreter::runtime::value::Value;
-use crate::parsers::types::Position;
-use crate::parsers::{
-    chunk, end_of_statement, identifier, take_until_parser, terminated_chunk, ws, ws_count,
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_until},
+    character::complete::*,
+    combinator::*,
+    error::ErrorKind,
+    multi::{many0, many1, many_till},
+    sequence::tuple,
+    IResult, Parser,
 };
-use crate::prelude::Wrapper;
-use crate::runtime::state::FunctionVariant;
-use crate::runtime::value::ObjectRef;
-use crate::{impl_eval, Interpreter};
+
+use crate::{
+    impl_eval,
+    interpreter::{
+        evaluators::statement::Statement,
+        runtime::{error::Error, state::DefineType, value::Value},
+    },
+    parsers::{types::Position, *},
+    prelude::Wrapper,
+    runtime::{state::FunctionVariant, value::ObjectRef},
+    Interpreter,
+};
 
 use super::array::ArrayInitialiser;
 use super::function::FunctionCall;
