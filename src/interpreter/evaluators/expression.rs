@@ -432,19 +432,16 @@ impl FunctionExpr {
                 }
 
                 // this basically parses the rest of the code as this function's body, and this is fine
-                // TODO do we parse the function as implicit string if it doesn't end with a scope?
+                // TODO parse the function as implicit string if it doesn't end with a scope?
                 return Ok((input, ()));
             }
         };
-
-        let expression =
-            tuple((recognize(Expression::parse), peek(end_of_statement))).map(|(expr, _)| expr);
 
         let (body, (args, _)) = tuple((alt((arrow().map(|_| Vec::new()), args)), ws))(input)?;
 
         let body_line = body.line;
 
-        let (input, body) = alt((recognize(scope), expression))(body)?;
+        let (input, body) = alt((recognize(scope), recognize(Expression::parse)))(body)?;
 
         Ok((
             input,
