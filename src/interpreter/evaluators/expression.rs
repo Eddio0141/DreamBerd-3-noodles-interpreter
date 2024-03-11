@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until};
-use nom::combinator::{eof, map_opt, recognize, rest, value};
+use nom::combinator::{eof, map_opt, peek, recognize, rest, value};
 use nom::error::ErrorKind;
 use nom::multi::{many0, many1, many_till};
 use nom::sequence::tuple;
@@ -438,7 +438,7 @@ impl FunctionExpr {
         };
 
         let expression =
-            tuple((recognize(Expression::parse), end_of_statement)).map(|(expr, _)| expr);
+            tuple((recognize(Expression::parse), peek(end_of_statement))).map(|(expr, _)| expr);
 
         let (body, (args, _)) = tuple((alt((arrow().map(|_| Vec::new()), args)), ws))(input)?;
 

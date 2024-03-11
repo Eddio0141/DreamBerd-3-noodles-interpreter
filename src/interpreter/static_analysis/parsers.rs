@@ -108,7 +108,6 @@ pub fn var_decl(input_original: Position<'_>) -> PosResult<'_, HoistedVarInfo> {
 /// - ` => statement!`
 /// - `arg1,arg2 , arg3 =>statement!`
 pub fn function_expression(input: Position) -> PosResult<()> {
-    dbg!(input);
     let arrow = || tag("=>");
     let comma = || char(',');
     let arg = identifier(comma());
