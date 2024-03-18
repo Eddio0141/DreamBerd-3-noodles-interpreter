@@ -217,3 +217,21 @@ assert(undefined ;== undefined === false)!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn implicit_string_term_at_op() {
+    let code = r#"
+var var expr = hello + 1!
+assert expr === "hello1"!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn implicit_string_fail() {
+    let code = r#"
+var var expr = hello +!
+assert expr === "hello +"!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
