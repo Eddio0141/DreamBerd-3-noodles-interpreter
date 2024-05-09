@@ -2,6 +2,7 @@ mod array;
 mod conditional;
 mod expression;
 mod function;
+mod life_time;
 mod object;
 mod stdlib;
 mod syntax;
