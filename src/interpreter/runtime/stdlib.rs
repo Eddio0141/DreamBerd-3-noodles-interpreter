@@ -10,6 +10,7 @@ pub mod function;
 mod info;
 pub mod object;
 mod stdio;
+mod thread;
 
 pub fn load(interpreter: &Interpreter) {
     // funcs
@@ -17,6 +18,7 @@ pub fn load(interpreter: &Interpreter) {
         ("assert", 1, debug::assert),
         ("print", 1, stdio::print),
         ("typeof", 1, info::get_typeof),
+        ("sleep_ms", 1, thread::sleep_ms),
     ];
 
     for func in funcs {
