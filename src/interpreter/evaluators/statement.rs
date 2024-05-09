@@ -5,8 +5,7 @@ use crate::{
         evaluators::{function::FunctionCall, variable::VarSet},
         runtime::{self, value::Value},
     },
-    parsers::{types::Position, *},
-    Interpreter,
+    parsers::*,
 };
 
 use super::{
@@ -15,7 +14,6 @@ use super::{
     parsers::AstParseResult,
     scope::*,
     variable::VariableDecl,
-    EvalArgs,
 };
 
 #[derive(Debug)]
@@ -32,7 +30,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let (mut input, _) = ws::<_, ()>(input).unwrap();
 
         if input.input.is_empty() {
@@ -83,8 +81,8 @@ impl Statement {
         }
     }
 
-    pub fn eval(&self, args: EvalArgs<'_>) -> Result<StatementReturn, runtime::error::Error> {
-        let interpreter = args.1.extra;
+    pub fn eval(&self, args: PosWithInfo) -> Result<StatementReturn, runtime::error::Error> {
+        let interpreter = args.extra.0;
         let value = match self {
             Statement::FunctionCall(statement) => statement.eval(args)?,
             Statement::FunctionDef(statement) => {
@@ -94,7 +92,7 @@ impl Statement {
                 return statement.eval(args).map(|_| Default::default())
             }
             Statement::VarSet(statement) => {
-                return statement.eval(args).map(|_| Default::default())
+                return statement.eval(args).map(|_| Default::default());
             }
             Statement::ImplicitString(value) => value.to_owned(),
             Statement::ScopeStart(statement) => statement.eval(interpreter)?,

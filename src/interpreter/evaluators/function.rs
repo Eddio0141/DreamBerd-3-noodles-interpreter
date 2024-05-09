@@ -7,12 +7,11 @@ use nom::{
 
 use crate::{
     interpreter::runtime::{error::Error, state::DefineType, value::Value},
-    parsers::types::Position,
     runtime::state::FunctionState,
 };
 use crate::{parsers::*, Interpreter};
 
-use super::{expression::Expression, variable::VarType, EvalArgs};
+use super::{expression::Expression, variable::VarType};
 use super::{expression::FunctionExpr, parsers::AstParseResult};
 
 #[derive(Debug, Clone)]
@@ -23,8 +22,8 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
-    pub fn eval(&self, eval_args: EvalArgs) -> Result<Value, Error> {
-        let interpreter = eval_args.1.extra;
+    pub fn eval(&self, eval_args: PosWithInfo) -> Result<Value, Error> {
+        let interpreter = eval_args.extra.0;
         let mut args = Vec::new();
         for arg in &self.args {
             args.push(arg.eval(eval_args)?);
@@ -34,12 +33,12 @@ impl FunctionCall {
     }
 
     fn try_get_func<'a, 'b, P, PO>(
-        input: Position<'a, Interpreter>,
+        input: PosWithInfo<'a>,
         identifier_term: P,
         fail_if_lower_identifier_order: bool,
-    ) -> IResult<Position<'a, Interpreter>, (&'a str, FunctionState), ()>
+    ) -> IResult<PosWithInfo<'a>, (&'a str, FunctionState), ()>
     where
-        P: Parser<Position<'a, Interpreter>, PO, ()>,
+        P: Parser<PosWithInfo<'a>, PO, ()>,
     {
         let mut identifier = identifier(identifier_term);
 
@@ -47,12 +46,14 @@ impl FunctionCall {
         let identifier = identifier.into();
 
         let func = if fail_if_lower_identifier_order {
-            if let Some(DefineType::Func(func)) = input.extra.state.get_identifier(identifier) {
+            if let Some(DefineType::Func(func)) =
+                input.extra.0.state.get_identifier(identifier, input)
+            {
                 func
             } else {
                 return Err(nom::Err::Error(()));
             }
-        } else if let Some(func) = input.extra.state.get_func_info(identifier) {
+        } else if let Some(func) = input.extra.0.state.get_func_info(identifier, input) {
             func
         } else {
             return Err(nom::Err::Error(()));
@@ -63,29 +64,29 @@ impl FunctionCall {
     }
 
     pub fn parse_maybe_as_func<'a, 'b, P>(
-        input: Position<'a, Interpreter>,
+        input: PosWithInfo<'a>,
         identifier_term: Option<P>,
     ) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter>, (), ()> + Clone,
+        P: Parser<PosWithInfo<'a>, (), ()> + Clone,
     {
         Self::parse(input, identifier_term, true)
     }
 
-    pub fn parse_as_func(input: Position<Interpreter>) -> AstParseResult<Self> {
-        Self::parse::<fn(Position<Interpreter>) -> _>(input, None, false)
+    pub fn parse_as_func(input: PosWithInfo) -> AstParseResult<Self> {
+        Self::parse::<fn(PosWithInfo) -> _>(input, None, false)
     }
 
     /// Parses a function call
     /// # Arguments
     /// - `fail_if_lower_identifier_order`: if true, this will fail the parser if an identifier is found that is a variable too
     fn parse<'a, 'b, P>(
-        input: Position<'a, Interpreter>,
+        input: PosWithInfo<'a>,
         identifier_term: Option<P>,
         fail_if_lower_identifier_order: bool,
     ) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter>, (), ()> + Clone,
+        P: Parser<PosWithInfo<'a>, (), ()> + Clone,
     {
         // function call syntax
         // - `func_name!`
@@ -164,7 +165,7 @@ pub struct FunctionDef {
 const FUNCTION_HEADER: &[char] = &['f', 'u', 'n', 'c', 't', 'i', 'o', 'n'];
 
 impl FunctionDef {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         // header
         let (input, first_ch) = satisfy(|c| !is_ws(c))(input)?;
         let header_start_index = FUNCTION_HEADER.iter().position(|c| *c == first_ch);
@@ -215,7 +216,7 @@ impl FunctionDef {
 pub struct Return(Option<Expression>);
 
 impl Return {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let ret = tag("return");
         let empty_return = end_of_statement.map(|_| None);
         let expr_return = tuple((Expression::parse, end_of_statement)).map(|(expr, _)| Some(expr));
@@ -224,7 +225,7 @@ impl Return {
         Ok((input, Self(expr)))
     }
 
-    pub fn eval(&self, args: EvalArgs) -> Result<Option<Value>, Error> {
+    pub fn eval(&self, args: PosWithInfo) -> Result<Option<Value>, Error> {
         self.0
             .as_ref()
             .map(|expr| expr.eval(args).map(|result| result.0.into_owned()))

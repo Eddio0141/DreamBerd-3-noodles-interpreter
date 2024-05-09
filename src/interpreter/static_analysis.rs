@@ -9,7 +9,12 @@ use nom::{
 };
 use parsers::*;
 
-use crate::parsers::{types::Position, *};
+use crate::{
+    parsers::{types::Position, *},
+    runtime::value::Value,
+};
+
+use super::evaluators::statement::Statement;
 
 /// Contains useful data about the code
 #[derive(Debug, Clone)]
@@ -27,8 +32,20 @@ pub struct HoistedVarInfo {
     pub identifier: String,
     /// Index of the line where the function will become usable
     pub hoisted_line: usize,
-    /// Location where the expression is located at
-    pub expr_index: usize,
+    /// Location where the declaration is at
+    pub decl_index: usize,
+}
+
+impl HoistedVarInfo {
+    pub fn eval(&self, args: PosWithInfo) -> Option<Value> {
+        let code = args.extra.1;
+        let input = Position::new_with_extra(&code[self.decl_index..], args.extra);
+        let (_, statement) = Statement::parse(input).unwrap();
+        let Statement::VariableDecl(decl) = statement else {
+            return None;
+        };
+        decl.expression.eval(args).ok().map(|x| x.0.into_owned())
+    }
 }
 
 impl Analysis {

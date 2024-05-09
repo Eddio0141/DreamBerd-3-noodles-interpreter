@@ -3,6 +3,8 @@ use std::{
     ops::RangeFrom,
 };
 
+use crate::Interpreter;
+
 use self::types::*;
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, error::*, multi::*,
@@ -376,3 +378,6 @@ where
     let end = many1(char('!'));
     value((), tuple((ws, end)))(input)
 }
+
+/// Position with interpreter and whole code
+pub type PosWithInfo<'a> = Position<'a, (&'a Interpreter, &'a str)>;

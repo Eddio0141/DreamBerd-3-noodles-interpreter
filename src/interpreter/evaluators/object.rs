@@ -5,22 +5,22 @@ use nom::{
 };
 
 use crate::{
-    impl_parser,
-    parsers::{identifier, types::Position, ws},
-    runtime::value::{Object, Value},
+    parsers::{identifier, types::Position, ws, PosWithInfo},
+    runtime::{
+        value::{Object, Value},
+        Error,
+    },
 };
 
-use super::expression::Expression;
+use super::{expression::Expression, parsers::AstParseResult};
 
 #[derive(Debug, Clone)]
 /// Represents an object initialiser.
 /// - [Mozilla documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Object_initializer)
 pub struct ObjectInitialiser(HashMap<String, Expression>);
 
-impl_parser!(
-    ObjectInitialiser,
-    input,
-    {
+impl ObjectInitialiser {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let brace_start = char('{');
         let brace_end = char('}');
         let colon = || char(':');
@@ -36,10 +36,9 @@ impl_parser!(
         let properties = properties.into_iter().collect();
 
         Ok((input, Self(properties)))
-    },
-    self,
-    eval_args,
-    {
+    }
+
+    pub fn eval(&self, eval_args: PosWithInfo) -> Result<Value, Error> {
         // TODO: implement constructor
         let mut obj = HashMap::new();
         for (key, value) in self.0.iter() {
@@ -48,6 +47,5 @@ impl_parser!(
         let obj = Object::new(obj);
 
         Ok(obj.into())
-    },
-    Value
-);
+    }
+}

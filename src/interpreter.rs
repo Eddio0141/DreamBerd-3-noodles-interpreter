@@ -1,5 +1,7 @@
+use self::evaluators::expression::AtomValue;
 use self::evaluators::{expression::Expression, statement::StatementReturn};
 use self::runtime::value::Value;
+use nom::combinator::verify;
 use nom::{combinator::eof, sequence::tuple, Parser};
 
 use self::{
@@ -17,7 +19,6 @@ pub mod runtime;
 mod static_analysis;
 
 /// The DreamBerd interpreter
-#[derive(Default)]
 pub struct Interpreter {
     state: InterpreterState,
 }
@@ -37,7 +38,8 @@ impl Interpreter {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(analysis);
 
-        let mut code_with_pos = Position::new_with_extra(code, self);
+        let binding = (self, code);
+        let mut code_with_pos = Position::new_with_extra(code, &binding);
 
         let mut values = Vec::new();
 
@@ -47,7 +49,7 @@ impl Interpreter {
             let StatementReturn {
                 value,
                 return_value,
-            } = statement.eval((code, code_with_pos))?;
+            } = statement.eval(code_with_pos)?;
 
             // TODO: remove this later maybe too
             // if let Some(new_pos) = new_pos {
@@ -75,11 +77,24 @@ impl Interpreter {
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(analysis);
 
-        let mut code_with_pos = Position::new_with_extra(code, self);
+        let binding = (self, code);
+        let mut code_with_pos = Position::new_with_extra(code, &binding);
 
-        let mut expr = tuple((Expression::parse, eof)).map(|(expr, _)| expr);
+        let mut expr = verify(tuple((Expression::parse, eof)).map(|(expr, _)| expr), |e| {
+            // dont allow strings as they could be implicit strings
+            // let statement handle it
+            if let Expression::Atom(atom) = e {
+                if let AtomValue::Value(value) = &atom.value {
+                    matches!(value, Value::String(_))
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        });
         if let Ok((_, expr)) = expr.parse(code_with_pos) {
-            let res: Value = expr.eval((code, code_with_pos))?.0.into_owned();
+            let res: Value = expr.eval(code_with_pos)?.0.into_owned();
             return Ok(vec![res]);
         }
 
@@ -90,7 +105,7 @@ impl Interpreter {
             let StatementReturn {
                 value,
                 return_value,
-            } = statement.eval((code, code_with_pos))?;
+            } = statement.eval(code_with_pos)?;
 
             if let Statement::Return(_) = statement {
                 if let Some(return_value) = return_value {
@@ -110,9 +125,16 @@ impl Interpreter {
     /// Create a new interpreter and evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn new_eval(code: &str) -> Result<(), self::error::Error> {
-        let interpreter = Interpreter::default();
-        stdlib::load(&interpreter);
+        let interpreter = Self::new();
         interpreter.eval(code)?;
         Ok(())
+    }
+
+    pub fn new() -> Self {
+        let interpreter = Self {
+            state: InterpreterState::default(),
+        };
+        stdlib::load(&interpreter);
+        interpreter
     }
 }

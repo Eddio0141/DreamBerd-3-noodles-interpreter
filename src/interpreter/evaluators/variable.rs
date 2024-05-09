@@ -10,21 +10,18 @@ use nom::{
     Parser,
 };
 
-use crate::{
-    interpreter::runtime::error::Error,
-    parsers::{types::Position, *},
-    Interpreter,
-};
+use crate::{interpreter::runtime::error::Error, parsers::*};
 
-use super::expression::{AtomPostfix, Expression};
-use super::parsers::AstParseResult;
-use super::EvalArgs;
+use super::{
+    expression::{AtomPostfix, Expression},
+    parsers::AstParseResult,
+};
 
 #[derive(Debug, Clone)]
 /// Declared variable
 pub struct VariableDecl {
     name: String,
-    expression: Expression,
+    pub expression: Expression,
     line: usize,
     type_: VarType,
     life_time: Option<LifeTime>,
@@ -39,8 +36,8 @@ pub enum VarType {
 }
 
 impl VariableDecl {
-    pub fn eval(&self, args: EvalArgs) -> Result<(), Error> {
-        let interpreter = args.1.extra;
+    pub fn eval(&self, args: PosWithInfo) -> Result<(), Error> {
+        let interpreter = args.extra.0;
         let value = self.expression.eval(args)?;
         interpreter.state.add_var(
             &self.name,
@@ -53,7 +50,7 @@ impl VariableDecl {
         Ok(())
     }
 
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let var = || tag("var");
         let const_ = || tag("const");
         let eq = char('=');
@@ -101,8 +98,8 @@ pub struct VarSet {
 }
 
 impl VarSet {
-    pub fn eval(&self, args: EvalArgs) -> Result<(), Error> {
-        let interpreter = args.1.extra;
+    pub fn eval(&self, args: PosWithInfo) -> Result<(), Error> {
+        let interpreter = args.extra.0;
         let value = self.expression.eval(args)?;
         interpreter.state.set_var(
             &self.name,
@@ -114,7 +111,7 @@ impl VarSet {
         Ok(())
     }
 
-    pub fn parse(input_orig: Position<'_, Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input_orig: PosWithInfo) -> AstParseResult<Self> {
         // ident ws* "=" ws* expr ws* !
         let eq = char('=');
         let mut identifier_full = identifier(LifeTime::parse);
@@ -123,6 +120,7 @@ impl VarSet {
         let mut postfix = None;
         if input_orig
             .extra
+            .0
             .state
             .get_var(var_identifier.input)
             .is_none()

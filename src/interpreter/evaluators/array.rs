@@ -4,26 +4,20 @@ use nom::{
 };
 
 use crate::{
-    impl_parser,
-    parsers::{types::Position, ws},
-    runtime::{stdlib::array, value::Value},
-    Interpreter,
+    parsers::{ws, PosWithInfo},
+    runtime::{stdlib::array, value::Value, Error},
 };
 
-use super::expression::Expression;
+use super::{expression::Expression, parsers::AstParseResult};
 
 #[derive(Debug, Clone)]
 /// Represents an array.
 /// - [Mozilla documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array)
 pub struct ArrayInitialiser(Vec<Expression>);
 
-impl_parser!(
-    ArrayInitialiser,
-    input,
-    {
-        fn expr_term(
-            input: Position<Interpreter>,
-        ) -> IResult<Position<Interpreter>, Position<Interpreter>, ()> {
+impl ArrayInitialiser {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
+        fn expr_term(input: PosWithInfo) -> IResult<PosWithInfo, PosWithInfo, ()> {
             alt((tag(","), tag("]")))(input)
         }
 
@@ -37,16 +31,14 @@ impl_parser!(
         let (input, (_, items, _)) = tuple((brace_start, items, brace_end))(input)?;
 
         Ok((input, Self(items)))
-    },
-    self,
-    eval_args,
-    {
+    }
+
+    pub fn eval(&self, eval_args: PosWithInfo) -> Result<Value, Error> {
         let args = self
             .0
             .iter()
             .map(|expr| expr.eval(eval_args))
             .collect::<Result<Vec<_>, _>>()?;
-        array::constructor(eval_args.1.extra, args)
-    },
-    Value
-);
+        array::constructor(eval_args.extra.0, args)
+    }
+}

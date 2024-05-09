@@ -11,11 +11,10 @@ use crate::{
             expression::{AtomPostfix, Expression},
             statement::Statement,
             variable::VarType,
-            EvalArgs,
         },
         static_analysis::{Analysis, HoistedVarInfo},
     },
-    parsers::{types::Position, LifeTime},
+    parsers::{types::Position, LifeTime, PosWithInfo},
     prelude::Wrapper,
     runtime::{stdlib::array, value::PROTO_PROP},
     Interpreter,
@@ -61,26 +60,49 @@ impl Default for InterpreterState {
 
 impl InterpreterState {
     /// Gets function info
-    pub fn get_func_info(&self, name: &str) -> Option<FunctionState> {
+    pub fn get_func_info(&self, name: &str, args: PosWithInfo) -> Option<FunctionState> {
         self.clean_up_funcs();
-        let funcs = &self.funcs.lock().unwrap().0;
-        self.vars.lock().unwrap().iter_mut().rev().find_map(|vars| {
+        let find_func = |value: &Value| {
+            let Value::Object(Some(value)) = value else {
+                return None;
+            };
+            // find the function
+            self.funcs
+                .lock()
+                .unwrap()
+                .0
+                .iter()
+                .find(|func| Weak::ptr_eq(&func.obj, &Arc::downgrade(value)))
+                .cloned()
+        };
+        let res = self.vars.lock().unwrap().iter_mut().rev().find_map(|vars| {
             vars.iter_mut().rev().find_map(|vars| {
                 vars.validate_lifetime();
 
                 let Some(vars) = vars.get_var(name) else {
                     return None;
                 };
-                let Value::Object(Some(value)) = vars.get_value() else {
-                    return None;
-                };
-                // find the function
-                funcs
-                    .iter()
-                    .find(|func| Weak::ptr_eq(&func.obj, &Arc::downgrade(value)))
-                    .cloned()
+                find_func(vars.get_value())
             })
-        })
+        });
+        if res.is_some() {
+            return res;
+        }
+
+        // check if it's hoisted
+        let Ok(vars) = self.hoisted_vars.try_lock() else {
+            return None;
+        };
+        let mut found = None;
+        for var in vars.iter() {
+            let value = var.eval(args)?;
+            if let Some(value) = find_func(&value) {
+                found = Some(value);
+                break;
+            }
+        }
+
+        found
     }
 
     /// Clean up functions that can't be called anymore
@@ -136,11 +158,11 @@ impl InterpreterState {
 
     pub fn invoke_func(
         &self,
-        eval_args: EvalArgs,
+        eval_args: PosWithInfo,
         name: &str,
         args: Vec<Wrapper<Cow<Value>>>,
     ) -> Result<Value, Error> {
-        if let Some(func) = self.get_func_info(name) {
+        if let Some(func) = self.get_func_info(name, eval_args) {
             return func.eval(eval_args, args);
         }
 
@@ -177,7 +199,7 @@ impl InterpreterState {
     pub fn set_var(
         &self,
         name: &str,
-        args: EvalArgs,
+        args: PosWithInfo,
         postfix: &[AtomPostfix],
         value: Value,
         line: usize,
@@ -243,9 +265,9 @@ impl InterpreterState {
     }
 
     /// Tries to get the latest defined variable or function with the given name
-    pub fn get_identifier(&self, name: &str) -> Option<DefineType> {
+    pub fn get_identifier(&self, name: &str, args: PosWithInfo) -> Option<DefineType> {
         // check functions first
-        let func = self.get_func_info(name);
+        let func = self.get_func_info(name, args);
         let var = self.get_var(name);
 
         let Some(func) = func else {
@@ -336,7 +358,7 @@ impl VariableState {
     pub fn set_var(
         &mut self,
         name: &str,
-        args: EvalArgs,
+        args: PosWithInfo,
         postfix: &[AtomPostfix],
         value: &Value,
     ) -> Result<bool, Error> {
@@ -365,7 +387,7 @@ impl Variable {
 
     pub fn set_value(
         &mut self,
-        args: EvalArgs,
+        args: PosWithInfo,
         value: Value,
         postfix: &[AtomPostfix],
     ) -> Result<(), Error> {
@@ -433,8 +455,8 @@ pub struct FunctionState {
 }
 
 impl FunctionState {
-    fn eval(&self, eval_args: EvalArgs, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
-        let interpreter = eval_args.1.extra;
+    fn eval(&self, eval_args: PosWithInfo, args: Vec<Wrapper<Cow<Value>>>) -> Result<Value, Error> {
+        let interpreter = eval_args.extra.0;
         let state = &interpreter.state;
 
         match &self.variant {
@@ -468,7 +490,7 @@ impl FunctionState {
                     state.add_var(&arg_name.to_string(), arg_value, 0, VarType::VarVar, None);
                 }
 
-                let code_with_pos = Position::new_with_extra(body.as_str(), interpreter);
+                let code_with_pos = Position::new_with_extra(body.as_str(), eval_args.extra);
 
                 // check if block
                 if let Ok((mut code_with_pos, Statement::ScopeStart(_))) =
@@ -493,7 +515,7 @@ impl FunctionState {
                         }
 
                         code_with_pos = code_after;
-                        let ret = match statement.eval((eval_args.0, code_with_pos)) {
+                        let ret = match statement.eval(code_with_pos) {
                             Ok(ret) => ret.return_value,
                             Err(err) => return Err(err),
                         };

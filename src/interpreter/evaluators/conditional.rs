@@ -7,11 +7,11 @@ use nom::{
 };
 
 use crate::{
-    parsers::{types::Position, ws, ws1},
-    runtime, Interpreter,
+    parsers::{ws, ws1, PosWithInfo},
+    runtime,
 };
 
-use super::{expression::Expression, parsers::AstParseResult, statement::Statement, EvalArgs};
+use super::{expression::Expression, parsers::AstParseResult, statement::Statement};
 
 // a vec of statements instead of a string like a function
 // this is because if statement shouldn't be able to introduce side effects like
@@ -33,10 +33,8 @@ struct ElseIf {
 }
 
 impl If {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
-        fn bracket_start(
-            input: Position<Interpreter>,
-        ) -> IResult<Position<Interpreter>, Position<Interpreter>, ()> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
+        fn bracket_start(input: PosWithInfo) -> IResult<PosWithInfo, PosWithInfo, ()> {
             tag("{")(input)
         }
         let expression = || Expression::parser(Some(bracket_start));
@@ -90,7 +88,7 @@ impl If {
         ))
     }
 
-    pub fn eval(&self, args: EvalArgs<'_>) -> Result<(), runtime::Error> {
+    pub fn eval(&self, args: PosWithInfo) -> Result<(), runtime::Error> {
         let if_expr = |expr: &Expression| Ok(expr.eval(args)?.0.as_ref().into());
         let exec_body = |body: &Body| {
             for statement in body {

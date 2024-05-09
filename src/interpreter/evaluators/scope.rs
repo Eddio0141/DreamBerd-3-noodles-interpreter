@@ -1,6 +1,6 @@
 use crate::{
     interpreter::runtime::{value::Value, Error},
-    parsers::types::Position,
+    parsers::PosWithInfo,
     Interpreter,
 };
 use nom::character::complete::char;
@@ -13,7 +13,7 @@ pub struct ScopeStart {
 }
 
 impl ScopeStart {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let scope_start = char('{');
         let line = input.line;
 
@@ -34,7 +34,7 @@ pub struct ScopeEnd {
 }
 
 impl ScopeEnd {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let scope_end = char('}');
         let line = input.line;
 

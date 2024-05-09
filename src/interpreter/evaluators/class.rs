@@ -3,11 +3,11 @@ use nom::{
 };
 
 use crate::{
-    parsers::{identifier, types::Position},
-    runtime, Interpreter,
+    parsers::{identifier, PosWithInfo},
+    runtime,
 };
 
-use super::{parsers::AstParseResult, EvalArgs};
+use super::parsers::AstParseResult;
 
 #[derive(Debug, Default)]
 struct Class {
@@ -15,7 +15,7 @@ struct Class {
 }
 
 impl Class {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         let class = alt((tag("className"), tag("class")));
         let name = identifier(fail::<_, (), _>);
         let open = char('{');
@@ -26,7 +26,7 @@ impl Class {
         todo!()
     }
 
-    pub fn eval(args: EvalArgs) -> Result<(), runtime::Error> {
+    pub fn eval(args: PosWithInfo) -> Result<(), runtime::Error> {
         todo!()
     }
 }

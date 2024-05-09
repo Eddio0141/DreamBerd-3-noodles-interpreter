@@ -15,7 +15,6 @@ use nom::{
 };
 
 use crate::{
-    impl_eval,
     interpreter::{
         evaluators::statement::Statement,
         runtime::{error::Error, state::DefineType, value::Value},
@@ -26,11 +25,10 @@ use crate::{
     Interpreter,
 };
 
-use super::array::ArrayInitialiser;
-use super::function::FunctionCall;
-use super::object::ObjectInitialiser;
-use super::parsers::AstParseResult;
-use super::EvalArgs;
+use super::{
+    array::ArrayInitialiser, function::FunctionCall, object::ObjectInitialiser,
+    parsers::AstParseResult,
+};
 
 #[derive(Debug, Clone)]
 /// Expression that can be evaluated
@@ -56,15 +54,15 @@ type NextExprOperation<'a> = Option<&'a (
 )>;
 
 impl Expression {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
-        Self::parser::<fn(Position<Interpreter>) -> _>(None)(input)
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
+        Self::parser::<fn(PosWithInfo) -> _>(None)(input)
     }
 
     pub fn parser<'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter>) -> AstParseResult<'a, Self>
+    ) -> impl Fn(PosWithInfo<'a>) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
+        P: Parser<PosWithInfo<'a>, PosWithInfo<'a>, ()> + Copy,
     {
         move |input| {
             // ws on the left and right of op needs to be added, and each op needs to have that info
@@ -226,9 +224,9 @@ impl Expression {
     /// - Order of the unary operators is from left to right
     fn atom_to_expression<'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter>) -> AtomToExpressionResult<'a>
+    ) -> impl Fn(PosWithInfo<'a>) -> AtomToExpressionResult<'a>
     where
-        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
+        P: Parser<PosWithInfo<'a>, PosWithInfo<'a>, ()> + Copy,
     {
         move |input| {
             let (input, (unaries, expr)) = tuple((
@@ -291,7 +289,7 @@ impl From<Atom> for Expression {
 }
 
 impl Expression {
-    pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(&self, args: PosWithInfo) -> Result<Wrapper<Cow<Value>>, Error> {
         match self {
             Expression::Atom(atom) => atom.eval(args),
             Expression::UnaryOperation { operator, right } => operator.eval(right, args),
@@ -346,7 +344,7 @@ impl Expression {
 #[derive(Debug, Clone)]
 // everything in here isn't evaluated until `eval`
 pub struct Atom {
-    value: AtomValue,
+    pub value: AtomValue,
     postfix: Vec<AtomPostfix>,
 }
 
@@ -377,7 +375,7 @@ impl From<&FunctionExpr> for FunctionVariant {
 }
 
 impl FunctionExpr {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         // past header
         // func_args = { identifier ~ (comma ~ identifier)* }
         // ws_silent+ ~ identifier ~ (ws_silent+ ~ func_args? | ws_silent+) ~ arrow ~ ws_silent* ~ (scope_block | (expression ~ term))
@@ -468,7 +466,7 @@ pub enum AtomPostfix {
 }
 
 impl AtomPostfix {
-    pub fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    pub fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         // object postfix can recurse
         // obj.postfix.postfix
         let obj_property = tuple((
@@ -482,9 +480,7 @@ impl AtomPostfix {
         ))
         .map(|(_, _, _, property)| AtomPostfix::DotNotation(property.to_string()));
 
-        fn right_bracket(
-            input: Position<Interpreter>,
-        ) -> IResult<Position<Interpreter>, Position<Interpreter>, ()> {
+        fn right_bracket(input: PosWithInfo) -> IResult<PosWithInfo, PosWithInfo, ()> {
             tag("]")(input)
         }
 
@@ -503,62 +499,64 @@ impl AtomPostfix {
         alt((obj_property, obj_property_bracket))(input)
     }
 
-    pub fn parse_empty(input: Position<Interpreter>) -> IResult<Position<Interpreter>, (), ()> {
+    pub fn parse_empty(input: PosWithInfo) -> IResult<PosWithInfo, (), ()> {
         match Self::parse(input) {
             Ok((input, _)) => Ok((input, ())),
             Err(_) => Err(nom::Err::Error(())),
         }
     }
+
+    pub fn eval(&self, value: Cow<Value>, args: PosWithInfo) -> Result<Wrapper<Cow<Value>>, Error> {
+        let Value::Object(obj) = value.into_owned() else {
+            return Err(Error::Type("Cannot read properties".to_string()));
+        };
+
+        let Some(obj) = obj else {
+            return Err(Error::Type("Cannot read properties of null".to_string()));
+        };
+
+        let obj = obj.lock().unwrap();
+
+        match self {
+            AtomPostfix::DotNotation(property) => {
+                if let Some(value) = obj.get_property(property) {
+                    return Ok(Wrapper(Cow::Owned(value.clone())));
+                }
+            }
+            AtomPostfix::BracketNotation(expr) => {
+                let value = expr.eval(args)?;
+                let value = value.0.as_ref();
+
+                match value {
+                    Value::String(str) => {
+                        if let Some(value) = obj.get_property(str) {
+                            return Ok(Wrapper(Cow::Owned(value.clone())));
+                        }
+                    }
+                    Value::Number(num) => {
+                        // TODO: eventually handle floats, for now convert to int
+                        let num = *num as i64;
+                        if let Some(value) = obj.get_property(&num.to_string()) {
+                            return Ok(Wrapper(Cow::Owned(value.clone())));
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        Ok(Wrapper(Cow::Owned(Value::Undefined)))
+    }
 }
 
-impl_eval!(AtomPostfix, self, value: Cow<Value>, args: EvalArgs, {
-    let Value::Object(obj) = value.into_owned() else {
-        return Err(Error::Type("Cannot read properties".to_string()));
-    };
-
-    let Some(obj) = obj else {
-        return Err(Error::Type("Cannot read properties of null".to_string()));
-    };
-
-    let obj = obj.lock().unwrap();
-
-    match self {
-        AtomPostfix::DotNotation(property) => {
-            if let Some(value) =obj.get_property(property) {
-                 return Ok(Wrapper(Cow::Owned(value.clone())));
-            }
-        }
-        AtomPostfix::BracketNotation(expr) => {
-            let value = expr.eval(args)?;
-            let value = value.0.as_ref();
-
-            match value {
-                Value::String(str) => if let Some(value) = obj.get_property(str) {
-                     return Ok(Wrapper(Cow::Owned(value.clone())));
-                },
-                Value::Number(num) => {
-                    // TODO: eventually handle floats, for now convert to int
-                    let num = *num as i64;
-                    if let Some(value) = obj.get_property(&num.to_string()) {
-                        return Ok(Wrapper(Cow::Owned(value.clone())));
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
-
-    Ok(Wrapper(Cow::Owned(Value::Undefined)))
-}, Wrapper<Cow<Value>>);
-
 impl Atom {
-    pub fn eval(&self, args: EvalArgs) -> Result<Wrapper<Cow<Value>>, Error> {
+    pub fn eval(&self, args: PosWithInfo) -> Result<Wrapper<Cow<Value>>, Error> {
         let mut value = match &self.value {
             AtomValue::Value(value) => Cow::Borrowed(value),
             AtomValue::FunctionCall(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ObjectInitialiser(expr) => Cow::Owned(expr.eval(args)?),
             AtomValue::ArrayInitialiser(expr) => Cow::Owned(expr.eval(args)?),
-            AtomValue::FunctionDef(expr) => Cow::Owned(expr.eval(args.1.extra).into()),
+            AtomValue::FunctionDef(expr) => Cow::Owned(expr.eval(args.extra.0).into()),
         };
 
         for postfix in &self.postfix {
@@ -570,15 +568,13 @@ impl Atom {
 
     fn parser<'a, 'b: 'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl Fn(Position<'a, Interpreter>) -> AstParseResult<'a, Self>
+    ) -> impl Fn(PosWithInfo<'a>) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
+        P: Parser<PosWithInfo<'a>, PosWithInfo<'a>, ()> + Copy,
     {
         move |input| {
             // try parse without postfix and assume the whole thing is an identifier
-            if let Ok((input, value)) =
-                AtomValue::parse::<fn(Position<Interpreter>) -> _>(input, None)
-            {
+            if let Ok((input, value)) = AtomValue::parse::<fn(PosWithInfo) -> _>(input, None) {
                 return Ok((
                     input,
                     Atom {
@@ -608,11 +604,11 @@ impl Atom {
 
 impl AtomValue {
     fn parse<'a, 'b, P>(
-        input: Position<'a, Interpreter>,
+        input: PosWithInfo<'a>,
         postfix_separator: Option<P>,
     ) -> AstParseResult<'a, Self>
     where
-        P: Parser<Position<'a, Interpreter>, (), ()> + Clone,
+        P: Parser<PosWithInfo<'a>, (), ()> + Clone,
     {
         if let Ok((input, value)) =
             FunctionCall::parse_maybe_as_func(input, postfix_separator.clone())
@@ -621,7 +617,7 @@ impl AtomValue {
         }
 
         let variable_parse =
-            |chunk: Position<_>| match input.extra.state.get_identifier(chunk.input) {
+            |chunk: Position<_>| match input.extra.0.state.get_identifier(chunk.input, chunk) {
                 Some(defined) => {
                     if let DefineType::Var(var) = defined {
                         Some(var)
@@ -665,9 +661,9 @@ impl AtomValue {
     /// Parsing last resort
     fn parser_last_resort<'a, 'b: 'a, P>(
         implicit_string_term: Option<P>,
-    ) -> impl FnMut(Position<'a, Interpreter>) -> (Position<'a, Interpreter>, Self)
+    ) -> impl FnMut(PosWithInfo<'a>) -> (PosWithInfo<'a>, Self)
     where
-        P: Parser<Position<'a, Interpreter>, Position<'a, Interpreter>, ()> + Copy,
+        P: Parser<PosWithInfo<'a>, PosWithInfo<'a>, ()> + Copy,
     {
         move |input| {
             // actual value?
@@ -716,7 +712,7 @@ impl UnaryOperator {
     pub fn eval<'a>(
         &'a self,
         right: &'a Expression,
-        args: EvalArgs,
+        args: PosWithInfo,
     ) -> Result<Wrapper<Cow<Value>>, Error> {
         let value = match self {
             UnaryOperator::Not => !right.eval(args)?,
@@ -726,7 +722,7 @@ impl UnaryOperator {
         Ok(value)
     }
 
-    fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         alt((
             value(UnaryOperator::Not, char(';')),
             value(UnaryOperator::Minus, char('-')),
@@ -758,7 +754,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse(input: Position<Interpreter>) -> AstParseResult<Self> {
+    fn parse(input: PosWithInfo) -> AstParseResult<Self> {
         alt((
             value(Operator::StrictEqual, tag("===")),
             value(Operator::Equal, tag("==")),

@@ -97,7 +97,7 @@ pub fn var_decl(input_original: Position<'_>) -> PosResult<'_, HoistedVarInfo> {
     let var_info = HoistedVarInfo {
         identifier: identifier.input.to_string(),
         hoisted_line,
-        expr_index,
+        decl_index: expr_index,
     };
 
     Ok((input, var_info))

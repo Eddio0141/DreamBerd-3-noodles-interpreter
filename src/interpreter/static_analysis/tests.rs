@@ -51,7 +51,7 @@ var var func<-2> = =>statement!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 43,
+        decl_index: 43,
     };
     assert_eq!(func, &func_expected);
 }
@@ -71,7 +71,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 33,
+        decl_index: 33,
     };
     assert_eq!(func, &func_expected);
 }
@@ -91,7 +91,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -111,7 +111,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -131,7 +131,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -151,7 +151,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -171,7 +171,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 2,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -191,7 +191,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 1,
-        expr_index: 31,
+        decl_index: 31,
     };
     assert_eq!(func, &func_expected);
 }
@@ -211,7 +211,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 3,
-        expr_index: 30,
+        decl_index: 30,
     };
     assert_eq!(func, &func_expected);
 }
@@ -231,7 +231,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 3,
-        expr_index: 32,
+        decl_index: 32,
     };
     assert_eq!(func, &func_expected);
 }
@@ -251,7 +251,7 @@ statement2!
     let func_expected = HoistedVarInfo {
         identifier: "func".to_string(),
         hoisted_line: 3,
-        expr_index: 37,
+        decl_index: 37,
     };
     assert_eq!(func, &func_expected);
 }
@@ -270,7 +270,7 @@ const const value<-1> = 5!
     let var_expected = HoistedVarInfo {
         identifier: "value".to_string(),
         hoisted_line: 2,
-        expr_index: 36,
+        decl_index: 36,
     };
     assert_eq!(var, &var_expected);
 }
