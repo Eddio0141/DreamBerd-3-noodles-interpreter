@@ -2,7 +2,7 @@ use criterion::{black_box, Criterion};
 use dreamberd_noodles_interpreter::Interpreter;
 
 pub fn compare_expressions(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("compare_expressions", |b| {
         b.iter(|| {
@@ -23,7 +23,7 @@ a = 1 >= 2!
 }
 
 pub fn compare_expressions_chain(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("compare_expressions_chain", |b| {
         b.iter(|| {
@@ -41,7 +41,7 @@ a = 1          ==          1         ==         1        ==        1       ==   
 }
 
 pub fn unary_chain(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("unary_chain", |b| {
         b.iter(|| {
@@ -58,7 +58,7 @@ a = ----------------------------------------------------------------------------
 }
 
 pub fn unary_chain_spaced(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("unary_chain_spaced", |b| {
         b.iter(|| {
@@ -75,7 +75,7 @@ a = - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 }
 
 pub fn obj_initialiser(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("obj_initialiser", |b| {
         b.iter(|| {
@@ -95,7 +95,7 @@ var var foo = {
 }
 
 pub fn obj_property_access(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
     c.bench_function("obj_property_access", |b| {
         b.iter(|| {
             interpreter

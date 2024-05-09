@@ -2,7 +2,7 @@ use criterion::{black_box, Criterion};
 use dreamberd_noodles_interpreter::Interpreter;
 
 pub fn declare_many(c: &mut Criterion) {
-    let interpreter = Interpreter::default();
+    let interpreter = Interpreter::new();
 
     c.bench_function("declare_many", |b| {
         b.iter(|| {

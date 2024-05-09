@@ -22,7 +22,7 @@ impl Cli {
             Ok(())
         } else {
             // repl mode
-            let interpreter = Interpreter::default();
+            let interpreter = Interpreter::new();
 
             let mut editor = DefaultEditor::new().context("Failed to start repl with history")?;
 
