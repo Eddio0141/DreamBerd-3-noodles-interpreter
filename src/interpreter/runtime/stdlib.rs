@@ -17,8 +17,9 @@ pub fn load(interpreter: &Interpreter) {
     let funcs: Vec<(_, _, NativeFunc)> = vec![
         ("assert", 1, debug::assert),
         ("print", 1, stdio::print),
+        ("input", 1, stdio::input),
         ("typeof", 1, info::get_typeof),
-        ("sleep_ms", 1, thread::sleep_ms),
+        ("sleep", 1, thread::sleep),
     ];
 
     for func in funcs {

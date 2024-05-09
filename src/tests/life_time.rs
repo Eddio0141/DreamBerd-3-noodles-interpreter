@@ -5,7 +5,7 @@ fn seconds() {
     let input = r#"
 const const value<1s> = 1!
 assert value === 1!
-sleep_ms 1200!
+sleep 1200!
 const const value = value!
 assert value === "value"!
     "#;
