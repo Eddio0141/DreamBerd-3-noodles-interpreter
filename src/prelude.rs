@@ -1,7 +1,5 @@
 use std::{fmt::Debug, ops::Deref};
 
-pub mod macros;
-
 #[derive(Debug)]
 pub struct Wrapper<T: Debug>(pub T);
 
