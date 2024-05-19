@@ -9,16 +9,13 @@ use nom::{
     character::complete::*,
     combinator::*,
     error::ErrorKind,
-    multi::{many0, many1, many_till},
+    multi::{many0, many1},
     sequence::tuple,
     IResult, Parser,
 };
 
 use crate::{
-    interpreter::{
-        evaluators::statement::Statement,
-        runtime::{error::Error, state::DefineType, value::Value},
-    },
+    interpreter::runtime::{error::Error, state::DefineType, value::Value},
     parsers::{types::Position, *},
     prelude::Wrapper,
     runtime::{state::FunctionVariant, value::ObjectRef},
@@ -27,7 +24,7 @@ use crate::{
 
 use super::{
     array::ArrayInitialiser, function::FunctionCall, object::ObjectInitialiser,
-    parsers::AstParseResult,
+    parsers::AstParseResult, scope::scope,
 };
 
 #[derive(Debug, Clone)]
@@ -397,44 +394,6 @@ impl FunctionExpr {
                 .map(|s| s.input.to_string())
                 .collect::<Vec<_>>()
         });
-
-        // this parses the function body
-        // properly checks scope balance
-        let scope = |input| {
-            let scope_start = char('{');
-            let (mut input, _) = scope_start(input)?;
-            let scope_start = || tuple((ws, char('{'))).map(|_| Some(true));
-
-            let scope_end = || tuple((ws, char('}'))).map(|_| Some(false));
-            let mut statements_in_scope = many_till(
-                Statement::parse,
-                alt((scope_start(), scope_end(), eof.map(|_| None))),
-            );
-
-            let mut scope_track = 1usize;
-            loop {
-                if let Ok((i, (_, open_scope))) = statements_in_scope.parse(input) {
-                    input = i;
-
-                    if let Some(open_scope) = open_scope {
-                        if open_scope {
-                            scope_track = scope_track.checked_add(1).expect("scope overflow");
-                        } else {
-                            scope_track -= 1;
-                            if scope_track == 0 {
-                                return Ok((input, ()));
-                            }
-                        }
-
-                        continue;
-                    }
-                }
-
-                // this basically parses the rest of the code as this function's body, and this is fine
-                // TODO parse the function as implicit string if it doesn't end with a scope?
-                return Ok((input, ()));
-            }
-        };
 
         let (body, (args, _)) = tuple((alt((arrow().map(|_| Vec::new()), args)), ws))(input)?;
 

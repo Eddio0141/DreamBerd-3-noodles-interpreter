@@ -149,3 +149,47 @@ assert x === 6!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn when_no_variable() {
+    todo!()
+}
+
+#[test]
+fn when_on_declare_var() {
+    todo!()
+}
+
+#[test]
+fn when_on_edit_var() {
+    let code = r#"
+var var a = 0!
+var var b = 0!
+when a === 1 {
+    b = 1!
+}
+assert b === 0!
+a = 1!
+assert b === 1!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
+
+#[test]
+fn when_else() {
+    let code = r#"
+var var a = 0!
+var var b = 0!
+when a === 1 {
+    b = 1!
+} else when {
+    b = 2!
+}
+assert b === 0!
+a = 1!
+assert b === 1!
+a = 2!
+assert b === 2!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}

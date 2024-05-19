@@ -8,6 +8,7 @@ use std::{
 use crate::{
     interpreter::{
         evaluators::{
+            conditional::When,
             expression::{AtomPostfix, Expression},
             statement::Statement,
             variable::VarType,
@@ -42,6 +43,8 @@ pub struct InterpreterState {
     pub funcs: Arc<Mutex<Functions>>,
     // hoisted variable info
     hoisted_vars: Arc<Mutex<Vec<HoistedVarInfo>>>,
+    // all of the `when` that are active
+    when_stack: Arc<Mutex<CallStack<Scope<Vec<Arc<When>>>>>>,
 }
 
 impl Default for InterpreterState {
@@ -50,10 +53,13 @@ impl Default for InterpreterState {
         let vars = vec![var_state];
         let vars = vec![vars];
 
+        let whens = vec![vec![Vec::new()]];
+
         Self {
             vars: Arc::new(Mutex::new(vars)),
             funcs: Arc::new(Mutex::new(Functions::default())),
             hoisted_vars: Arc::new(Mutex::new(Vec::new())),
+            when_stack: Arc::new(Mutex::new(whens)),
         }
     }
 }
@@ -75,6 +81,7 @@ impl InterpreterState {
                 .find(|func| Weak::ptr_eq(&func.obj, &Arc::downgrade(value)))
                 .cloned()
         };
+        // TODO: debug when statement and find out why this is locking up
         let res = self.vars.lock().unwrap().iter_mut().rev().find_map(|vars| {
             vars.iter_mut().rev().find_map(|vars| {
                 vars.validate_lifetime();
@@ -137,6 +144,13 @@ impl InterpreterState {
         });
 
         vars.push(VariableState(new_scope));
+
+        self.when_stack
+            .lock()
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .push(Vec::new());
     }
 
     pub fn pop_scope(&self, line: usize) {
@@ -154,6 +168,8 @@ impl InterpreterState {
                 last_scope.insert(name, var);
             }
         }
+
+        self.when_stack.lock().unwrap().last_mut().unwrap().pop();
     }
 
     pub fn invoke_func(
@@ -205,14 +221,23 @@ impl InterpreterState {
         line: usize,
     ) -> Result<(), Error> {
         let mut vars = self.vars.lock().unwrap();
-        for vars in vars.iter_mut() {
+        let mut var_found = false;
+        'outer_vars: for vars in vars.iter_mut() {
             let vars_iter = vars.iter_mut().rev();
 
             for vars in vars_iter {
                 if vars.set_var(name, args, postfix, &value)? {
-                    return Ok(());
+                    var_found = true;
+                    break 'outer_vars;
                 }
             }
+        }
+
+        if var_found {
+            // variable was set, update whens
+            drop(vars);
+            self.update_when(args)?;
+            return Ok(());
         }
 
         // declare global
@@ -223,6 +248,9 @@ impl InterpreterState {
             VarType::VarVar,
             None,
         );
+
+        drop(vars);
+        self.update_when(args)?;
 
         Ok(())
     }
@@ -300,6 +328,36 @@ impl InterpreterState {
         };
 
         Some(ret)
+    }
+
+    pub fn push_when(&self, when: &When) {
+        self.when_stack
+            .lock()
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .push(when.clone().into());
+    }
+
+    fn update_when(&self, eval_args: PosWithInfo) -> Result<(), Error> {
+        // TODO: only update if when expr has a varaible in it
+        let when_stack = self
+            .when_stack
+            .lock()
+            .unwrap()
+            .iter()
+            .flatten()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for when in when_stack {
+            when.eval_body(eval_args)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -477,6 +535,7 @@ impl FunctionState {
 
                 let pop_call_stack = || {
                     state.vars.lock().unwrap().pop();
+                    state.when_stack.lock().unwrap().pop();
                 };
 
                 state
@@ -484,6 +543,7 @@ impl FunctionState {
                     .lock()
                     .unwrap()
                     .push(vec![VariableState::default()]);
+                state.when_stack.lock().unwrap().push(Vec::new());
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args.array_obj_iter()) {

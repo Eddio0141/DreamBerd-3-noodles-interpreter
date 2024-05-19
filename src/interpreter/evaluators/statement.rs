@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    conditional::If,
+    conditional::{If, When},
     function::{FunctionDef, Return},
     parsers::AstParseResult,
     scope::*,
@@ -27,6 +27,7 @@ pub enum Statement {
     ScopeEnd(ScopeEnd),
     Return(Return),
     If(If),
+    When(When),
 }
 
 impl Statement {
@@ -50,6 +51,7 @@ impl Statement {
         let scope_end = ScopeEnd::parse.map(Statement::ScopeEnd);
         let ret = Return::parse.map(Statement::Return);
         let if_ = If::parse.map(Statement::If);
+        let when = When::parse.map(Statement::When);
 
         if let Ok((input, statement)) = alt((
             function_call,
@@ -57,6 +59,7 @@ impl Statement {
             variable_decl,
             var_set,
             if_,
+            when,
             scope_start,
             scope_end,
             ret,
@@ -104,6 +107,10 @@ impl Statement {
                 });
             }
             Statement::If(if_) => return if_.eval(args).map(|_| Default::default()),
+            Statement::When(when) => {
+                when.eval(args);
+                return Ok(Default::default());
+            }
         };
 
         Ok(StatementReturn {
