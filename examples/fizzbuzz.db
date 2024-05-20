@@ -1,0 +1,15 @@
+when i % 3 === 0  &&  i % 5 === 0 {
+    print "FizzBuzz"!
+} else when i % 3 === 0 {
+    print "Fizz"!
+} else when i % 5 === 0 {
+    print "Buzz"!
+} else {
+    print i!
+}
+
+when i < 20 {
+    i = i + 1!
+}
+
+i = 1!
