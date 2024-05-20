@@ -235,3 +235,14 @@ assert expr === "hello +"!
 "#;
     Interpreter::new_eval(code).unwrap();
 }
+
+#[test]
+fn calc_with_two_brackets() {
+    // (i % 3 === 0) && (i % 5 === 0)
+    let code = r#"
+var var i = 15!
+var var value = i % 3 === 0  &&  i % 5 === 0!
+assert value!
+"#;
+    Interpreter::new_eval(code).unwrap();
+}
