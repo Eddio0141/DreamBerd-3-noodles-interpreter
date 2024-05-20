@@ -377,6 +377,17 @@ impl<'a> Not for Wrapper<Cow<'a, Value>> {
     }
 }
 
+impl Add for Value {
+    type Output = Result<Self, runtime::Error>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let left = f64::try_from(self)?;
+        let right = f64::try_from(rhs)?;
+
+        Ok(Value::Number(left + right))
+    }
+}
+
 impl<'a> Add for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
@@ -385,6 +396,17 @@ impl<'a> Add for Wrapper<Cow<'a, Value>> {
         let right = f64::try_from(rhs)?;
 
         Ok(Wrapper(Cow::Owned(Value::Number(left + right))))
+    }
+}
+
+impl Sub for Value {
+    type Output = Result<Self, runtime::Error>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let left = f64::try_from(self)?;
+        let right = f64::try_from(rhs)?;
+
+        Ok(Value::Number(left - right))
     }
 }
 
@@ -399,6 +421,17 @@ impl<'a> Sub for Wrapper<Cow<'a, Value>> {
     }
 }
 
+impl Mul for Value {
+    type Output = Result<Self, runtime::Error>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let left = f64::try_from(self)?;
+        let right = f64::try_from(rhs)?;
+
+        Ok(Value::Number(left * right))
+    }
+}
+
 impl<'a> Mul for Wrapper<Cow<'a, Value>> {
     type Output = Result<Self, runtime::Error>;
 
@@ -407,6 +440,23 @@ impl<'a> Mul for Wrapper<Cow<'a, Value>> {
         let right = f64::try_from(rhs)?;
 
         Ok(Wrapper(Cow::Owned(Value::Number(left * right))))
+    }
+}
+
+impl Div for Value {
+    type Output = Result<Self, runtime::Error>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let left = f64::try_from(self)?;
+        let right = f64::try_from(rhs)?;
+
+        let res = if right == 0.0 {
+            Value::Undefined
+        } else {
+            Value::Number(left / right)
+        };
+
+        Ok(res)
     }
 }
 
@@ -424,6 +474,17 @@ impl<'a> Div for Wrapper<Cow<'a, Value>> {
         };
 
         Ok(Wrapper(Cow::Owned(res)))
+    }
+}
+
+impl Rem for Value {
+    type Output = Result<Self, runtime::Error>;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        let left = f64::try_from(self)?;
+        let right = f64::try_from(rhs)?;
+
+        Ok(Value::Number(left % right))
     }
 }
 
