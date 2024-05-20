@@ -105,7 +105,7 @@ impl Expression {
                         pending_unary.push(right_pending_unary);
                         pending_order_is_left.push(false);
                     }
-                    left_pending.push((left, op));
+                    left_pending.push((left, op, ws));
                     left = right;
                     pending_order_is_left.push(true);
                     continue;
@@ -119,7 +119,7 @@ impl Expression {
                     if (next_ws < ws) || (next_ws == ws && next_op > op) {
                         // beause we have to build from the right now, we need to store the left
                         // expr(left, op, right)
-                        left_pending.push((left, op));
+                        left_pending.push((left, op, ws));
                         left = right;
                         pending_order_is_left.push(true);
                         continue;
@@ -133,10 +133,27 @@ impl Expression {
                     operator: op,
                     right: Box::new(right),
                 };
+
                 let mut pending_order_removes = Vec::new();
+
                 for (i, take_left) in pending_order_is_left.iter().enumerate() {
                     if *take_left {
-                        let (left_inner, op_inner) = left_pending.pop().unwrap();
+                        let (_, op_inner, ws) = left_pending.last().unwrap();
+                        let ws = *ws;
+
+                        // is next op higher in priority
+                        if let Some(((next_op, next_ws), _)) = next_op {
+                            // TODO: do we even check the op priority?
+                            let next_ws = *next_ws;
+                            let next_op = *next_op;
+                            if (next_ws < ws) || (next_ws == ws && next_op > *op_inner) {
+                                // don't apply this one
+                                continue;
+                            }
+                        }
+
+                        // apply
+                        let (left_inner, op_inner, _) = left_pending.pop().unwrap();
                         left = Expression::Operation {
                             left: Box::new(left_inner),
                             operator: op_inner,
