@@ -1,10 +1,10 @@
 functi fibonacci (n) => {
    var var sum = 1!
-   var var i = 0!
-   when (i < n) {
-      // sum += sum + previous sum!
-      i++!
+   when (j < n) {
+      sum += sum + previous sum!
+      j++!
    }
+   var var j = 0!
 }
 
 when (i < 10) {
