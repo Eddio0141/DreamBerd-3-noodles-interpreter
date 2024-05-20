@@ -11,7 +11,7 @@ use nom::{
 
 use crate::{
     interpreter::evaluators::scope::scope,
-    parsers::{identifier, types::Position, ws, ws1, ws1_value, PosWithInfo},
+    parsers::{identifier, types::Position, ws, ws1, PosWithInfo},
     runtime::{self, value::Value},
 };
 
@@ -54,11 +54,12 @@ impl When {
                 body_line: ws_pos.line,
             });
 
-        let (input, (_, _, expression, _)) = tuple((when, ws1, expression, ws))(input)?;
+        let (input, (_, _, expression, _, (body_consumed, body), _)) =
+            tuple((when, ws1, expression, ws, consumed(body()), ws))(input)?;
 
-        let body_line = input.line;
+        let body_line = body_consumed.line;
 
-        let (input, (body, else_when)) = tuple((body(), opt(alt((else_when, else_)))))(input)?;
+        let (input, else_when) = opt(alt((else_when, else_)))(input)?;
 
         // grab all identifiers
         // TODO: limit to current scope?
@@ -94,34 +95,32 @@ impl When {
         args.extra.0.state.push_when(self);
     }
 
-    pub fn eval_body(&self, args: PosWithInfo) -> Result<(), runtime::Error> {
-        // check if the identifier values has changed
+    pub fn eval_body(
+        &self,
+        args: PosWithInfo,
+        var_name: &str,
+        new_value: Value,
+    ) -> Result<(), runtime::Error> {
+        let Some(identifier_index) = self.identifiers.iter().position(|i| i == var_name) else {
+            // not found
+            return self.else_when_exec(args, false, var_name, new_value);
+        };
+
         let mut prev_values = self.prev_identifier_values.lock().unwrap();
-        let interpreter = args.extra.0;
-        let mut found = false;
-        for (prev_value, identifier) in prev_values.iter_mut().zip(self.identifiers.iter()) {
-            let new_value = interpreter.state.get_var(identifier);
+        let prev_value = &prev_values[identifier_index];
 
-            dbg!(&prev_value, &new_value);
-            if let (None, None) | (Some(_), None) = (&prev_value, &new_value) {
-                continue;
-            } else if let (Some(prev_value), Some(new_value)) = (&prev_value, &new_value) {
-                if prev_value.strict_eq(new_value.get_value()) {
-                    continue;
-                }
-            }
+        let changed = match prev_value {
+            Some(prev_value) => !prev_value.strict_eq(&new_value), // has it changed?
+            None => true,                                          // declaration of new value
+        };
 
-            // value has changed
-            *prev_value = new_value.map(|var| var.get_value().to_owned());
-            dbg!("value changed");
-            found = true;
-            break;
-        }
+        // finally, update
+        prev_values[identifier_index] = Some(new_value.clone());
 
         drop(prev_values);
 
-        if !found {
-            return Ok(());
+        if !changed {
+            return self.else_when_exec(args, true, var_name, new_value);
         }
 
         // TODO: does position matter
@@ -130,13 +129,39 @@ impl When {
         let value = expr.eval(args)?;
 
         if !bool::from(value.0.as_ref()) {
-            return Ok(());
+            return self.else_when_exec(args, true, var_name, new_value);
         }
 
-        // parse and execute the body
-        args.extra.0.state.push_scope(self.body_line);
+        Self::body_exec(args, &self.body, self.body_line)
+    }
 
-        let mut code_with_pos = Position::new_with_extra(self.body.as_str(), args.extra);
+    fn else_when_exec(
+        &self,
+        args: PosWithInfo,
+        found: bool,
+        var_name: &str,
+        new_value: Value,
+    ) -> Result<(), runtime::Error> {
+        let Some(else_when) = &self.else_when else {
+            return Ok(());
+        };
+
+        match else_when {
+            ElseWhen::When(when) => when.eval_body(args, var_name, new_value),
+            ElseWhen::Else { body, body_line } => {
+                if !found {
+                    return Ok(());
+                }
+                Self::body_exec(args, body, *body_line)
+            }
+        }
+    }
+
+    fn body_exec(args: PosWithInfo, body: &str, body_line: usize) -> Result<(), runtime::Error> {
+        // parse and execute the body
+        args.extra.0.state.push_scope(body_line);
+
+        let mut code_with_pos = Position::new_with_extra(body, args.extra);
 
         let mut scope_count = 0usize;
 

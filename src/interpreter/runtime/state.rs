@@ -17,6 +17,7 @@ use crate::{
     },
     parsers::{types::Position, LifeTime, PosWithInfo},
     prelude::Wrapper,
+    runtime,
     runtime::{stdlib::array, value::PROTO_PROP},
     Interpreter,
 };
@@ -44,6 +45,7 @@ pub struct InterpreterState {
     // hoisted variable info
     hoisted_vars: Arc<Mutex<Vec<HoistedVarInfo>>>,
     // all of the `when` that are active
+    // TODO: merge with vars
     when_stack: Arc<Mutex<CallStack<Scope<Vec<Arc<When>>>>>>,
 }
 
@@ -203,6 +205,28 @@ impl InterpreterState {
             .declare_var(name, value, line, type_, life_time);
     }
 
+    // identical to add_var, but for runtime
+    pub fn add_var_runtime(
+        &self,
+        name: &str,
+        value: Value,
+        line: usize,
+        type_: VarType,
+        life_time: Option<LifeTime>,
+        args: PosWithInfo,
+    ) -> Result<(), runtime::Error> {
+        self.vars
+            .lock()
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .last_mut()
+            .unwrap()
+            .declare_var(name, value.to_owned(), line, type_, life_time);
+
+        self.update_when(args, name, value)
+    }
+
     pub fn get_var(&self, name: &str) -> Option<Variable> {
         self.vars.lock().unwrap().iter_mut().find_map(|vars| {
             vars.iter_mut().rev().find_map(|vars| {
@@ -236,21 +260,21 @@ impl InterpreterState {
         if var_found {
             // variable was set, update whens
             drop(vars);
-            self.update_when(args)?;
+            self.update_when(args, name, value)?;
             return Ok(());
         }
 
         // declare global
         vars.first_mut().unwrap().first_mut().unwrap().declare_var(
             name,
-            value,
+            value.clone(),
             line,
             VarType::VarVar,
             None,
         );
 
         drop(vars);
-        self.update_when(args)?;
+        self.update_when(args, name, value)?;
 
         Ok(())
     }
@@ -341,7 +365,12 @@ impl InterpreterState {
             .push(when.clone().into());
     }
 
-    fn update_when(&self, eval_args: PosWithInfo) -> Result<(), Error> {
+    fn update_when(
+        &self,
+        eval_args: PosWithInfo,
+        var_name: &str,
+        value: Value,
+    ) -> Result<(), Error> {
         // TODO: only update if when expr has a varaible in it
         let when_stack = self
             .when_stack
@@ -354,7 +383,7 @@ impl InterpreterState {
             .collect::<Vec<_>>();
 
         for when in when_stack {
-            when.eval_body(eval_args)?;
+            when.eval_body(eval_args, var_name, value.to_owned())?;
         }
 
         Ok(())

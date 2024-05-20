@@ -39,13 +39,14 @@ impl VariableDecl {
     pub fn eval(&self, args: PosWithInfo) -> Result<(), Error> {
         let interpreter = args.extra.0;
         let value = self.expression.eval(args)?;
-        interpreter.state.add_var(
+        interpreter.state.add_var_runtime(
             &self.name,
             value.0.into_owned(),
             self.line,
             self.type_,
             self.life_time,
-        );
+            args,
+        )?;
 
         Ok(())
     }
