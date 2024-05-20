@@ -1,0 +1,15 @@
+functi fibonacci (n) => {
+   var var sum = 1!
+   var var i = 0!
+   when (i < n) {
+      // sum += sum + previous sum!
+      i++!
+   }
+}
+
+when (i < 10) {
+   fibonacci(i)!
+   i++!
+}
+
+i = 0!
