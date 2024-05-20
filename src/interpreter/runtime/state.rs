@@ -39,29 +39,24 @@ pub struct InterpreterState {
      * without keeping track of how many scopes were opened which the `return` statement
      * will have to pop on early return
      */
-    pub vars: Arc<Mutex<CallStack<Scope<VariableState>>>>,
+    pub scope_stacks: Arc<Mutex<CallStack<Scope<ScopeState>>>>,
     // function status. extra information that objects don't have
     pub funcs: Arc<Mutex<Functions>>,
     // hoisted variable info
     hoisted_vars: Arc<Mutex<Vec<HoistedVarInfo>>>,
-    // all of the `when` that are active
-    // TODO: merge with vars
-    when_stack: Arc<Mutex<CallStack<Scope<Vec<Arc<When>>>>>>,
 }
 
 impl Default for InterpreterState {
     fn default() -> Self {
-        let var_state = VariableState::default();
-        let vars = vec![var_state];
-        let vars = vec![vars];
-
-        let whens = vec![vec![Vec::new()]];
+        let scope_stacks = Arc::new(Mutex::new(vec![vec![ScopeState {
+            vars: VariableState::default(),
+            whens: Vec::new(),
+        }]]));
 
         Self {
-            vars: Arc::new(Mutex::new(vars)),
+            scope_stacks,
             funcs: Arc::new(Mutex::new(Functions::default())),
             hoisted_vars: Arc::new(Mutex::new(Vec::new())),
-            when_stack: Arc::new(Mutex::new(whens)),
         }
     }
 }
@@ -84,16 +79,23 @@ impl InterpreterState {
                 .cloned()
         };
         // TODO: debug when statement and find out why this is locking up
-        let res = self.vars.lock().unwrap().iter_mut().rev().find_map(|vars| {
-            vars.iter_mut().rev().find_map(|vars| {
-                vars.validate_lifetime();
+        let res = self
+            .scope_stacks
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .rev()
+            .find_map(|scopes| {
+                scopes.iter_mut().rev().find_map(|scope| {
+                    let vars = &mut scope.vars;
+                    vars.validate_lifetime();
 
-                let Some(vars) = vars.get_var(name) else {
-                    return None;
-                };
-                find_func(vars.get_value())
-            })
-        });
+                    let Some(vars) = vars.get_var(name) else {
+                        return None;
+                    };
+                    find_func(vars.get_value())
+                })
+            });
         if res.is_some() {
             return res;
         }
@@ -129,49 +131,43 @@ impl InterpreterState {
     }
 
     pub fn push_scope(&self, line: usize) {
-        let mut vars = self.vars.lock().unwrap();
-        let vars = vars.last_mut().unwrap();
+        let mut scope_stacks = self.scope_stacks.lock().unwrap();
+        let scopes = scope_stacks.last_mut().unwrap();
 
         // when pushing scope, the hoisted vars that's defined after the push position will be pushed up to the new scope
-        let last_scope = &mut vars.last_mut().unwrap().0;
-        let mut new_scope = HashMap::new();
+        let last_vars = &mut scopes.last_mut().unwrap().vars.0;
+        let mut new_vars = HashMap::new();
 
-        last_scope.retain(|name, var| {
+        last_vars.retain(|name, var| {
             if var.line > line {
-                new_scope.insert(name.to_string(), var.clone());
+                new_vars.insert(name.to_string(), var.clone());
                 false
             } else {
                 true
             }
         });
 
-        vars.push(VariableState(new_scope));
-
-        self.when_stack
-            .lock()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .push(Vec::new());
+        scopes.push(ScopeState {
+            vars: VariableState(new_vars),
+            whens: Vec::new(),
+        });
     }
 
     pub fn pop_scope(&self, line: usize) {
-        let mut vars = self.vars.lock().unwrap();
-        let vars = vars.last_mut().unwrap();
-        if vars.len() == 1 {
+        let mut scope_stacks = self.scope_stacks.lock().unwrap();
+        let scopes = scope_stacks.last_mut().unwrap();
+        if scopes.len() == 1 {
             return;
         }
 
         // opposite to push_scope with hoisted vars
-        let remove_scope = vars.pop().unwrap().0;
-        let last_scope = &mut vars.last_mut().unwrap().0;
+        let remove_scope = scopes.pop().unwrap().vars.0;
+        let last_scope = &mut scopes.last_mut().unwrap().vars.0;
         for (name, var) in remove_scope {
             if var.line > line {
                 last_scope.insert(name, var);
             }
         }
-
-        self.when_stack.lock().unwrap().last_mut().unwrap().pop();
     }
 
     pub fn invoke_func(
@@ -195,13 +191,14 @@ impl InterpreterState {
         type_: VarType,
         life_time: Option<LifeTime>,
     ) {
-        self.vars
+        self.scope_stacks
             .lock()
             .unwrap()
             .last_mut()
             .unwrap()
             .last_mut()
             .unwrap()
+            .vars
             .declare_var(name, value, line, type_, life_time);
     }
 
@@ -215,25 +212,31 @@ impl InterpreterState {
         life_time: Option<LifeTime>,
         args: PosWithInfo,
     ) -> Result<(), runtime::Error> {
-        self.vars
+        self.scope_stacks
             .lock()
             .unwrap()
             .last_mut()
             .unwrap()
             .last_mut()
             .unwrap()
+            .vars
             .declare_var(name, value.to_owned(), line, type_, life_time);
 
         self.update_when(args, name, value)
     }
 
     pub fn get_var(&self, name: &str) -> Option<Variable> {
-        self.vars.lock().unwrap().iter_mut().find_map(|vars| {
-            vars.iter_mut().rev().find_map(|vars| {
-                vars.validate_lifetime();
-                vars.get_var(name).cloned()
+        self.scope_stacks
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .find_map(|scope_stack| {
+                scope_stack.iter_mut().rev().find_map(|scope| {
+                    let var = &mut scope.vars;
+                    var.validate_lifetime();
+                    var.get_var(name).cloned()
+                })
             })
-        })
     }
 
     pub fn set_var(
@@ -244,13 +247,13 @@ impl InterpreterState {
         value: Value,
         line: usize,
     ) -> Result<(), Error> {
-        let mut vars = self.vars.lock().unwrap();
+        let mut scope_stacks = self.scope_stacks.lock().unwrap();
         let mut var_found = false;
-        'outer_vars: for vars in vars.iter_mut() {
-            let vars_iter = vars.iter_mut().rev();
+        'outer_vars: for scope in scope_stacks.iter_mut() {
+            let scopes_iter = scope.iter_mut().rev();
 
-            for vars in vars_iter {
-                if vars.set_var(name, args, postfix, &value)? {
+            for scope in scopes_iter {
+                if scope.vars.set_var(name, args, postfix, &value)? {
                     var_found = true;
                     break 'outer_vars;
                 }
@@ -259,21 +262,21 @@ impl InterpreterState {
 
         if var_found {
             // variable was set, update whens
-            drop(vars);
+            drop(scope_stacks);
             self.update_when(args, name, value)?;
             return Ok(());
         }
 
         // declare global
-        vars.first_mut().unwrap().first_mut().unwrap().declare_var(
-            name,
-            value.clone(),
-            line,
-            VarType::VarVar,
-            None,
-        );
+        scope_stacks
+            .first_mut()
+            .unwrap()
+            .first_mut()
+            .unwrap()
+            .vars
+            .declare_var(name, value.clone(), line, VarType::VarVar, None);
 
-        drop(vars);
+        drop(scope_stacks);
         self.update_when(args, name, value)?;
 
         Ok(())
@@ -355,13 +358,14 @@ impl InterpreterState {
     }
 
     pub fn push_when(&self, when: &When) {
-        self.when_stack
+        self.scope_stacks
             .lock()
             .unwrap()
             .last_mut()
             .unwrap()
             .last_mut()
             .unwrap()
+            .whens
             .push(when.clone().into());
     }
 
@@ -371,15 +375,14 @@ impl InterpreterState {
         var_name: &str,
         value: Value,
     ) -> Result<(), Error> {
-        // TODO: only update if when expr has a varaible in it
+        // TODO: only update if when expr has a variable in it
         let when_stack = self
-            .when_stack
+            .scope_stacks
             .lock()
             .unwrap()
             .iter()
             .flatten()
-            .flatten()
-            .cloned()
+            .flat_map(|scope| scope.whens.iter().cloned())
             .collect::<Vec<_>>();
 
         for when in when_stack {
@@ -394,6 +397,13 @@ impl InterpreterState {
 pub enum DefineType {
     Var(Variable),
     Func(FunctionState),
+}
+
+#[derive(Debug, Default)]
+pub struct ScopeState {
+    vars: VariableState,
+    // all of the `when` that are active
+    whens: Vec<Arc<When>>,
 }
 
 #[derive(Debug, Default)]
@@ -563,16 +573,13 @@ impl FunctionState {
                 let args = args.lock().unwrap();
 
                 let pop_call_stack = || {
-                    state.vars.lock().unwrap().pop();
-                    state.when_stack.lock().unwrap().pop();
+                    state.scope_stacks.lock().unwrap().pop();
                 };
 
-                state
-                    .vars
-                    .lock()
-                    .unwrap()
-                    .push(vec![VariableState::default()]);
-                state.when_stack.lock().unwrap().push(Vec::new());
+                state.scope_stacks.lock().unwrap().push(vec![ScopeState {
+                    vars: VariableState::default(),
+                    whens: Vec::new(),
+                }]);
 
                 // declare arguments
                 for (arg_name, arg_value) in arg_names.iter().zip(args.array_obj_iter()) {
