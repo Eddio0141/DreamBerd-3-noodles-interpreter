@@ -62,6 +62,8 @@ jobs:
     - name: Build release
       if: matrix.build-mode == 'release'
       run: nix develop -c -- cargo build --release
+    - name: dir contents
+      run: ls -la /home/runner/work/DreamBerd-3-noodles-interpreter/DreamBerd-3-noodles-interpreter/target/${{ matrix.build-mode }}
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
