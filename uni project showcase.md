@@ -1,0 +1,117 @@
+---
+tags:
+  - uni-project
+---
+# timeline
+- what i did for the project
+	- i made an interpreter for a language called dreamberd
+- dreamberd explain
+	- dreamberd is a language that derives from javascript, but also has its own strange twists to the language
+	- it is an esoteric programming language, if you know what that is
+- show dreamberd cli
+	- help screen
+	- repl
+	- running repl `print("hello world")!`
+- showcase features (mix of repl and running script)
+	- every statement must end with a `!` (explain in hello world)
+	- the not operator would instead use the `;` operator
+		- `if (;false) { print("hello world")! }`
+	- you can declare variables
+		- you have the choice of `const const` which is a constant value that cannot be changed
+		- `const const a = 1!`
+		- `a = 2!`
+		- `print(a)!` // unchanged
+		- `const var` are variables that can be edited but not reassigned
+		- `var const` can be reassigned but not edited
+		- and `var var` can be reassigned and be edited
+		- we are using `var var` to simplify things
+	- the variable names can be named anything as long as it doesnt have a space
+		- `var var variable = 1!`
+		- including language constructs
+		- `var var var = 1!`
+		- `var var true = false!`
+	- you can retrieve variables by using its name
+		- `var var a = 1!`
+		- `print(a)!`
+		- you can also get its previous value by using the previous keyword
+		- `print(previous a)!`
+		- `a += 10!`
+	- you can use javascript types in dreamberd such as
+		- `print(1.5)!`
+		- `print(true)!`
+		- `print("string)"!`
+		- `var var value = { a: 1, b: 2 }!`
+		- `print(value.a)!`
+		- `print(value.b)!`
+	- strings
+		- in dreamberd, you can declare strings with double quotes
+		- `print("hi")!`
+		- you can add as many quotes as you want as long as its balanced
+		- `print("""hi""")!`
+		- you can also use no quotes if you prefer that
+		- `var var str = one two three!`
+		- `print(str)!`
+	- arrays
+		- you can declare an array with the square brackets
+		- `var var array = [0, 1, 2, 3]!`
+		- but to access the first index, you have to start from index -1
+		- `print array[-1]!`
+		- `print array[0]!`
+		- `print array[0]!`
+	- if
+		- if statements exist
+		- `var var a = 0!`
+		- `if (a == 0) { print("0")! } else if (a == 1) { print("1")! } else { print("else")! }`
+	- when
+		- when statement would detect changes to a variable
+		- `var var a = 0!`
+		- `when (a > 5) { print("a is more than 5")! }`
+		- you can chain when statements similarly to if else
+		- `when (a == 0) { print("0")! } else when (a == 1) { print("1")! } else { print("else")! }`
+	- lifetimes
+		- you can explicitly state when variables are destroyed
+		- `var var a<3s> = 1!`
+		- this would destroy the variable after 3 seconds
+	- at this point, explain that brackets do nothing in dreamberd
+		- `print "hello world"!` would invoke function perfectly fine
+		- it doesn't matter where you place them
+		- `print)"hello world"(!`
+	- so arithmetic operations are a bit of a problem to write
+		- `print 1 + 2 * 3!`
+		- `print (1 + 2)*3!`
+		- `print 1 + (2 * 3)!`
+		- instead of using brackets to order the operation, you use number of spaces between the operators to specify order
+		- `print 1+2  *  3!`
+		- `print 1  +  2*3!`
+		- it order is based on number of spaces from the operator to the left and right values, and the lower the number of spaces, the higher priority
+		- `print 1+2  *  3+4`
+		- here, for each addition operator, the number of spaces to the 1 and 2 is zero, while the number of spaces from the multiply and the values 2 and 3 is something like 4. this makes 1+2 calculated first. same happens with the 3+4. and finally, the multiply operation is done as the lowest priority
+	- functions
+		- you declare functions with
+		- `function add a, b => { return a + b! }`
+		- `print add 1, 2!`
+		- the keyword you use to declare a function can be anything as long as its the characters from `function`
+		- so
+		- `func add a, b => a + b!`
+		- `fn add a, b => a + b!`
+		- is valid
+		- you can even do something like
+		- `union add a, b => a + b!`
+		- and single charcters
+		- `f add a, b => a + b!`
+	- my interpreter also has a standard library of functions you can use to do basic processing and i/o
+		- `print` - we already saw
+		- `var var username = input what is your username?!`
+		- `print username!`
+		- `print typeof hello world!`
+		- `sleep 1000!`
+- run big example scripts (explain steps)
+	- fizzbuzz
+	- fibonacci
+		- we can make it easier and use the same variable
+		- reference the previous value by using the previous keyword
+- questions?
+# some questions that could happen
+- why did i do this
+	- dreamberd doesn't give an official way to run code
+	- interpreters exist, but they are either severely lacking in features, creates their own language thats similar to dreamberd but introduces huge changes, or is very slow
