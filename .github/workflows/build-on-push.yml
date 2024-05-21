@@ -35,13 +35,11 @@ jobs:
     - name: Build release
       if: matrix.build-mode == 'release'
       run: cargo build --release
-    - name: Print directory contents
-      run: dir target/${{ matrix.build-mode }}
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-windows-${{ matrix.build-mode }}
-        path: target/${{ matrix.build-mode }}/*
+        path: D:\a\DreamBerd-3-noodles-interpreter\DreamBerd-3-noodles-interpreter
   build-linux:
     runs-on: ubuntu-latest
     strategy:
@@ -64,10 +62,8 @@ jobs:
     - name: Build release
       if: matrix.build-mode == 'release'
       run: nix develop -c -- cargo build --release
-    - name: Print directory contents
-      run: ls -la target/${{ matrix.build-mode }}
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-unix-${{ matrix.build-mode }}
-        path: target/${{ matrix.build-mode }}/*
+        path: /home/runner/work/DreamBerd-3-noodles-interpreter/DreamBerd-3-noodles-interpreter
