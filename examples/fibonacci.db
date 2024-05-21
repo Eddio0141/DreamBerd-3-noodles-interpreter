@@ -1,15 +1,13 @@
-functi fibonacci (n) => {
-   var var sum = 1!
-   when (j < n) {
-      sum += sum + previous sum!
-      j++!
+functon fibonacci (n) => {
+   var var sum = 0!
+   sum = 1!
+
+   when (i < n) {
+      sum += previous sum!
+      print sum!
+      i++!
    }
-   var var j = 0!
+   var var i = 0!
 }
 
-when (i < 10) {
-   fibonacci(i)!
-   i++!
-}
-
-i = 0!
+fibonacci(10)!
