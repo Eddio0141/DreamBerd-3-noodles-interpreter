@@ -10,7 +10,7 @@ jobs:
         build-mode: [debug, release]
     steps:
     - name: Checkout
-      uses: actions/checkout@v3.4.0
+      uses: actions/checkout@v4.1.6
       with:
         submodules: true
     - name: Rustup toolchain install
@@ -19,7 +19,7 @@ jobs:
         toolchain: nightly
         components: rustfmt, clippy
     - name: Rust cache
-      uses: Swatinem/rust-cache@v2.2.1
+      uses: Swatinem/rust-cache@v2.7.3
     - name: Clippy checks
       if: matrix.build-mode == 'debug'
       run: cargo clippy --all-targets --all-features -- -D warnings
@@ -36,10 +36,10 @@ jobs:
       if: matrix.build-mode == 'release'
       run: cargo build --release
     - name: Get built artifacts
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-windows-${{ matrix.build-mode }}
-        path: target/${{ matrix.build-mode }}/noodles
+        path: target/${{ matrix.build-mode }}/noodles.exe
   build-linux:
     runs-on: ubuntu-latest
     strategy:
@@ -47,15 +47,15 @@ jobs:
         build-mode: [debug, release]
     steps:
     - name: Checkout
-      uses: actions/checkout@v3.4.0
+      uses: actions/checkout@v4.1.6
       with:
         submodules: true
     - name: Install Nix
-      uses: cachix/install-nix-action@v26
+      uses: cachix/install-nix-action@v27
       with:
         nix_path: nixpkgs=channel:nixos-unstable
     - name: Rust cache
-      uses: Swatinem/rust-cache@v2.2.1
+      uses: Swatinem/rust-cache@v2.7.3
     - name: Build debug
       if: matrix.build-mode == 'debug'
       run: nix develop -c -- cargo build
@@ -63,7 +63,7 @@ jobs:
       if: matrix.build-mode == 'release'
       run: nix develop -c -- cargo build --release
     - name: Get built artifacts
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-unix-${{ matrix.build-mode }}
         path: target/${{ matrix.build-mode }}/noodles
