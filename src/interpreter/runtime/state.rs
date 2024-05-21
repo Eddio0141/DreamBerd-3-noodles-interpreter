@@ -430,9 +430,8 @@ impl VariableState {
         self.0.insert(
             name.to_string(),
             Variable {
-                previous: value.clone(),
+                previous: Value::Undefined,
                 value,
-                // TODO: whats the default?
                 line,
                 type_,
                 life_time,
