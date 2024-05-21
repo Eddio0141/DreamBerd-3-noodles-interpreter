@@ -10,6 +10,7 @@ use crate::{
 
 use super::{
     conditional::{If, When},
+    control_flow::Reverse,
     function::{FunctionDef, Return},
     parsers::AstParseResult,
     scope::*,
@@ -28,6 +29,7 @@ pub enum Statement {
     Return(Return),
     If(If),
     When(When),
+    Reverse(Reverse),
 }
 
 impl Statement {
@@ -52,12 +54,14 @@ impl Statement {
         let ret = Return::parse.map(Statement::Return);
         let if_ = If::parse.map(Statement::If);
         let when = When::parse.map(Statement::When);
+        let reverse = Reverse::parse.map(Statement::Reverse);
 
         if let Ok((input, statement)) = alt((
             function_call,
             function_def,
             variable_decl,
             var_set,
+            reverse,
             if_,
             when,
             scope_start,
@@ -109,6 +113,10 @@ impl Statement {
             Statement::If(if_) => return if_.eval(args).map(|_| Default::default()),
             Statement::When(when) => {
                 when.eval(args);
+                return Ok(Default::default());
+            }
+            Statement::Reverse(reverse) => {
+                reverse.eval(args);
                 return Ok(Default::default());
             }
         };

@@ -35,6 +35,10 @@ impl Interpreter {
     /// Evaluate the given code
     /// - This is a synchronous function and will block until the code is finished executing
     pub fn eval(&self, code: &str) -> Result<Vec<Value>, self::error::Error> {
+        // TODO: this is terrible
+        let reverse_code = code.lines().rev().collect::<String>();
+        let total_lines = code.lines().count();
+
         let analysis = Analysis::analyze(code);
         self.state.add_analysis_info(analysis);
 
@@ -44,12 +48,11 @@ impl Interpreter {
         let mut values = Vec::new();
 
         while let Ok((code_after, statement)) = Statement::parse(code_with_pos) {
-            code_with_pos = code_after;
             // TODO: merge with below
             let StatementReturn {
                 value,
                 return_value,
-            } = statement.eval(code_with_pos)?;
+            } = statement.eval(code_after)?;
 
             // TODO: remove this later maybe too
             // if let Some(new_pos) = new_pos {
@@ -66,6 +69,22 @@ impl Interpreter {
             if let Some(value) = value {
                 values.push(value);
             }
+
+            // reverse?
+            if matches!(statement, Statement::Reverse(_)) {
+                let reverse = *self.state.exec_reverse.lock().unwrap();
+                // TODO: check
+                code_with_pos.index = code.len() - code_with_pos.index;
+                code_with_pos.line = total_lines - code_with_pos.line;
+                code_with_pos.input = if reverse {
+                    &reverse_code[code_with_pos.index..]
+                } else {
+                    &code[code_with_pos.index..]
+                };
+                continue;
+            }
+
+            code_with_pos = code_after;
         }
 
         Ok(values)

@@ -44,6 +44,8 @@ pub struct InterpreterState {
     pub funcs: Arc<Mutex<Functions>>,
     // hoisted variable info
     hoisted_vars: Arc<Mutex<Vec<HoistedVarInfo>>>,
+    // TODO: atomic type
+    pub exec_reverse: Arc<Mutex<bool>>,
 }
 
 impl Default for InterpreterState {
@@ -57,11 +59,18 @@ impl Default for InterpreterState {
             scope_stacks,
             funcs: Arc::new(Mutex::new(Functions::default())),
             hoisted_vars: Arc::new(Mutex::new(Vec::new())),
+            exec_reverse: Arc::new(Mutex::new(false)),
         }
     }
 }
 
 impl InterpreterState {
+    // TODO: test this
+    pub fn toggle_reverse(&self) {
+        let mut reverse = self.exec_reverse.lock().unwrap();
+        *reverse = !*reverse;
+    }
+
     /// Gets function info
     pub fn get_func_info(&self, name: &str, args: PosWithInfo) -> Option<FunctionState> {
         self.clean_up_funcs();
