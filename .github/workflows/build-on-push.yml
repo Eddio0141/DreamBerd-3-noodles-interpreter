@@ -36,12 +36,12 @@ jobs:
       if: matrix.build-mode == 'release'
       run: cargo build --release
     - name: Print directory contents
-      run: dir
+      run: dir target/${{ matrix.build-mode }}
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-windows-${{ matrix.build-mode }}
-        path: target/${{ matrix.build-mode }}/noodles.exe
+        path: target/${{ matrix.build-mode }}/*
   build-linux:
     runs-on: ubuntu-latest
     strategy:
@@ -65,9 +65,9 @@ jobs:
       if: matrix.build-mode == 'release'
       run: nix develop -c -- cargo build --release
     - name: Print directory contents
-      run: ls -la
+      run: ls -la target/${{ matrix.build-mode }}
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-unix-${{ matrix.build-mode }}
-        path: target/${{ matrix.build-mode }}/noodles
+        path: target/${{ matrix.build-mode }}/*
