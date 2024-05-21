@@ -421,7 +421,9 @@ impl VariableState {
         self.0.insert(
             name.to_string(),
             Variable {
+                previous: value.clone(),
                 value,
+                // TODO: whats the default?
                 line,
                 type_,
                 life_time,
@@ -471,6 +473,7 @@ impl VariableState {
 #[derive(Debug, Clone)]
 pub struct Variable {
     value: Value,
+    previous: Value,
     line: usize,
     type_: VarType,
     life_time: Option<LifeTime>,
@@ -482,6 +485,10 @@ impl Variable {
         &self.value
     }
 
+    pub fn get_previous_value(&self) -> &Value {
+        &self.previous
+    }
+
     pub fn set_value(
         &mut self,
         args: PosWithInfo,
@@ -491,6 +498,7 @@ impl Variable {
         if postfix.is_empty() {
             // TODO: concrete error?
             if matches!(self.type_, VarType::VarConst | VarType::VarVar) {
+                self.previous = self.value.clone();
                 self.value = value;
             }
             return Ok(());
@@ -513,14 +521,15 @@ impl Variable {
             return Ok(());
         };
 
-        // TODO concrete error
+        // TODO: concrete error
         let Some(var) = var else {
             return Err(Error::Type("Cannot read properties of null".to_string()));
         };
 
         let mut var = var.lock().unwrap();
 
-        // TODO reuse code from postfix
+        self.previous = self.value.clone();
+        // TODO: reuse code from postfix
         match postfix_last {
             AtomPostfix::DotNotation(identifier) => var.set_property(identifier, value),
             AtomPostfix::BracketNotation(expr) => {

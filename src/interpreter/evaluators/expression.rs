@@ -604,6 +604,10 @@ impl AtomValue {
                 None => None,
             };
 
+        // TODO: add unit tests
+        let (input, has_previous) = opt(tuple((tag("previous"), ws1)))(input)?;
+        let has_previous = has_previous.is_some();
+
         // variable?
         let variable_parse_result = match postfix_separator {
             Some(postfix_separator) => alt((
@@ -619,8 +623,13 @@ impl AtomValue {
             ))(input),
         };
         if let Ok((input, var)) = variable_parse_result {
-            // TODO function call
-            return Ok((input, AtomValue::Value(var.get_value().clone())));
+            // TODO: function call
+            let value = if has_previous {
+                var.get_previous_value().clone()
+            } else {
+                var.get_value().clone()
+            };
+            return Ok((input, AtomValue::Value(value)));
         }
 
         // func def
