@@ -31,15 +31,15 @@ jobs:
       run: cargo test --all-targets --all-features
     - name: Build debug
       if: matrix.build-mode == 'debug'
-      run: cargo build
+      run: cargo build --all-features
     - name: Build release
       if: matrix.build-mode == 'release'
-      run: cargo build --release
+      run: cargo build --release --all-features
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-windows-${{ matrix.build-mode }}
-        path: D:/a/DreamBerd-3-noodles-interpreter/DreamBerd-3-noodles-interpreter/target/${{ matrix.build-mode }}/
+        path: target/${{ matrix.build-mode }}/noodles.exe
   build-linux:
     runs-on: ubuntu-latest
     strategy:
@@ -58,14 +58,12 @@ jobs:
       uses: Swatinem/rust-cache@v2.7.3
     - name: Build debug
       if: matrix.build-mode == 'debug'
-      run: nix develop -c -- cargo build
+      run: nix develop -c -- cargo build --all-features
     - name: Build release
       if: matrix.build-mode == 'release'
-      run: nix develop -c -- cargo build --release
-    - name: dir contents
-      run: ls -la /home/runner/work/DreamBerd-3-noodles-interpreter/DreamBerd-3-noodles-interpreter/target/${{ matrix.build-mode }}
+      run: nix develop -c -- cargo build --release --all-features
     - name: Get built artifacts
       uses: actions/upload-artifact@v4.3.3
       with:
         name: noodles-unix-${{ matrix.build-mode }}
-        path: /home/runner/work/DreamBerd-3-noodles-interpreter/DreamBerd-3-noodles-interpreter/target/${{ matrix.build-mode }}/
+        path: target/${{ matrix.build-mode }}/noodles
